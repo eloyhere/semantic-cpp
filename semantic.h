@@ -126,10 +126,10 @@ namespace semantic
 	class Collector
 	{
 	public:
-		mutable Supplier<A> supplier;
-		mutable BiConsumer<A, E> accumulator;
-		mutable BiFunction<A, A, A> combiner;
-		mutable Function<A, R> finisher;
+		const Supplier<A> supplier;
+		const BiConsumer<A, E> accumulator;
+		const BiFunction<A, A, A> combiner;
+		const Function<A, R> finisher;
 
 		Collector(const Supplier<A>& supplier, const BiConsumer<A, E>& accumulator,const BiFunction<A, A, A>& combiner, const Function<A, R>& finisher): supplier(supplier), accumulator(accumulator), combiner(combiner), finisher(finisher) {}
 	};
@@ -202,18 +202,30 @@ namespace semantic
 
 	template <typename E>
 	class Semantic {
+
 	protected:
+
 		std::shared_ptr<Generator<E>> generator;
+
+        Module concurrent;
+
 	public:
-		Semantic() : generator(std::make_shared<Generator<E>>([](const Consumer<E>&, const Predicate<E>&, const BiFunction<E, Timestamp, Timestamp>&) {})) {}
+
+		Semantic() : generator(std::make_shared<Generator<E>>([](const Consumer<E>&, const Predicate<E>&, const BiFunction<E, Timestamp, Timestamp>&) {})), concurrent (1){}
+
+        Semantic(const Module &concurrent) : generator(std::make_shared<Generator<E>>([](const Consumer<E>&, const Predicate<E>&, const BiFunction<E, Timestamp, Timestamp>&) {})), concurrent (concurrent){}
 
 		Semantic(const Generator<E>& generator) : generator(std::make_shared<Generator<E>>(generator)) {}
 
+        Semantic(const Generator<E>& generator, const Module& concurrent) : generator(std::make_shared<Generator<E>>(generator)), concurrent (concurrent){}
+
 		Semantic(std::shared_ptr<Generator<E>> generator) : generator(generator) {}
 
-		Semantic(const Semantic& other) : generator(other.generator) {}
+        Semantic(std::shared_ptr<Generator<E>> generator, const Module& concurrent) : generator(generator), concurrent (concurrent){}
 
-		Semantic(Semantic&& other) noexcept : generator(std::move(other.generator)) {}
+		Semantic(const Semantic& other) : generator(other.generator), concurrent (other.concurrent){}
+
+		Semantic(Semantic&& other) noexcept : generator(std::move(other.generator)), concurrent (other.concurrent){}
 
 		Semantic& operator=(const Semantic& other);
 

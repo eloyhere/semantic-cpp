@@ -306,9 +306,9 @@ namespace semantic
 
 		Semantic<E> reindex(const BiFunction<E, Timestamp, Timestamp> &indexer) const;
         
-        Semantic<E> reverse() const
+        Semantic<E> reverse() const;
 
-        Semantic<E> shuffle() const
+        Semantic<E> shuffle() const;
 
 		Semantic<E> skip(const Module& n) const;
 
@@ -316,7 +316,7 @@ namespace semantic
 
 		Semantic<E> sorted(const Comparator<E, E>& comparator) const;
         
-        Semantic<E> sub(const Timestamp &start, const Timestamp& end) const_cast
+        Semantic<E> sub(const Timestamp &start, const Timestamp& end) const;
 
 		Semantic<E> takeWhile(const Predicate<E>& p) const;
 

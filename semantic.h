@@ -59,36 +59,48 @@ namespace semantic
 
 	template <typename E, typename D>
 	class Statistics {
+
 	protected:
+
 		const E* elements;
+
 		Module size;
+
 		mutable std::map<std::string, D> cache;
+
 		mutable std::map<D, Module> frequencyCache;
 
 	public:
+
 		Statistics(const E* elements, const Module& size) : elements(elements), size(size) {
 			static_assert(std::is_arithmetic<D>::value, "Statistical operations require arithmetic types.");
 		}
+
 		Statistics(const std::vector<E>& elements) : elements(elements.data()), size(elements.size()) {
 			static_assert(std::is_arithmetic<D>::value, "Statistical operations require arithmetic types.");
 		}
+
 		Statistics(const std::list<E>& elements) : elements(nullptr), size(elements.size()) {
 			static_assert(std::is_arithmetic<D>::value, "Statistical operations require arithmetic types.");
 			std::vector<E> temp(elements.begin(), elements.end());
 			this->elements = new E[temp.size()];
 			std::copy(temp.begin(), temp.end(), const_cast<E*>(this->elements));
 		}
+
 		Statistics(std::initializer_list<E> initList) : elements(initList.begin()), size(initList.size()) {
 			static_assert(std::is_arithmetic<D>::value, "Statistical operations require arithmetic types.");
 		}
+
 		Statistics(const Statistics& other) : elements(other.elements), size(other.size), cache(other.cache) {
 			static_assert(std::is_arithmetic<D>::value, "Statistical operations require arithmetic types.");
 		}
+
 		Statistics(Statistics&& other) noexcept : elements(other.elements), size(other.size), cache(std::move(other.cache)) {
 			static_assert(std::is_arithmetic<D>::value, "Statistical operations require arithmetic types.");
 			other.elements = nullptr;
 			other.size = 0;
 		}
+
 		~Statistics() {
 			if (elements && size > 0) {
 				delete[] elements;
@@ -96,39 +108,63 @@ namespace semantic
 		}
 
 		Module count() const;
+
 		D maximum() const;
+
 		D minimum() const;
+
 		D range() const;
+
 		D variance() const;
+
 		D standardDeviation() const;
+
 		D mean() const;
+
 		D median() const;
+
 		D mode() const;
+
 		std::map<D, Module> frequency() const;
+
 		D sum() const;
 
 		std::vector<D> quartiles() const;
+
 		D interquartileRange() const;
+
 		D skewness() const;
+
 		D kurtosis() const;
 
 		bool isEmpty() const;
+
 		void clear();
 
 		Statistics& operator=(const std::list<E>& l);
+
 		Statistics& operator=(const std::vector<E>& v);
+
 		Statistics& operator=(std::initializer_list<E> l);
+
 		Statistics& operator=(const Statistics& other);
+
 		Statistics& operator=(Statistics&& other) noexcept;
+
 	};
 
 	template <typename E, typename A, typename R>
 	class Collector
 	{
+
 	public:
+
 		const Supplier<A> supplier;
+
 		const BiConsumer<A, E> accumulator;
+
 		const BiFunction<A, A, A> combiner;
+
 		const Function<A, R> finisher;
 
 		Collector(const Supplier<A>& supplier, const BiConsumer<A, E>& accumulator,const BiFunction<A, A, A>& combiner, const Function<A, R>& finisher): supplier(supplier), accumulator(accumulator), combiner(combiner), finisher(finisher) {}
@@ -335,5 +371,6 @@ namespace semantic
 		Statistics<E, R> toStatistics(const Function<E, R>& mapper) const;
 
 		std::vector<E> toVector() const;
+
 	};
 };

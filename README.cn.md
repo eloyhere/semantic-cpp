@@ -2,7 +2,7 @@
 
 ## 概述
 
-Semantic 是一个受 JavaScript 生成器和 Java Stream API 启发的 C++ 流式处理库，提供了函数式编程风格的惰性求值数据流操作。
+Semantic 是一个受 JavaScript 生成器，MySQL索引和 Java Stream API 启发的 C++ 流式处理库，提供了函数式编程风格的惰性求值数据流操作。
 
 - 核心特性
 

@@ -209,6 +209,20 @@ int main() {
 - C++11 或更高版本
 - 标准模板库支持
 
+## 为什么选择semantic-cpp? (基于索引概念的革命)
+
+- **redirect()**: 惰性索引化声明 — 无消耗修改索引元素关系
+- **reindex()**: 物化建立索引一次 — 即可让sorted/distinct复杂度为O(1)
+- 少量数据 (<32768 元素): 立即建立索引. 大数据: 不建立索引
+
+```cpp
+fromUnordered(huge_data)  // 无索引和顺序
+    .redirect([](auto e, auto i){ return e.key; })  // 重定向/排序/去重均无效
+    .filter(...)
+    .reindex()  // 建立索引
+    .sorted()   // O(1)!
+    .toVector();
+```
 许可证
 
 MIT License

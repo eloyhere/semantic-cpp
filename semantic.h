@@ -389,4 +389,4 @@ class Semantic
 	Semantic<E> translate(const Timestamp &offset) const;
 };
 }; // namespace semantic
-#endif
+#endif SEMANTIC_H

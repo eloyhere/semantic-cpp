@@ -258,6 +258,21 @@ auto salesStats = semantic::from(salesRecords)
 std::cout << "Average sale: " << salesStats.mean() << std::endl;
 std::cout << "Sales variance: " << salesStats.variance() << std::endl;
 ```
+## Why semantic-cpp? (The Indexable Revolution)
+
+- **redirect()**: Declare indexing logic lazily — turn unordered streams indexable without cost.
+- **reindex()**: Materialize indices once — subsequent sorted/distinct are O(1) magic.
+- Small data (<1024 elems): Instant indexing. Big data: Pure laziness.
+
+```cpp
+fromUnordered(huge_data)  // No order assumed
+    .redirect([](auto e, auto i){ return e.key; })  // Make it indexable
+    .filter(...)
+    .reindex()  // Build indices NOW
+    .sorted()   // O(1)!
+    .toVector();
+```
 License
 
 MIT License
+

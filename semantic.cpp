@@ -1033,7 +1033,7 @@ Semantic<E> fill(const Supplier<E> &supplier, const Module &count)
 template <typename E>
 Semantic<E> from(const E *array, const Module &length)
 {
-	if (length < 1024)
+	if (length < 32768)
 	{
 		return fromOrdered(array, length);
 	}
@@ -1083,16 +1083,18 @@ Semantic<E> fromOrdered(const E *array, const Module &length)
 template <typename E, Module length>
 Semantic<E> from(const std::array<E, length> &array)
 {
-	return fromOrdered<E, length>(array);
+	if(length < 32768){
+		return fromOrdered<E, length>(array);
+	}
+	return fromUnordered<E, length>(array);
 }
 
 template <typename E, Module length>
 Semantic<E> fromUnordered(const std::array<E, length> &array)
 {
 	return Semantic<E>(std::make_shared<Generator<E>>([array](const Consumer<E> &accept, const Predicate<E> &interrupt, const BiFunction<E, Timestamp, Timestamp> &redirect) {
-		for (Module i = 0; i < array.size(); i++)
+		for (const E& element : array)
 		{
-			E element = array[i];
 			if (interrupt(element))
 			{
 				break;
@@ -1115,6 +1117,7 @@ Semantic<E> fromOrdered(const std::array<E, length> &array)
 				break;
 			}
 			Timestamp index = redirect(element, i);
+			index = index <= 0 ? ((length - (std::abs(index) % length)) % length) : (index % length);
 			order[index] = element;
 		}
 		for (const std::pair<Timestamp, E> &pair : order)
@@ -1126,33 +1129,19 @@ Semantic<E> fromOrdered(const std::array<E, length> &array)
 
 template <typename E>
 Semantic<E> from(const std::vector<E> &v)
-{
-	return Semantic<E>(std::make_shared<Generator<E>>([v](const Consumer<E> &accept, const Predicate<E> &interrupt, const BiFunction<E, Timestamp, Timestamp> &redirect) {
-		for (Module i = 0; i < v.size(); i++)
-		{
-			E element = v[i];
-			if (interrupt && interrupt(element))
-			{
-				break;
-			}
-			Timestamp index = i;
-			if (redirect)
-			{
-				index = redirect(element, i);
-			}
-			if (accept)
-				accept(element);
-		}
-	}));
+{i
+	if(v.size() < 32768){
+		return fromOrdered(v);
+	}
+	return fromUnordered(v);
 }
 
 template <typename E>
 Semantic<E> fromUnordered(const std::vector<E> &v)
 {
 	return Semantic<E>(std::make_shared<Generator<E>>([v](const Consumer<E> &accept, const Predicate<E> &interrupt, const BiFunction<E, Timestamp, Timestamp> &redirect) {
-		for (Module i = 0; i < v.size(); i++)
+		for (const E& element : v)
 		{
-			E element = v[i];
 			if (interrupt(element))
 			{
 				break;
@@ -1175,6 +1164,7 @@ Semantic<E> fromOrdered(const std::vector<E> &v)
 				break;
 			}
 			Timestamp index = redirect(element, i);
+				index = index <= 0 ? ((length - (std::abs(index) % length)) % length) : (index % length);
 			order[index] = element;
 		}
 		for (const std::pair<Timestamp, E> &pair : order)
@@ -1186,6 +1176,30 @@ Semantic<E> fromOrdered(const std::vector<E> &v)
 
 template <typename E>
 Semantic<E> from(const std::list<E> &l)
+{
+	if(l.size() < 32768){
+		return fromOrdered(l);
+	}
+	return fromUnordered(l);
+}
+
+template <typename E>
+Semantic<E> fromUnordered(const std::list<E> &l)
+{
+		return Semantic<E>(std::make_shared<Generator<E>>([l](const Consumer<E> &accept, const Predicate<E> &interrupt, const BiFunction<E, Timestamp, Timestamp> &redirect) {
+		for (const E& element : l)
+		{
+			if (interrupt(element))
+			{
+				break;
+			}
+			accept(element);
+		}
+	}));
+}
+
+template <typename E>
+Semantic<E> fromOrdered(const std::list<E> &l)
 {
 	return Semantic<E>(std::make_shared<Generator<E>>([l](const Consumer<E> &accept, const Predicate<E> &interrupt, const BiFunction<E, Timestamp, Timestamp> &redirect) {
 		Module i = 0;
@@ -1205,18 +1219,6 @@ Semantic<E> from(const std::list<E> &l)
 			i++;
 		}
 	}));
-}
-
-template <typename E>
-Semantic<E> fromUnordered(const std::list<E> &l)
-{
-	return from(l);
-}
-
-template <typename E>
-Semantic<E> fromOrdered(const std::list<E> &l)
-{
-	return from(l);
 }
 
 template <typename E>

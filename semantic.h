@@ -1,18 +1,24 @@
 #pragma once
+#ifndef SEMANTIC_H
+#define SEMANTIC_H
 #include <set>
-#include <map>
 #include <list>
+#include <map>
 #include <array>
-#include <cmath>
 #include <string>
 #include <vector>
-#include <memory>
+#include <cmath>
+#include <random>
+#include <sstream>
 #include <optional>
+#include <memory>
+#include <numeric>
 #include <iostream>
+#include <algorithm>
 #include <functional>
 #include <type_traits>
-#include <unordered_set>
 #include <initializer_list>
+#include <unordered_set>
 namespace semantic
 {
 typedef long long Timestamp;
@@ -56,6 +62,9 @@ using Comparator = std::function<int(T, U)>;
 
 template <typename T>
 using Generator = TriConsumer<Consumer<T>, Predicate<T>, BiFunction<T, Timestamp, Timestamp>>;
+
+template <typename D>
+D randomly(const D &start, const D &end);
 
 template <typename E, typename D>
 class Statistics
@@ -349,13 +358,15 @@ class Semantic
 
 	Semantic<E> shuffle() const;
 
+	Semantic<E> shuffle(const Function<E, E> &mapper) const;
+
 	Semantic<E> skip(const Module &n) const;
 
 	Semantic<E> sorted() const;
 
 	Semantic<E> sorted(const Comparator<E, E> &comparator) const;
 
-	Semantic<E> sub(const Timestamp &start, const Timestamp &end) const;
+	Semantic<E> sub(const Module &start, const Module &end) const;
 
 	Semantic<E> takeWhile(const Predicate<E> &p) const;
 
@@ -374,5 +385,8 @@ class Semantic
 	Statistics<E, R> toStatistics(const Function<E, R> &mapper) const;
 
 	std::vector<E> toVector() const;
+
+	Semantic<E> translate(const Timestamp &offset) const;
 };
 }; // namespace semantic
+#endif

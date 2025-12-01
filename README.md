@@ -260,13 +260,13 @@ std::cout << "Sales variance: " << salesStats.variance() << std::endl;
 ```
 ## Why semantic-cpp? (The Indexable Revolution)
 
-- **redirect()**: Declare indexing logic lazily — turn unordered streams indexable without cost.
+- **redirect()**: Declare indexing logic lazily — edit index and element mapping
 - **reindex()**: Materialize indices once — subsequent sorted/distinct are O(1) magic.
-- Small data (<1024 elems): Instant indexing. Big data: Pure laziness.
+- Small data (<32768 elems): Instant indexing. Big data: Pure laziness.
 
 ```cpp
 fromUnordered(huge_data)  // No order assumed
-    .redirect([](auto e, auto i){ return e.key; })  // Make it indexable
+    .redirect([](auto e, auto i){ return e.key; })  // Redirect/sorted/distinct all are invalid.
     .filter(...)
     .reindex()  // Build indices NOW
     .sorted()   // O(1)!
@@ -275,4 +275,5 @@ fromUnordered(huge_data)  // No order assumed
 License
 
 MIT License
+
 

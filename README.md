@@ -2,7 +2,7 @@
 
 ## Overview
 
-Semantic is a C++ stream processing library inspired by JavaScript generators and Java Stream API, providing functional programming-style lazy evaluation data stream operations.
+Semantic is a C++ stream processing library inspired by JavaScript generators, index from MySQL and Java Stream API, providing functional programming-style lazy evaluation data stream operations.
 
 ## Core Features
 
@@ -275,5 +275,6 @@ fromUnordered(huge_data)  // No order assumed
 License
 
 MIT License
+
 
 

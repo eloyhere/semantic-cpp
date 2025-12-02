@@ -443,9 +443,9 @@ Semantic<E> Semantic<E>::concat(const Semantic<E> &other) const
 				if (interrupt(element))
 				{
 					firstCompleted = true;
-					return false;
+					return true;
 				}
-				return true;
+				return false;
 			},
 			redirect);
 
@@ -686,7 +686,7 @@ std::vector<std::vector<E>> Semantic<E>::partition(const Module &count) const
                 partitions.push_back(currentPartition);
                 currentPartition.clear();
                 currentCount = 0;
-            } }, [](const E &element) -> bool { return true; }, [](const E &element, const Timestamp &index) -> Timestamp { return index; });
+            } }, [](const E &element) -> bool { return false; }, [](const E &element, const Timestamp &index) -> Timestamp { return index; });
 
 	if (!currentPartition.empty())
 	{
@@ -703,7 +703,7 @@ std::vector<std::vector<E>> Semantic<E>::partitionBy(const Function<E, Module> &
 
 	(*generator)([&](const E &element) -> void {
             Module partitionKey = classifier(element);
-            partitionMap[partitionKey].push_back(element); }, [](const E &element) -> bool { return true; }, [](const E &element, const Timestamp &index) -> Timestamp { return index; });
+            partitionMap[partitionKey].push_back(element); }, [](const E &element) -> bool { return false; }, [](const E &element, const Timestamp &index) -> Timestamp { return index; });
 
 	for (auto &pair : partitionMap)
 	{
@@ -744,7 +744,7 @@ std::optional<E> Semantic<E>::reduce(const BiFunction<E, E, E> &accumulator) con
             }
             else {
                 result = accumulator(*result, element);
-            } }, [](const E &element) -> bool { return true; }, [](const E &element, const Timestamp &index) -> Timestamp { return index; });
+            } }, [](const E &element) -> bool { return false; }, [](const E &element, const Timestamp &index) -> Timestamp { return index; });
 	return result;
 }
 
@@ -752,7 +752,7 @@ template <typename E>
 E Semantic<E>::reduce(const E &identity, const BiFunction<E, E, E> &accumulator) const
 {
 	E result = identity;
-	(*generator)([&result, &accumulator](const E &element) -> void { result = accumulator(result, element); }, [](const E &element) -> bool { return true; }, [](const E &element, const Timestamp &index) -> Timestamp { return index; });
+	(*generator)([&result, &accumulator](const E &element) -> void { result = accumulator(result, element); }, [](const E &element) -> bool { return false; }, [](const E &element, const Timestamp &index) -> Timestamp { return index; });
 	return result;
 }
 
@@ -761,7 +761,7 @@ template <typename R>
 R Semantic<E>::reduce(const R &identity, const BiFunction<R, E, R> &accumulator) const
 {
 	R result = identity;
-	(*generator)([&result, &accumulator](const E &element) -> void { result = accumulator(result, element); }, [](const E &element) -> bool { return true; }, [](const E &element, const Timestamp &index) -> Timestamp { return index; });
+	(*generator)([&result, &accumulator](const E &element) -> void { result = accumulator(result, element); }, [](const E &element) -> bool { return false; }, [](const E &element, const Timestamp &index) -> Timestamp { return index; });
 	return result;
 }
 
@@ -973,17 +973,11 @@ Semantic<E> fill(const E &element, const Module &count)
 	return Semantic<E>(std::make_shared<Generator<E>>([element, count](const Consumer<E> &accept, const Predicate<E> &interrupt, const BiFunction<E, Timestamp, Timestamp> &redirect) {
 		for (Module i = 0; i < count; i++)
 		{
-			if (interrupt && interrupt(element))
+			if (interrupt(element))
 			{
 				break;
 			}
-			Timestamp index = i;
-			if (redirect)
-			{
-				index = redirect(element, i);
-			}
-			if (accept)
-				accept(element);
+			accept(element);
 		}
 	}));
 }
@@ -995,17 +989,11 @@ Semantic<E> fill(const Supplier<E> &supplier, const Module &count)
 		for (Module i = 0; i < count; i++)
 		{
 			E element = supplier();
-			if (interrupt && interrupt(element))
+			if (interrupt(element))
 			{
 				break;
 			}
-			Timestamp index = i;
-			if (redirect)
-			{
-				index = redirect(element, i);
-			}
-			if (accept)
-				accept(element);
+			accept(element);
 		}
 	}));
 }
@@ -1013,7 +1001,7 @@ Semantic<E> fill(const Supplier<E> &supplier, const Module &count)
 template <typename E>
 Semantic<E> from(const E *array, const Module &length)
 {
-	if (length < 32768)
+	if (length < OrderedThreashold)
 	{
 		return fromOrdered(array, length);
 	}
@@ -1063,7 +1051,7 @@ Semantic<E> fromOrdered(const E *array, const Module &length)
 template <typename E, Module length>
 Semantic<E> from(const std::array<E, length> &array)
 {
-	if (length < 32768)
+	if (length < OrderedThreashold)
 	{
 		return fromOrdered<E, length>(array);
 	}
@@ -1109,20 +1097,20 @@ Semantic<E> fromOrdered(const std::array<E, length> &array)
 }
 
 template <typename E>
-Semantic<E> from(const std::vector<E> &v)
+Semantic<E> from(const std::initializer_list<E> &l)
 {
-	if (v.size() < 32768)
+	if (l.size() < OrderedThreashold)
 	{
-		return fromOrdered(v);
+		return fromOrdered(l);
 	}
-	return fromUnordered(v);
+	return fromUnordered(l);
 }
 
 template <typename E>
-Semantic<E> fromUnordered(const std::vector<E> &v)
+Semantic<E> fromUnordered(const std::initializer_list<E> &l)
 {
-	return Semantic<E>(std::make_shared<Generator<E>>([v](const Consumer<E> &accept, const Predicate<E> &interrupt, const BiFunction<E, Timestamp, Timestamp> &redirect) {
-		for (const E &element : v)
+	return Semantic<E>(std::make_shared<Generator<E>>([l](const Consumer<E> &accept, const Predicate<E> &interrupt, const BiFunction<E, Timestamp, Timestamp> &redirect) {
+		for (const E &element : l)
 		{
 			if (interrupt(element))
 			{
@@ -1134,20 +1122,21 @@ Semantic<E> fromUnordered(const std::vector<E> &v)
 }
 
 template <typename E>
-Semantic<E> fromOrdered(const std::vector<E> &v)
+Semantic<E> fromOrdered(const std::initializer_list<E> &l)
 {
-	return Semantic<E>(std::make_shared<Generator<E>>([v](const Consumer<E> &accept, const Predicate<E> &interrupt, const BiFunction<E, Timestamp, Timestamp> &redirect) {
+	return Semantic<E>(std::make_shared<Generator<E>>([l](const Consumer<E> &accept, const Predicate<E> &interrupt, const BiFunction<E, Timestamp, Timestamp> &redirect) {
+		Module i = 0;
 		std::map<Timestamp, E> order;
-		for (Module i = 0; i < v.size(); i++)
+		for (const auto &element : l)
 		{
-			E element = v[i];
-			if (interrupt(element))
+			if (interrupt && interrupt(element))
 			{
 				break;
 			}
 			Timestamp index = redirect(element, i);
-			index = index <= 0 ? ((v.size() - (std::abs(index) % v.size())) % v.size()) : (index % v.size());
+			index = index <= 0 ? ((l.size() - (std::abs(index) % l.size())) % l.size()) : (index % l.size());
 			order[index] = element;
+			i++;
 		}
 		for (const std::pair<Timestamp, E> &pair : order)
 		{
@@ -1159,7 +1148,7 @@ Semantic<E> fromOrdered(const std::vector<E> &v)
 template <typename E>
 Semantic<E> from(const std::list<E> &l)
 {
-	if (l.size() < 32768)
+	if (l.size() < OrderedThreashold)
 	{
 		return fromOrdered(l);
 	}
@@ -1206,6 +1195,54 @@ Semantic<E> fromOrdered(const std::list<E> &l)
 }
 
 template <typename E>
+Semantic<E> from(const std::vector<E> &v)
+{
+	if (v.size() < OrderedThreashold)
+	{
+		return fromOrdered(v);
+	}
+	return fromUnordered(v);
+}
+
+template <typename E>
+Semantic<E> fromUnordered(const std::vector<E> &v)
+{
+	return Semantic<E>(std::make_shared<Generator<E>>([v](const Consumer<E> &accept, const Predicate<E> &interrupt, const BiFunction<E, Timestamp, Timestamp> &redirect) {
+		for (const E &element : v)
+		{
+			if (interrupt(element))
+			{
+				break;
+			}
+			accept(element);
+		}
+	}));
+}
+
+template <typename E>
+Semantic<E> fromOrdered(const std::vector<E> &v)
+{
+	return Semantic<E>(std::make_shared<Generator<E>>([v](const Consumer<E> &accept, const Predicate<E> &interrupt, const BiFunction<E, Timestamp, Timestamp> &redirect) {
+		std::map<Timestamp, E> order;
+		for (Module i = 0; i < v.size(); i++)
+		{
+			E element = v[i];
+			if (interrupt(element))
+			{
+				break;
+			}
+			Timestamp index = redirect(element, i);
+			index = index <= 0 ? ((v.size() - (std::abs(index) % v.size())) % v.size()) : (index % v.size());
+			order[index] = element;
+		}
+		for (const std::pair<Timestamp, E> &pair : order)
+		{
+			accept(pair.second);
+		}
+	}));
+}
+
+template <typename E>
 Semantic<E> from(const std::set<E> &s)
 {
 	return Semantic<E>(std::make_shared<Generator<E>>([s](const Consumer<E> &accept, const Predicate<E> &interrupt, const BiFunction<E, Timestamp, Timestamp> &redirect) {
@@ -1216,13 +1253,7 @@ Semantic<E> from(const std::set<E> &s)
 			{
 				break;
 			}
-			Timestamp index = i;
-			if (redirect)
-			{
-				index = redirect(element, i);
-			}
-			if (accept)
-				accept(element);
+			accept(element);
 			i++;
 		}
 	}));
@@ -1239,13 +1270,7 @@ Semantic<E> from(const std::unordered_set<E> &s)
 			{
 				break;
 			}
-			Timestamp index = i;
-			if (redirect)
-			{
-				index = redirect(element, i);
-			}
-			if (accept)
-				accept(element);
+			accept(element);
 			i++;
 		}
 	}));

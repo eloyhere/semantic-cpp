@@ -197,6 +197,8 @@ Semantic<E> fill(const E &element, const Module &count);
 template <typename E>
 Semantic<E> fill(const Supplier<E> &supplier, const Module &count);
 
+const Module OrderedThreashold = 32768;
+
 template <typename E>
 Semantic<E> from(const E *array, const Module &length);
 
@@ -232,6 +234,15 @@ Semantic<E> fromUnordered(const std::vector<E> &v);
 
 template <typename E>
 Semantic<E> fromOrdered(const std::vector<E> &v);
+
+template <typename E>
+Semantic<E> from(const std::initializer_list<E> &l);
+
+template <typename E>
+Semantic<E> fromUnordered(const std::initializer_list<E> &l);
+
+template <typename E>
+Semantic<E> fromOrdered(const std::initializer_list<E> &l);
 
 template <typename E>
 Semantic<E> from(const std::set<E> &s);
@@ -273,9 +284,9 @@ class Semantic
 
 	Semantic(Semantic &&other) noexcept : generator(std::move(other.generator)), concurrent(other.concurrent) {}
 
-	Semantic &operator=(const Semantic &other);
+	Semantic<E> &operator=(const Semantic<E> &other);
 
-	Semantic &operator=(Semantic &&other) noexcept;
+	Semantic<E> &operator=(Semantic<E> &&other) noexcept;
 
 	bool anyMatch(const Predicate<E> &p) const;
 

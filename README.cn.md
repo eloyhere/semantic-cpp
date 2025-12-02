@@ -42,14 +42,14 @@ int main() {
     // 空流
     auto emptyStream = semantic::empty<int>();
 
-        auto unorderedStream = semantic::fromUnordered<int>({1,2,3,4,5})// 创建一个无索引的流, 在调用reindex方法之前，redirect, distinct, sorted, reverse, translate均无效。
+    auto unorderedStream = semantic::fromUnordered<int>({1,2,3,4,5})// 创建一个无索引的流, 在调用reindex方法之前，redirect, distinct, sorted, reverse, translate,shuffle均无效。
     .redirect([](const int& element, const auto& index)-> auto{
         return -index;
     }) // 无效。
     .distinct() // 无效。
     .cout(); // [1,2,3,4,5];
 
-    auto orderedStream = semantic::fromOrdered<int>({1,2,3,4,5}) // 创建一个可索引的流, redirect, distinct, sorted, reverse, translate方法均有效，只有通过fromOrdered创建的流，以及调用过reindex的流可以正常使用上述方法。
+    auto orderedStream = semantic::fromOrdered<int>({1,2,3,4,5}) // 创建一个可索引的流, redirect, distinct, sorted, reverse, translate, shuffle方法均有效，只有通过fromOrdered创建的流，以及调用过reindex的流可以正常使用上述方法。
     .redirect([](const int& element, const auto& index)-> auto{
         return -index; // 以逆序反转semantic。
     }).redirect([](const int& element, const auto& index)-> auto{

@@ -301,7 +301,7 @@ class Semantic
 
 	Semantic<E> distinct() const;
 
-	Semantic<E> distinct(const BiPredicate<E, E> &comparator) const;
+	Semantic<E> distinct(const Function<E, Timestamp> &identifier) const;
 
 	Semantic<E> dropWhile(const Predicate<E> &p) const;
 
@@ -364,7 +364,7 @@ class Semantic
 
 	Semantic<E> sorted() const;
 
-	Semantic<E> sorted(const Comparator<E, E> &comparator) const;
+	Semantic<E> sorted(const Function<E, Timestamp> &indexer) const;
 
 	Semantic<E> sub(const Module &start, const Module &end) const;
 
@@ -389,4 +389,4 @@ class Semantic
 	Semantic<E> translate(const Timestamp &offset) const;
 };
 }; // namespace semantic
-#endif SEMANTIC_H
+#endif

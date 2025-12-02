@@ -341,7 +341,6 @@ No extra API, no manual grouping — just pure, composable, partition-local sema
 
 This is not a limitation.  
 This is memory-level distributed computing, for free.
-```
 
 ## Why semantic-cpp? (The Indexable Revolution)
 
@@ -360,6 +359,3 @@ fromUnordered(huge_data)  // No order assumed
 License
 
 MIT License
-
-
-

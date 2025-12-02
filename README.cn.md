@@ -51,9 +51,9 @@ int main() {
 
     auto orderedStream = semantic::fromOrdered<int>({1,2,3,4,5}) // 创建一个可索引的流, redirect, distinct, sorted, reverse, translate方法均有效，只有通过fromOrdered创建的流，以及调用过reindex的流可以正常使用上述方法。
     .redirect([](const int& element, const auto& index)-> auto{
-        return -index; // Reverses the semantic.
+        return -index; // 以逆序反转semantic。
     }).redirect([](const int& element, const auto& index)-> auto{
-        return index + 3; // Translates the semantic to next 3 points, the last three elements will be inserted at the head. The positive number translates elements to right, with negative number translates elements to left, but zero causes no effect.
+        return index + 3; // 把所有元素整体移动，正数右移，尾部的三个元素放到整体元素头部，负数左移，头部的元素放到尾部。
     }).cout(); //[3,2,1,5,4]
 
     // 从值创建

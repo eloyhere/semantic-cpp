@@ -165,7 +165,7 @@ int main() {
   // 频率分析
   auto frequency = stats.frequency();   // 频率分布
   ```
-- Collector 收集器
+### Collector 收集器
 
   支持自定义收集策略。  
   ```c++  

@@ -198,6 +198,7 @@ auto stream = semantic::range(1, 1000)
 // Nothing executed yet, only executes when terminal operation is called
 auto result = stream.toVector();  // Execution starts
 ```
+
 ## Custom Generators
 ```c++
 auto fibGenerator = [](const auto& consumer, const auto& interrupt, const auto& redirect) {
@@ -273,6 +274,75 @@ auto salesStats = semantic::from(salesRecords)
 std::cout << "Average sale: " << salesStats.mean() << std::endl;
 std::cout << "Sales variance: " << salesStats.variance() << std::endl;
 ```
+
+## Partition Semantics — The Hidden Superpower
+
+In `semantic-cpp`, `concat()`, `flat()`, and `flatMap()` do **not** merge indices globally.  
+Instead, they preserve the index space of each source stream, effectively treating every concatenated or flattened stream as an independent **partition**.
+
+This is deliberate and extremely powerful.
+
+### What It Means
+
+```cpp
+auto s1 = of(1,2,3).reindex().reverse();     // [3,2,1]
+auto s2 = of(4,5,6).reindex().reverse();     // [6,5,4]
+auto s3 = of(7,8,9).reindex().reverse();     // [9,8,7]
+
+auto merged = s1.concat(s2).concat(s3)
+                 .flat();                    // flatten partitions
+
+merged.reverse().cout();     
+// Output: 9 8 7  6 5 4  3 2 1
+// → Each partition is reversed independently, then concatenated
+```
+
+All indexing operations (`redirect`, `distinct`, `sorted`, `reverse`, `shuffle`, etc.) act **only within their original partition** when the stream is composed via `concat` / `flat` / `flatMap`.
+
+### Real-World Superpowers
+
+| Operation after `flat()` / `flatMap()` | Effect |
+|----------------------------------------|------|
+| `.sorted()`                            | Sort each group/partition independently |
+| `.distinct()`                          | Remove duplicates **within** each partition |
+| `.reverse()`                           | Reverse each group independently |
+| `.redirect(...)`                       | Reindex each partition independently |
+| `.limit(n)` / `.skip(n)`               | Applied globally across all partitions |
+
+### Common Idioms
+
+```cpp
+// Group-wise sort (classic big-data pattern)
+logs_by_shard.flat().sorted().cout();   
+// Each shard is sorted internally; overall result is locally ordered
+
+// Group-wise deduplication
+events_by_node.flat().distinct().cout(); 
+// Duplicates removed per node, not globally
+
+// Group-wise reverse (e.g. latest-first per user)
+messages_by_user.flat().reverse().cout(); 
+// Latest messages first in each user partition
+```
+
+### When You Need Global Indexing
+
+If you require a single unified index across all partitions:
+
+```cpp
+auto global = streams.flat().reindex();   // materializes a new global index
+global.sorted();                          // now truly global
+```
+
+### Summary
+
+`concat` / `flat` / `flatMap` + indexing = **automatic partition-aware processing**.  
+No extra API, no manual grouping — just pure, composable, partition-local semantics.
+
+This is not a limitation.  
+This is memory-level distributed computing, for free.
+```
+
 ## Why semantic-cpp? (The Indexable Revolution)
 
 - **redirect()**: Declares index and element mapping.
@@ -290,5 +360,6 @@ fromUnordered(huge_data)  // No order assumed
 License
 
 MIT License
+
 
 

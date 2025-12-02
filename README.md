@@ -278,7 +278,7 @@ std::cout << "Sales variance: " << salesStats.variance() << std::endl;
 
 - **redirect()**: Declares index and element mapping.
 - **reindex()**: Build indexes to enable redirect, distinct,sorted, reverse, translate.
-- Small data (<32768 elems): Instant indexing. Big data: Pure laziness.
+- Small data (<OrderedThreashold elements): Instant indexing. Big data: Pure laziness.
 
 ```cpp
 fromUnordered(huge_data)  // No order assumed
@@ -291,6 +291,7 @@ fromUnordered(huge_data)  // No order assumed
 License
 
 MIT License
+
 
 
 

@@ -257,6 +257,7 @@ template<typename E> Semantic<E> iterate(const Generator<E>& generator);
 ```c++
 // Process user data
 auto processedUsers = semantic::from(users)
+    .reindex()
     .filter([](const User& u) { return u.isActive(); })
     .map([](const User& u) { return u.getName().toUpperCase(); })
     .distinct()
@@ -275,21 +276,22 @@ std::cout << "Sales variance: " << salesStats.variance() << std::endl;
 ```
 ## Why semantic-cpp? (The Indexable Revolution)
 
-- **redirect()**: Declare indexing logic lazily — edit index and element mapping
-- **reindex()**: Materialize indices once — subsequent sorted/distinct are O(1) magic.
+- **redirect()**: Declares index and element mapping.
+- **reindex()**: Build indexes to enable redirect, distinct,sorted, reverse, translate.
 - Small data (<32768 elems): Instant indexing. Big data: Pure laziness.
 
 ```cpp
 fromUnordered(huge_data)  // No order assumed
-    .redirect([](auto e, auto i){ return e.key; })  // Redirect/sorted/distinct all are invalid.
+    .reindex() // Build ondices now
+    .redirect([](auto e, auto i){ return e.key; })  // Now redirect/sorted/distinct/reverse/translate could cause effect.
     .filter(...)
-    .reindex()  // Build indices NOW
     .sorted()   // O(1)!
     .toVector();
 ```
 License
 
 MIT License
+
 
 
 

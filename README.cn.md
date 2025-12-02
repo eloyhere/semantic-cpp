@@ -225,15 +225,15 @@ int main() {
 
 ## 为什么选择semantic-cpp? (基于索引概念的革命)
 
-- **redirect()**: 惰性索引化声明 — 无消耗修改索引元素关系
-- **reindex()**: 物化建立索引一次 — 即可让sorted/distinct复杂度为O(1)
-- 少量数据 (<32768 元素): 立即建立索引. 大数据: 不建立索引
+- **redirect()**: 声明索引元素映射
+- **reindex()**: 建立索引，以启用redirect，distinct，sorted，reverse，translate，shuffle。
+- 少量数据 (<可索引数量): 立即建立索引. 大数据: 不建立索引
 
 ```cpp
 fromUnordered(huge_data)  // 无索引和顺序
-    .redirect([](auto e, auto i){ return e.key; })  // 重定向/排序/去重均无效
+    .reindex() //建立索引
+    .redirect([](auto e, auto i){ return e.key; })  // 现在redirect，distinct，sorted，reverse，translate，shuffle均可正常操作数据。
     .filter(...)
-    .reindex()  // 建立索引
     .sorted()   // O(1)!
     .toVector();
 ```

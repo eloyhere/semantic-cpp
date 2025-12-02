@@ -42,6 +42,20 @@ int main() {
     // 空流
     auto emptyStream = semantic::empty<int>();
 
+        auto unorderedStream = semantic::fromUnordered<int>({1,2,3,4,5})// 创建一个无索引的流, 在调用reindex方法之前，redirect, distinct, sorted, reverse, translate均无效。
+    .redirect([](const int& element, const auto& index)-> auto{
+        return -index;
+    }) // 无效。
+    .distinct() // 无效。
+    .cout(); // [1,2,3,4,5];
+
+    auto orderedStream = semantic::fromOrdered<int>({1,2,3,4,5}) // 创建一个可索引的流, redirect, distinct, sorted, reverse, translate方法均有效，只有通过fromOrdered创建的流，以及调用过reindex的流可以正常使用上述方法。
+    .redirect([](const int& element, const auto& index)-> auto{
+        return -index; // Reverses the semantic.
+    }).redirect([](const int& element, const auto& index)-> auto{
+        return index + 3; // Translates the semantic to next 3 points, the last three elements will be inserted at the head. The positive number translates elements to right, with negative number translates elements to left, but zero causes no effect.
+    }).cout(); //[3,2,1,5,4]
+
     // 从值创建
     auto single = semantic::of(42);
     auto multiple = semantic::of(1, 2, 3, 4, 5);

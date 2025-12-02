@@ -50,7 +50,7 @@ Semantic is a C++ stream processing library inspired by JavaScript generators, i
     .redirect([](const int& element, const auto& index)-> auto{
         return -index; // Reverses the semantic.
     }).redirect([](const int& element, const auto& index)-> auto{
-        return index + 3; // Translates all elements to next 3 points, the positive number moves the tail elements to the head, while the positive number move head elements to the tail, zero causes no effect.
+        return index + 3; // Translates all elements to next 3 points, the positive number moves the tail elements to the head, while the negative number moves the head elements to the tail, zero causes no effect.
     }).cout(); //[3,2,1,5,4]
     
 
@@ -290,3 +290,4 @@ fromUnordered(huge_data)  // No order assumed
 License
 
 MIT License
+

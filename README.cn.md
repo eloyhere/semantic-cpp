@@ -223,6 +223,73 @@ int main() {
 - C++11 或更高版本
 - 标准模板库支持
 
+## 分区语义 —— 隐藏的超能力
+
+在 `semantic-cpp` 中，`concat()`、`flat()`、`flatMap()` **不会**合并全局索引。  
+它们保留每个源流各自的索引空间，等价于把每个拼接或展平的流视为一个独立的 **分区（partition）**。
+
+这是有意设计，且极其强大。
+
+### 实际含义
+
+```cpp
+auto s1 = of(1,2,3).reindex().reverse();     // [3,2,1]
+auto s2 = of(4,5,6).reindex().reverse();     // [6,5,4]
+auto s3 = of(7,8,9).reindex().reverse();     // [9,8,7]
+
+auto merged = s1.concat(s2).concat(s3)
+                 .flat();                    // 展平所有分区
+
+merged.reverse().cout();     
+// 输出：9 8 7  6 5 4  3 2 1
+// → 每个分区内部独立逆序，然后顺序拼接
+```
+
+所有索引相关操作（`redirect`、`distinct`、`sorted`、`reverse`、`shuffle` 等）在通过 `concat` / `flat` / `flatMap` 组合的流中，仅作用于各自原始分区内部。
+
+### 真实场景超能力
+
+| 在 `flat()` / `flatMap()` 后的操作 | 实际效果 |
+|------------------------------------|---------|
+| `.sorted()`                        | 每个分组/分区内部独立排序 |
+| `.distinct()`                      | 仅在每个分区内部去重 |
+| `.reverse()`                       | 每个分组内部独立逆序 |
+| `.redirect(...)`                   | 每个分区内部独立重新索引 |
+| `.limit(n)` / `.skip(n)`           | 跨所有分区全局生效 |
+
+### 常见用法
+
+```cpp
+// 分组排序（大数据经典模式）
+logs_by_shard.flat().sorted().cout();   
+// 每个分片内部按时间排序，全局局部有序
+
+// 分组去重
+events_by_node.flat().distinct().cout(); 
+// 仅在每个节点内部去重
+
+// 分组最新优先（按用户最新消息排序）
+messages_by_user.flat().reverse().cout(); 
+// 每个用户内部最新消息在前
+```
+
+### 需要全局索引时
+
+若确实需要跨所有分区的统一索引：
+
+```cpp
+auto global = streams.flat().reindex();   // 重新建立全局索引
+global.sorted();                          // 现在才是真正的全局排序
+```
+
+### 总结
+
+`concat` / `flat` / `flatMap` + 索引机制 = **自动分区感知处理**。  
+无需额外 API，无需手动分组，即可获得纯粹、可组合、分区局部语义。
+
+这不是限制。  
+这是零成本的内存级分布式计算。
+
 ## 为什么选择semantic-cpp? (基于索引概念的革命)
 
 - **redirect()**: 声明索引元素映射

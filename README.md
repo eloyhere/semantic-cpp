@@ -277,13 +277,13 @@ std::cout << "Sales variance: " << salesStats.variance() << std::endl;
 ## Why semantic-cpp? (The Indexable Revolution)
 
 - **redirect()**: Declares index and element mapping.
-- **reindex()**: Build indexes to enable redirect, distinct,sorted, reverse, translate.
+- **reindex()**: Build indexes to enable redirect, distinct,sorted, reverse, translate，shuffle.
 - Small data (<OrderedThreashold elements): Instant indexing. Big data: Pure laziness.
 
 ```cpp
 fromUnordered(huge_data)  // No order assumed
     .reindex() // Build ondices now
-    .redirect([](auto e, auto i){ return e.key; })  // Now redirect/sorted/distinct/reverse/translate could cause effect.
+    .redirect([](auto e, auto i){ return e.key; })  // Now redirect/sorted/distinct/reverse/translate/shuffle could cause effect.
     .filter(...)
     .sorted()   // O(1)!
     .toVector();
@@ -291,6 +291,7 @@ fromUnordered(huge_data)  // No order assumed
 License
 
 MIT License
+
 
 
 

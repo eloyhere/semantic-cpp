@@ -42,9 +42,8 @@ Semantic is a C++ stream processing library inspired by JavaScript generators, i
 
     auto unorderedStream = semantic::fromUnordered<int>({1,2,3,4,5})// Creates an unindexed semantic, whose redirect, distinct, sorted, reverse, translate would never cause any effect before calling "reindex" method.
     .redirect([](const int& element, const auto& index)-> auto{
-        return -index;
-    }) // No effect.
-    .distinct() // No effect.
+        return -index; //Invalid. 
+    }).distinct() // Invalid.
     .cout(); // [1,2,3,4,5];
 
     auto orderedStream = semantic::fromOrdered<int>({1,2,3,4,5}) // Creates an indexed semantic, which could redirect, distinct, sorted, reverse, translate. Only ordered and reindexed semantic could cause the effect on calling methods above.
@@ -291,12 +290,3 @@ fromUnordered(huge_data)  // No order assumed
 License
 
 MIT License
-
-
-
-
-
-
-
-
-

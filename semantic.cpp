@@ -1249,7 +1249,7 @@ Semantic<E> from(const std::set<E> &s)
 		Module i = 0;
 		for (const auto &element : s)
 		{
-			if (interrupt && interrupt(element))
+			if (interrupt(element))
 			{
 				break;
 			}
@@ -1266,7 +1266,7 @@ Semantic<E> from(const std::unordered_set<E> &s)
 		Module i = 0;
 		for (const auto &element : s)
 		{
-			if (interrupt && interrupt(element))
+			if (interrupt(element))
 			{
 				break;
 			}
@@ -1292,23 +1292,16 @@ template <typename E>
 Semantic<E> range(const E &start, const E &end, const E &step)
 {
 	static_assert(std::is_arithmetic<E>::value, "Range requires arithmetic types");
-
 	return Semantic<E>(std::make_shared<Generator<E>>([start, end, step](const Consumer<E> &accept, const Predicate<E> &interrupt, const BiFunction<E, Timestamp, Timestamp> &redirect) {
 		E current = start;
 		Timestamp index = 0;
 		while ((step > E(0) && current < end) || (step < E(0) && current > end))
 		{
-			if (interrupt && interrupt(current))
+			if (interrupt(current))
 			{
 				break;
 			}
-			Timestamp currentIndex = index;
-			if (redirect)
-			{
-				currentIndex = redirect(current, index);
-			}
-			if (accept)
-				accept(current);
+			accept(current);
 			current = current + step;
 			index++;
 		}

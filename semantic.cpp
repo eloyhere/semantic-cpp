@@ -817,7 +817,7 @@ Semantic<E> Semantic<E>::sorted() const
 {
 	return Semantic<E>(std::make_shared<Generator<E>>([this](const Consumer<E> &accept, const Predicate<E> &interrupt, const BiFunction<E, Timestamp, Timestamp> &redirect) {
 		(*generator)(accept, interrupt, [](const E &element, const Timestamp &index) -> Timestamp {
-			return static_cast<Timestamp>(element);
+			return static_cast<Timestamp>(element) - 1;
 		});
 	}));
 }
@@ -827,7 +827,7 @@ Semantic<E> Semantic<E>::sorted(const Function<E, Timestamp> &indexer) const
 {
 	return Semantic<E>(std::make_shared<Generator<E>>([this, indexer](const Consumer<E> &accept, const Predicate<E> &interrupt, const BiFunction<E, Timestamp, Timestamp> &redirect) -> void {
 		(*generator)(accept, interrupt, [&indexer](const E &element, const Timestamp &index) -> Timestamp {
-			return indexer(element);
+			return indexer(element) - 1;
 		});
 	}));
 }

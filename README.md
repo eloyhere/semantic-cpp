@@ -1,361 +1,87 @@
-# Semantic - C++ Stream Processing Library
+# Semantic Stream — A Modern C++ Functional Stream Library
 
-## Overview
+Semantic is a header-only, high-performance, lazy functional stream library for C++17 and later, inspired by JavaScript Generators, Java Stream API, Java functional interfaces, and MySQL indexed access patterns.
 
-Semantic is a C++ stream processing library inspired by JavaScript generators, index from MySQL and Java Stream API, providing functional programming-style lazy evaluation data stream operations.
+It combines the expressive power of functional programming with true lazy evaluation, parallel execution capabilities, and time-based element indexing, enabling elegant processing of both finite and infinite sequences.
 
-## Core Features
+## Key Features
 
-- Lazy Evaluation: All operations are lazy, executing only when terminal operations are called
-- Functional Programming: Supports higher-order functions, lambda expressions, and function composition
-- Type Safety: Template-based strong type system
-- Cache Optimisation: Automatic caching of statistical computation results
-- Multiple Data Sources: Supports arrays, containers, generators, and various data sources
+- **Fully lazy evaluation** – Operations are only executed when a terminal operation is invoked.
+- **Infinite streams** – Naturally supports infinite sequences via generator functions.
+- **Time-based indexing** – Every element carries an implicit or explicit timestamp, enabling MySQL-like indexed access and efficient skipping/seeking.
+- **Parallel processing** – Simple `.parallel()` or `.parallel(n)` turns the stream into a multi-threaded pipeline using a global or custom thread pool.
+- **Rich functional operations** – `map`, `filter`, `flatMap`, `reduce`, `collect`, `group`, statistics, and many more.
+- **Java-style Collector API** – Familiar collecting patterns with supplier, accumulator, combiner, and finisher.
+- **Comprehensive statistics** – Mean, median, mode, variance, standard deviation, quartiles, skewness, kurtosis, etc.
+- **Multiple construction methods** – From containers, arrays, ranges, generators, or manual filling.
 
-## Quick Start
+## Design Philosophy
 
-- Basic Usage
-  ```c++
-  #include "semantic.h"
+Semantic treats a stream as a timed sequence of elements produced by a Generator. This design draws from:
 
-  int main() {
-    // Create stream from array
-    int data[] = {1, 2, 3, 4, 5};
-    auto stream = semantic::from(data, 5);
-    
-    // Chain operations
-    stream.filter([](int x) { return x % 2 == 0; })
-          .map([](int x) { return x * 2; })
-          .cout();  // Output: 4 8
-    
-    return 0;
-  }
-  ```
-## Core Components
+- **JavaScript Generator** – Pull-based lazy production of values.
+- **Java Stream** – Fluent chainable API with intermediate and terminal operations.
+- **Java Function package** – Type aliases for `Function`, `Consumer`, `Predicate`, etc.
+- **MySQL indexed tables** – Elements can be addressed by logical timestamp, enabling efficient `skip`, `limit`, `redirect`, and `translate`.
 
-- Semantic Stream Class.  
-  The main stream processing class providing rich intermediate and terminal operations.
-  - Creating Streams
-    ```c++
-    // Empty stream
-    auto emptyStream = semantic::empty<int>();
+## Core Concepts
 
-    auto unorderedStream = semantic::fromUnordered<int>({1,2,3,4,5})// Creates an unindexed semantic, whose redirect, distinct, sorted, reverse, translate, shuffle would never cause any effect before calling "reindex" method.
-    .redirect([](const int& element, const auto& index)-> auto{
-        return -index; //Invalid. 
-    }).distinct() // Invalid.
-    .cout(); // [1,2,3,4,5];
-
-    auto orderedStream = semantic::fromOrdered<int>({1,2,3,4,5}) // Creates an indexed semantic, which could redirect, distinct, sorted, reverse, translate, shuffle. Only ordered and reindexed semantic could cause the effect on calling methods above.
-    .redirect([](const int& element, const auto& index)-> auto{
-        return -index; // Reverses the semantic.
-    }).redirect([](const int& element, const auto& index)-> auto{
-        return index + 3; // Translates all elements to next 3 points, the positive number moves the tail elements to the head, while the negative number moves the head elements to the tail, zero causes no effect.
-    }).cout(); //[3,2,1,5,4]
-    
-
-    // From values
-    auto single = semantic::of(42);
-    auto multiple = semantic::of(1, 2, 3, 4, 5);
-
-    // From containers
-    std::vector<int> vec = {1, 2, 3};
-    auto fromVec = semantic::from(vec);
-    auto fromList = semantic::from(std::list{1, 2, 3});
-
-    // From arrays
-    int arr[] = {1, 2, 3};
-    auto fromArray = semantic::from(arr, 3);
-
-    // Numeric ranges
-    auto rangeStream = semantic::range(1, 10);      // 1 to 9
-    auto stepStream = semantic::range(1, 10, 2);    // 1,3,5,7,9
-
-    // Generated streams
-    auto generated = semantic::fill(42, 5);          // Five 42s
-    auto randomStream = semantic::fill([]{ return rand() % 100; }, 10);
-    ```
-## Intermediate Operations
-
-- Filtering Operations
-  ```c++
-  .filter(predicate)          // Filter elements
-  .distinct()                 // Remove duplicates
-  .distinct(comparator)       // Custom duplicate removal
-  .limit(n)                   // Limit quantity
-  .skip(n)                    // Skip first n elements
-  .takeWhile(predicate)       // Take consecutive elements satisfying condition
-  .dropWhile(predicate)       // Drop consecutive elements satisfying condition
-  ```
-- Transformation Operations
-  ```c++
-  .map(mapper)                // Element transformation
-  .flatMap(mapper)            // Flattening map
-  .sorted()                   // Natural sorting
-  .sorted(comparator)        // Custom sorting
-  .reindex(indexer)          // Reindex elements
-  .reverse()                 // Reverse order
-  .shuffle()                 // Random shuffle
-  ```
-- Debugging Operations
-  ```c++
-  .peek(consumer)            // Inspect elements without modifying stream
-  ```
-## Terminal Operations
-
-- Matching Checks
-  ```c++
-  .anyMatch(predicate)       // Any element matches
-  .allMatch(predicate)       // All elements match  
-  .noneMatch(predicate)      // No elements match
-  ```
-- Search Operations
-  ```c++
-  .findFirst()               // Find first element
-  .findAny()                 // Find any element
-  ```
-- Reduction Operations
-  ```c++
-  .reduce(accumulator)       // Reduction operation
-  .reduce(identity, accumulator) // Reduction with initial value
-  ```
-- Collection Operations
-  ```c++
-  .toVector()               // Convert to vector
-  .toList()                 // Convert to list
-  .toSet()                  // Convert to set
-  .toMap(keyMapper, valueMapper) // Convert to map
-  .collect(collector)       // Custom collection
-  ```
-- Grouping and Partitioning
-  ```c++
-  .group(classifier)        // Group by classifier
-  .partition(n)            // Partition by size
-  ```
-- Output Operations
-  ```c++
-  .cout()                  // Output to standard output
-  .forEach(consumer)       // Execute operation for each element
-  ```
-## Statistics Class
-
-Provides comprehensive statistical computation functionality with cache optimisation.
-```c++
-std::vector<double> data = {1.0, 2.0, 3.0, 4.0, 5.0};
-auto stats = semantic::Statistics<double, double>(data);
-
-// Basic statistics
-auto count = stats.count();           // Count
-auto sum = stats.sum();               // Sum
-auto mean = stats.mean();             // Mean
-auto min = stats.minimum();           // Minimum
-auto max = stats.maximum();           // Maximum
-
-// Dispersion statistics
-auto variance = stats.variance();     // Variance
-auto stdDev = stats.standardDeviation(); // Standard deviation
-auto range = stats.range();           // Range
-
-// Advanced statistics
-auto median = stats.median();         // Median
-auto mode = stats.mode();             // Mode
-auto quartiles = stats.quartiles();   // Quartiles
-auto skewness = stats.skewness();     // Skewness
-auto kurtosis = stats.kurtosis();     // Kurtosis
-
-// Frequency analysis
-auto frequency = stats.frequency();   // Frequency distribution
-```
-## Collector
-
-Supports custom collection strategies.
-```c++
-// String concatenation collector
-auto concatenator = semantic::Collector<std::string, std::string>(
-    []() { return std::string(""); },
-    [](std::string& acc, int value) { acc += std::to_string(value); },
-    [](std::string a, std::string b) { return a + b; },
-    [](std::string result) { return result; }
-);
-
-auto result = stream.collect(concatenator);
-```
-## Advanced Features
-
-Lazy Evaluation Example
-```c++
-auto stream = semantic::range(1, 1000)
-    .filter([](int x) { 
-        std::cout << "Filtering: " << x << std::endl;
-        return x % 2 == 0; 
-    })
-    .map([](int x) {
-        std::cout << "Mapping: " << x << std::endl;
-        return x * 2;
-    })
-    .limit(3);  // Only process first 3 elements
-
-// Nothing executed yet, only executes when terminal operation is called
-auto result = stream.toVector();  // Execution starts
+```cpp
+using Generator<E> = BiConsumer<
+    BiConsumer<E, Timestamp>,      // yield(element, timestamp)
+    Predicate<E>                   // cancel predicate
+>;
 ```
 
-## Custom Generators
-```c++
-auto fibGenerator = [](const auto& consumer, const auto& interrupt, const auto& redirect) {
-    int a = 0, b = 1;
-    for (int i = 0; i < 10; ++i) {
-        if (interrupt && interrupt(b)) break;
-        if (consumer) consumer(b);
-        int next = a + b;
-        a = b;
-        b = next;
+A generator receives a yielder and a cancellation check. This low-level abstraction powers all stream sources, including infinite ones.
+
+## Quick Examples
+
+```cpp
+using namespace semantic;
+
+// Infinite stream of random integers
+auto stream = Semantic<int>::iterate([](auto yield, auto cancel) {
+    std::random_device rd;
+    std::mt19937 gen(rd());
+    std::uniform_int_distribution<> dist(1, 100);
+
+    Timestamp ts = 0;
+    while (!cancel(dist(gen))) {
+        yield(dist(gen), ts++);
     }
-};
+});
 
-auto fibStream = semantic::iterate(fibGenerator);
-```
-## Performance Characteristics
+// Finite example: primes using Sieve-like lazy filter
+auto primes = Semantic<long long>::range(2LL, 1'000'000LL)
+                  .filter([](long long n) {
+                      return Semantic<long long>::range(2LL, n)
+                             .takeWhile([n](long long d) { return d * d <= n; })
+                             .noneMatch([n](long long d) { return n % d == 0; });
+                  });
 
-- Lazy Evaluation: Avoids unnecessary computations
-- Cache Optimisation: Automatic caching of statistical results
-- Zero-copy: Uses references where possible to avoid copying
-- Memory Safety: Smart pointer resource management
-
-Compilation Requirements
-
-- C++11 or higher
-- Standard Template Library support
-
-API Reference
-
-Key Type Definitions
-```c++
-namespace semantic {
-    typedef long long Timestamp;
-    typedef unsigned long long Module;
-    
-    using Runnable = std::function<void()>;
-    template <typename R> using Supplier = std::function<R()>;
-    template <typename T, typename R> using Function = std::function<R(T)>;
-    template <typename T> using Consumer = std::function<void(T)>;
-    template <typename T> using Predicate = std::function<bool(T)>;
-    // ... and more
-}
-```
-## Factory Functions
-```c++
-// Creation functions
-template<typename E> Semantic<E> empty();
-template<typename E, typename... Args> Semantic<E> of(Args &&... args);
-template<typename E> Semantic<E> from(const E* array, const Module &length);
-template<typename E> Semantic<E> range(const E& start, const E& end);
-template<typename E> Semantic<E> iterate(const Generator<E>& generator);
-```
-## Examples
-
-- Data Processing Pipeline
-```c++
-// Process user data
-auto processedUsers = semantic::from(users)
-    .reindex()
-    .filter([](const User& u) { return u.isActive(); })
-    .map([](const User& u) { return u.getName().toUpperCase(); })
-    .distinct()
-    .sorted()
-    .toList();
-```
-- Statistical Analysis
-```c++
-// Analyse sales data
-auto salesStats = semantic::from(salesRecords)
-    .map([](const Sale& s) { return s.amount(); })
-    .toStatistics();
-
-std::cout << "Average sale: " << salesStats.mean() << std::endl;
-std::cout << "Sales variance: " << salesStats.variance() << std::endl;
+// Parallel word count
+auto wordCount = Semantic<std::string>::from(fileLines)
+                    .flatMap([](const std::string& line) {
+                        return Semantic<std::string>::from(split(line));
+                    })
+                    .parallel()
+                    .group([](const std::string& w) { return w; })
+                    .map([](auto& pair) { return std::make_pair(pair.first, pair.second.size()); });
 ```
 
-## Partition Semantics — The Hidden Superpower
+## Building & Requirements
 
-In `semantic-cpp`, `concat()`, `flat()`, and `flatMap()` do **not** merge indices globally.  
-Instead, they preserve the index space of each source stream, effectively treating every concatenated or flattened stream as an independent **partition**.
+- C++17 or later
+- Header-only – simply `#include "semantic.hpp"`
+- No external dependencies
 
-This is deliberate and extremely powerful.
+A global thread pool (`semantic::globalThreadPool`) is automatically initialised with `std::thread::hardware_concurrency()` threads.
 
-### What It Means
+## Licence
 
-```cpp
-auto s1 = of(1,2,3).reindex().reverse();     // [3,2,1]
-auto s2 = of(4,5,6).reindex().reverse();     // [6,5,4]
-auto s3 = of(7,8,9).reindex().reverse();     // [9,8,7]
+MIT Licence – feel free to use in commercial and open-source projects.
 
-auto merged = s1.concat(s2).concat(s3)
-                 .flat();                    // flatten partitions
+## Author
 
-merged.reverse().cout();     
-// Output: 9 8 7  6 5 4  3 2 1
-// → Each partition is reversed independently, then concatenated
-```
-
-All indexing operations (`redirect`, `distinct`, `sorted`, `reverse`, `shuffle`, etc.) act **only within their original partition** when the stream is composed via `concat` / `flat` / `flatMap`.
-
-### Real-World Superpowers
-
-| Operation after `flat()` / `flatMap()` | Effect |
-|----------------------------------------|------|
-| `.sorted()`                            | Sort each group/partition independently |
-| `.distinct()`                          | Remove duplicates **within** each partition |
-| `.reverse()`                           | Reverse each group independently |
-| `.redirect(...)`                       | Reindex each partition independently |
-| `.limit(n)` / `.skip(n)`               | Applied globally across all partitions |
-
-### Common Idioms
-
-```cpp
-// Group-wise sort (classic big-data pattern)
-logs_by_shard.flat().sorted().cout();   
-// Each shard is sorted internally; overall result is locally ordered
-
-// Group-wise deduplication
-events_by_node.flat().distinct().cout(); 
-// Duplicates removed per node, not globally
-
-// Group-wise reverse (e.g. latest-first per user)
-messages_by_user.flat().reverse().cout(); 
-// Latest messages first in each user partition
-```
-
-### When You Need Global Indexing
-
-If you require a single unified index across all partitions:
-
-```cpp
-auto global = streams.flat().reindex();   // materializes a new global index
-global.sorted();                          // now truly global
-```
-
-### Summary
-
-`concat` / `flat` / `flatMap` + indexing = **automatic partition-aware processing**.  
-No extra API, no manual grouping — just pure, composable, partition-local semantics.
-
-This is not a limitation.  
-This is memory-level distributed computing, for free.
-
-## Why semantic-cpp? (The Indexable Revolution)
-
-- **redirect()**: Declares index and element mapping.
-- **reindex()**: Build indexes to enable redirect, distinct,sorted, reverse, translate，shuffle.
-- Small data (<OrderedThreashold elements): Instant indexing. Big data: Pure laziness.
-
-```cpp
-fromUnordered(huge_data)  // No order assumed
-    .reindex() // Build ondices now
-    .redirect([](auto e, auto i){ return e.key; })  // Now redirect/sorted/distinct/reverse/translate/shuffle could cause effect.
-    .filter(...)
-    .sorted()   // O(1)!
-    .toVector();
-```
-License
-
-MIT License
+Written with inspiration from the best ideas in modern functional programming, adapted for idiomatic, performant C++.

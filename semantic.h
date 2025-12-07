@@ -1,12 +1,14 @@
 #pragma once
-#ifndef SEMANTIC_H
-#define SEMANTIC_H
 #include <set>
 #include <list>
 #include <map>
 #include <array>
 #include <string>
 #include <vector>
+#include <future>
+#include <mutex>
+#include <queue>
+#include <thread>
 #include <cmath>
 #include <random>
 #include <sstream>
@@ -19,6 +21,7 @@
 #include <type_traits>
 #include <initializer_list>
 #include <unordered_set>
+#include <condition_variable>
 namespace semantic
 {
 typedef long long Timestamp;
@@ -58,99 +61,111 @@ template <typename T, typename U, typename V>
 using TriPredicate = std::function<bool(T, U, V)>;
 
 template <typename T, typename U>
-using Comparator = std::function<int(T, U)>;
+using Comparator = std::function<Timestamp(T, U)>;
 
 template <typename T>
-using Generator = TriConsumer<Consumer<T>, Predicate<T>, BiFunction<T, Timestamp, Timestamp>>;
+using Generator = BiConsumer<BiConsumer<T, Timestamp>, Predicate<T>>;
 
 template <typename D>
 D randomly(const D &start, const D &end);
 
+class ThreadPool
+{
+  public:
+	explicit ThreadPool(Module threads = std::thread::hardware_concurrency());
+	~ThreadPool();
+
+	ThreadPool(const ThreadPool &) = delete;
+	ThreadPool &operator=(const ThreadPool &) = delete;
+
+	template <class F>
+	auto submit(F &&f) -> std::future<typename std::result_of<F()>::type>;
+
+	Module getThreadCount();
+
+	Module getTaskQueueSize();
+
+  protected:
+	Module threads;
+	std::vector<std::thread> workers;
+	std::queue<Runnable> tasks;
+	std::mutex m_queue_mutex;
+	std::condition_variable condition;
+	bool stop;
+};
+
+extern ThreadPool globalThreadPool;
+
 template <typename E, typename D>
 class Statistics
 {
-  protected:
-	const E *elements;
+	static_assert(std::is_arithmetic<D>::value, "Statistical operations require arithmetic types.");
 
-	Module size;
+  protected:
+	std::vector<E> elements;
 
 	mutable std::map<std::string, D> cache;
 
 	mutable std::map<D, Module> frequencyCache;
 
   public:
-	Statistics(const E *elements, const Module &size) : elements(elements), size(size)
+	Statistics(const E *elements, const Module &length) : elements(elements)
 	{
-		static_assert(std::is_arithmetic<D>::value, "Statistical operations require arithmetic types.");
 	}
 
-	Statistics(const std::vector<E> &elements) : elements(elements.data()), size(elements.size())
+	Statistics(const std::vector<E> &elements) : elements(elements)
 	{
-		static_assert(std::is_arithmetic<D>::value, "Statistical operations require arithmetic types.");
 	}
 
-	Statistics(const std::list<E> &elements) : elements(nullptr), size(elements.size())
+	Statistics(const std::list<E> &elements) : elements(elements.begin(), elements.end())
 	{
-		static_assert(std::is_arithmetic<D>::value, "Statistical operations require arithmetic types.");
-		std::vector<E> temp(elements.begin(), elements.end());
-		this->elements = new E[temp.size()];
-		std::copy(temp.begin(), temp.end(), const_cast<E *>(this->elements));
 	}
 
-	Statistics(std::initializer_list<E> initList) : elements(initList.begin()), size(initList.size())
+	Statistics(const std::initializer_list<E> &elements) : elements(elements.begin(), elements.end())
 	{
-		static_assert(std::is_arithmetic<D>::value, "Statistical operations require arithmetic types.");
 	}
 
-	Statistics(const Statistics &other) : elements(other.elements), size(other.size), cache(other.cache)
+	Statistics(const Statistics &other) : elements(other.elements), cache(other.cache), frequencyCache(other.frequencyCache)
 	{
-		static_assert(std::is_arithmetic<D>::value, "Statistical operations require arithmetic types.");
 	}
 
-	Statistics(Statistics &&other) noexcept : elements(other.elements), size(other.size), cache(std::move(other.cache))
+	Statistics(Statistics &&other) noexcept : elements(std::move(other.elements)), cache(std::move(other.cache)), frequencyCache(std::move(other.frequencyCache))
 	{
-		static_assert(std::is_arithmetic<D>::value, "Statistical operations require arithmetic types.");
-		other.elements = nullptr;
-		other.size = 0;
 	}
 
 	~Statistics()
 	{
-		if (elements && size > 0)
-		{
-			delete[] elements;
-		}
 	}
 
 	Module count() const;
 
-	D maximum() const;
+	E maximum(const Comparator<E, E> &comparator) const;
 
-	D minimum() const;
+	E minimum(const Comparator<E, E> &comparator) const;
 
-	D range() const;
+	D range(const Function<E, D> &mapper) const;
 
-	D variance() const;
+	D variance(const Function<E, D> &mapper) const;
 
-	D standardDeviation() const;
+	D standardDeviation(const Function<E, D> &mapper) const;
 
-	D mean() const;
+	D mean(const Function<E, D> &mapper) const;
 
-	D median() const;
+	D median(const Function<E, D> &mapper) const;
 
-	D mode() const;
+	D mode(const Function<E, D> &mapper) const;
 
-	std::map<D, Module> frequency() const;
+	std::map<D, Module> frequency(const Function<E, D> &mapper) const;
 
-	D sum() const;
+	D sum(const Function<E, D> &mapper) const;
 
-	std::vector<D> quartiles() const;
+	std::vector<D> quartiles(const Function<E, D> &mapper) const;
 
-	D interquartileRange() const;
+	D interquartileRange(const Function<E, D> &mapper) const;
 
-	D skewness() const;
+	D skewness(const Function<E, D> &mapper) const;
 
-	D kurtosis() const;
+	D kurtosis(const Function<E, D> &mapper) const;
 
 	bool isEmpty() const;
 
@@ -171,15 +186,20 @@ template <typename E, typename A, typename R>
 class Collector
 {
   public:
-	const Supplier<A> supplier;
+	using Identity = Supplier<A>;
+	using Accumulator = BiFunction<A, E, A>;
+	using Combiner = BiFunction<A, A, A>;
+	using Finisher = Function<A, R>;
 
-	const BiConsumer<A, E> accumulator;
+	const Identity identity;
 
-	const BiFunction<A, A, A> combiner;
+	const Accumulator accumulator;
 
-	const Function<A, R> finisher;
+	const Combiner combiner;
 
-	Collector(const Supplier<A> &supplier, const BiConsumer<A, E> &accumulator, const BiFunction<A, A, A> &combiner, const Function<A, R> &finisher) : supplier(supplier), accumulator(accumulator), combiner(combiner), finisher(finisher) {}
+	const Finisher finisher;
+
+	Collector(const Identity &identity, const Accumulator &accumulator, const Combiner &combiner, const Finisher &finisher) : identity(identity), accumulator(accumulator), combiner(combiner), finisher(finisher) {}
 };
 
 template <typename E>
@@ -197,52 +217,20 @@ Semantic<E> fill(const E &element, const Module &count);
 template <typename E>
 Semantic<E> fill(const Supplier<E> &supplier, const Module &count);
 
-const Module OrderedThreashold = 32768;
-
 template <typename E>
 Semantic<E> from(const E *array, const Module &length);
 
-template <typename E>
-Semantic<E> fromUnordered(const E *array, const Module &length);
-
-template <typename E>
-Semantic<E> fromOrdered(const E *array, const Module &length);
-
 template <typename E, Module length>
 Semantic<E> from(const std::array<E, length> &array);
-
-template <typename E, Module length>
-Semantic<E> fromUnordered(const std::array<E, length> &array);
-
-template <typename E, Module length>
-Semantic<E> fromOrdered(const std::array<E, length> &array);
 
 template <typename E>
 Semantic<E> from(const std::list<E> &l);
 
 template <typename E>
-Semantic<E> fromUnordered(const std::list<E> &l);
-
-template <typename E>
-Semantic<E> fromOrdered(const std::list<E> &l);
-
-template <typename E>
 Semantic<E> from(const std::vector<E> &v);
 
 template <typename E>
-Semantic<E> fromUnordered(const std::vector<E> &v);
-
-template <typename E>
-Semantic<E> fromOrdered(const std::vector<E> &v);
-
-template <typename E>
 Semantic<E> from(const std::initializer_list<E> &l);
-
-template <typename E>
-Semantic<E> fromUnordered(const std::initializer_list<E> &l);
-
-template <typename E>
-Semantic<E> fromOrdered(const std::initializer_list<E> &l);
 
 template <typename E>
 Semantic<E> from(const std::set<E> &s);
@@ -270,13 +258,11 @@ class Semantic
   public:
 	Semantic() : generator(std::make_shared<Generator<E>>([](const Consumer<E> &, const Predicate<E> &, const BiFunction<E, Timestamp, Timestamp> &) {})), concurrent(1) {}
 
-	Semantic(const Module &concurrent) : generator(std::make_shared<Generator<E>>([](const Consumer<E> &, const Predicate<E> &, const BiFunction<E, Timestamp, Timestamp> &) {})), concurrent(concurrent) {}
-
-	Semantic(const Generator<E> &generator) : generator(std::make_shared<Generator<E>>(generator)) {}
+	Semantic(const Generator<E> &generator) : generator(std::make_shared<Generator<E>>(generator)), concurrent(1) {}
 
 	Semantic(const Generator<E> &generator, const Module &concurrent) : generator(std::make_shared<Generator<E>>(generator)), concurrent(concurrent) {}
 
-	Semantic(std::shared_ptr<Generator<E>> generator) : generator(generator) {}
+	Semantic(std::shared_ptr<Generator<E>> generator) : generator(generator), concurrent(1) {}
 
 	Semantic(std::shared_ptr<Generator<E>> generator, const Module &concurrent) : generator(generator), concurrent(concurrent) {}
 
@@ -293,7 +279,7 @@ class Semantic
 	bool allMatch(const Predicate<E> &p) const;
 
 	template <typename A, typename R>
-	R collect(const Supplier<A> &supplier, const BiConsumer<A, E> &accumulator, const BiFunction<A, A, A> &combiner, const Function<A, R> &finisher) const;
+	R collect(const Supplier<A> &identity, const BiFunction<A, E, A> &accumulator, const BiFunction<A, A, A> &combiner, const Function<A, R> &finisher) const;
 
 	template <typename A, typename R>
 	R collect(const Collector<E, A, R> &c) const;
@@ -304,9 +290,9 @@ class Semantic
 
 	void cout(const BiFunction<E, std::ostream &, std::ostream &> &accumulator) const;
 
-	void cout(const std::ostream &stream) const;
+	void cout(std::ostream &stream) const;
 
-	void cout(const std::ostream &stream, const BiFunction<E, std::ostream &, std::ostream &> &accumulator) const;
+	void cout(std::ostream &stream, const BiConsumer<E, std::ostream &> &accumulator) const;
 
 	Module count() const;
 
@@ -315,8 +301,6 @@ class Semantic
 	Semantic<E> distinct(const Function<E, Timestamp> &identifier) const;
 
 	Semantic<E> dropWhile(const Predicate<E> &p) const;
-
-	void forEach(const Consumer<E> &c) const;
 
 	Semantic<E> filter(const Predicate<E> &p) const;
 
@@ -329,7 +313,7 @@ class Semantic
 	template <typename R>
 	Semantic<R> flatMap(const Function<E, Semantic<R>> &mapper) const;
 
-	bool noneMatch(const Predicate<E> &p) const;
+	void forEach(const Consumer<E> &c) const;
 
 	template <typename K>
 	std::map<K, std::vector<E>> group(const Function<E, K> &classifier) const;
@@ -337,12 +321,12 @@ class Semantic
 	template <typename K, typename V>
 	std::map<K, std::vector<V>> groupBy(const Function<E, K> &keyExtractor, const Function<E, V> &valueExtractor) const;
 
+	bool noneMatch(const Predicate<E> &p) const;
+
 	Semantic<E> limit(const Module &n) const;
 
 	template <typename R>
 	Semantic<R> map(const Function<E, R> &mapper) const;
-
-	Semantic<E> offset(const Function<E, Timestamp> &n) const;
 
 	Semantic<E> parallel() const;
 
@@ -361,15 +345,13 @@ class Semantic
 	E reduce(const E &identity, const BiFunction<E, E, E> &accumulator) const;
 
 	template <typename R>
-	R reduce(const R &identity, const BiFunction<R, E, R> &accumulator) const;
-
-	Semantic<E> reindex() const;
+	R reduce(const R &identity, const BiFunction<R, E, R> &accumulator, const BiFunction<R, R, R> &combiner) const;
 
 	Semantic<E> reverse() const;
 
 	Semantic<E> shuffle() const;
 
-	Semantic<E> shuffle(const Function<E, E> &mapper) const;
+	Semantic<E> shuffle(const Function<E, Timestamp> &mapper) const;
 
 	Semantic<E> skip(const Module &n) const;
 
@@ -380,6 +362,8 @@ class Semantic
 	Semantic<E> sub(const Module &start, const Module &end) const;
 
 	Semantic<E> takeWhile(const Predicate<E> &p) const;
+
+	std::set<std::pair<Timestamp, E>> toIndexedSet() const;
 
 	std::list<E> toList() const;
 
@@ -400,4 +384,3 @@ class Semantic
 	Semantic<E> translate(const Timestamp &offset) const;
 };
 }; // namespace semantic
-#endif

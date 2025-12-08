@@ -1,86 +1,162 @@
-# Semantic Stream —— 現代 C++ 函數式流庫
+# semantic-cpp —— 現代 C++ 語義流函式庫（Semantic Stream）
 
-Semantic 是一個純標頭檔、高效能、完全惰性求值的 C++17 以上函數式流庫，設計靈感同時來自 JavaScript Generator、Java Stream API、Java Function 套件以及 MySQL 索引表的設計思想。
+**semantic-cpp** 為純標頭檔、C++17 起、零外部依賴的高效能惰性流函式庫。  
+其核心理念：**每一個元素天生就攜帶一個邏輯索引（Timestamp）**，所有與順序相關的操作本質上都只是對這個索引的重新映射。
 
-它將函數式程式設計的優雅表達力與真正的惰性求值、平行執行以及基於時間戳的元素索引完美結合，能輕鬆處理有限與無限序列。
+- 真正支援無限流  
+- 索引為第一級公民，可任意重映射  
+- 並行為預設行為  
+- 是否尊重索引操作（redirect 等）僅在收集中明確決定  
 
-## 主要特性
-
-- **完全惰性求值** —— 所有中間操作僅在終結操作被呼叫時才真正執行。
-- **原生支援無限流** —— 透過 Generator 可自然建構無限序列。
-- **時間戳索引機制** —— 每個元素皆帶有隱式或顯式時間戳，實現類似 MySQL 索引的高效跳躍與定位。
-- **一行開啟平行** —— 只需呼叫 `.parallel()` 或 `.parallel(n)` 即可轉為多執行緒流水線。
-- **豐富的函數式操作** —— `map`、`filter`、`flatMap`、`reduce`、`collect`、`group`、統計等一應俱全。
-- **完整的 Java 風格 Collector** —— 熟悉的 supplier、accumulator、combiner、finisher 四階段收集器。
-- **強大統計功能** —— 平均值、中位數、眾數、變異數、標準差、四分位數、偏度、峰度等全部涵蓋。
-- **多種建構方式** —— 支援從容器、陣列、範圍、生成器、填充等方式快速建立流。
+MIT 授權 — 商用與開源專案皆可完全自由使用。
 
 ## 設計理念
 
-Semantic 將流視為「由 Generator 產生、帶有時間戳的元素序列」，核心靈感來源：
+> **索引決定順序，執行只決定速度。**
 
-- **JavaScript Generator** —— 拉取式的惰性產生機制。
-- **Java Stream** —— 流暢的鏈式呼叫與中間／終結操作分離。
-- **Java Function 套件** —— `Function`、`Consumer`、`Predicate` 等函數式介面。
-- **MySQL 索引表** —— 透過邏輯時間戳實現高效的 `skip`、`limit`、`redirect`、`translate` 等操作。
+- `redirect`、`reverse`、`shuffle`、`cycle` 等僅改變邏輯索引  
+- 只有呼叫 `.toOrdered()` 收集合，這些索引操作才會生效（結果嚴格按照最終索引排序）  
+- 呼叫 `.toUnordered()` 時，所有索引操作都會被忽略（極致效能，無順序）
 
-## 核心概念
-
-```cpp
-using Generator<E> = BiConsumer<
-    BiConsumer<E, Timestamp>,   // yield(元素, 時間戳)
-    Predicate<E>                // 取消判斷
->;
+```text
+.toOrdered()   → 所有索引操作生效（redirect 等有效）
+.toUnordered() → 所有索引操作被忽略（最快路徑）
 ```
 
-生成器會接收一個 yield 函數與一個取消檢查函數，此底層抽象驅動所有流來源，包含無限流。
-
-## 快速範例
+## 快速入門
 
 ```cpp
+#include "semantic.h"
 using namespace semantic;
 
-// 無限隨機整數流
-auto s1 = Semantic<int>::iterate([](auto yield, auto cancel) {
-    std::random_device rd;
-    std::mt19937 gen(rd());
-    std::uniform_int_distribution<> d(1, 100);
-    Timestamp ts = 0;
-    while (!cancel(d(gen))) {
-        yield(d(gen), ts++);
-    }
-});
+int main() {
+    // 1. 索引操作全部生效
+    auto v1 = Semantic<int>::range(0, 100)
+        .redirect([](auto&, auto i) { return -i; })   // 反轉
+        .toOrdered()                                  // 關鍵！
+        .toVector();   // 結果：[99, 98, ..., 0]
 
-// 惰性篩法生成質數（有限範圍）
-auto primes = Semantic<long long>::range(2LL, 1'000'000LL)
-    .filter([](long long n) {
-        return Semantic<long long>::range(2LL, n)
-            .takeWhile([n](long long d){ return d * d <= n; })
-            .noneMatch([n](long long d){ return n % d == 0; });
-    });
+    // 2. 索引操作全部被忽略（極致效能）
+    auto v2 = Semantic<int>::range(0, 100)
+        .redirect([](auto&, auto i) { return -i; })
+        .toUnordered()                                // 索引被忽略
+        .toVector();   // 結果：無序，但最快
 
-// 平行單字計數
-auto wordCount = Semantic<std::string>::from(lines)
-    .flatMap([](const std::string& line) {
-        return Semantic<std::string>::from(split(line));
-    })
-    .parallel()
-    .group([](const std::string& w){ return w; })
-    .map([](auto& p){ return std::make_pair(p.first, p.second.size()); });
+    // 3. 無限循環流 + 有序收集
+    auto top10 = Semantic<int>::range(0, 1'000'000'000)
+        .redirect([](auto&, auto i) { return i % 1000; }) // 0~999 循環
+        .toOrdered()
+        .limit(10)
+        .toVector();   // [0,1,2,3,4,5,6,7,8,9]
+
+    return 0;
+}
 ```
+
+## 完整鏈式呼叫範例
+
+```cpp
+// 流建立
+Semantic<int>::range(0, 1000);
+Semantic<long long>::range(0, 1LL<<60);
+Semantic<int>::iterate([](auto yield, auto) {      // 無限流
+    for (int i = 0;; ++i) yield(i);
+});
+Semantic<int>::of(1, 2, 3, 4, 5);
+Semantic<int>::from(std::vector{1,2,3,4});
+Semantic<int>::fill(42, 1'000'000);
+Semantic<int>::fill([] { return rand(); }, 1000);
+
+// 中間操作（全部惰性）
+stream.map([](int x) { return x * x; });
+stream.filter([](int x) { return x % 2 == 0; });
+stream.flatMap([](int x) { return Semantic<int>::range(0, x); });
+stream.distinct();                                     // 值去重
+stream.skip(100);
+stream.limit(50);
+stream.takeWhile([](int x) { return x < 1000; });
+stream.dropWhile([](int x) { return x < 100; });
+stream.peek([](int x) { std::cout << x << ' '; });
+
+// 關鍵：索引重映射操作（僅在 toOrdered 時生效）
+stream.redirect([](auto&, auto i) { return -i; });           // 反轉
+stream.redirect([](auto&, auto i) { return i % 100; });      // 循環
+stream.redirect([](auto e, auto i) { return std::hash<int>{}(e); }); // 打亂
+stream.reverse();                                            // 等同 redirect(-i)
+stream.shuffle();
+
+// 並行
+stream.parallel();       // 使用所有核心
+stream.parallel(8);      // 指定執行緒數
+
+// 必須明確選擇是否尊重索引
+auto ordered   = stream.toOrdered();     // 所有 redirect 等操作生效
+auto unordered = stream.toUnordered();   // 所有 redirect 等操作被忽略（最快）
+
+// 有序收集（最終索引決定順序）
+ordered.toVector();
+ordered.toList();
+ordered.toSet();                 // 依最終索引去重
+ordered.forEach([](int x) { std::cout << x << ' '; });
+ordered.cout();                  // [99, 98, 97, …]
+
+// 無序收集（最快路徑）
+unordered.toVector();
+unordered.toList();
+unordered.toSet();
+unordered.forEach(...);
+unordered.cout();
+
+// 統計（永遠走最快路徑）
+auto stats = stream.toUnordered().toStatistics();
+
+// reduce（建議使用無序路徑）
+int sum = stream.toUnordered()
+    .reduce(0, [](int a, int b) { return a + b; });
+```
+
+## 方法總覽
+
+| 方法                             | 說明                                               | 是否尊重索引操作 |
+|----------------------------------|----------------------------------------------------|------------------|
+| `toOrdered()`                    | 進入「語義模式」— 所有索引操作生效               | 是               |
+| `toUnordered()`                  | 進入「效能模式」— 所有索引操作被忽略             | 否（最快）       |
+| `toVector()` / `toList()`        | 收集至容器                                        | 依選擇而定       |
+| `toSet()`                        | 收集至 set（去重）                                | 依選擇而定       |
+| `forEach` / `cout`               | 遍歷或輸出                                        | 依選擇而定       |
+| `redirect` / `reverse` / `shuffle` | 改變邏輯索引                                  | 僅在 toOrdered 時生效 |
+| `parallel`                       | 並行執行                                          | 兩者皆支援       |
+
+## 為何必須明確選擇 toOrdered / toUnordered？
+
+因為「索引轉換」與「並行執行」是完全正交的兩個維度：
+
+- `redirect` 等屬於語義操作（這個元素在邏輯上應該出現在哪裡？）  
+- `parallel` 僅是執行策略（要算多快？）
+
+只有在收集時明確選擇，才能同時擁有極致速度與精確順序控制。
 
 ## 編譯需求
 
-- C++17 或更高版本
-- 純標頭檔 —— 只需 `#include "semantic.hpp"`
-- 無任何外部相依
+- C++17 或更高版本  
+- 僅需 `#include "semantic.h"`  
+- 零外部依賴  
+- 單一標頭檔函式庫
 
-庫內建全域執行緒池 `semantic::globalThreadPool`，啟動時自動使用 `std::thread::hardware_concurrency()` 個執行緒初始化。
+```bash
+g++ -std=c++17 -O3 -pthread semantic.cpp
+```
 
-## 授權條款
+## 授權
 
-MIT License —— 可自由用於商業與開源專案。
+MIT 授權 — 商用、開源、私有專案皆可無限制使用。
 
-## 作者
+---
 
-融合當代函數式程式設計精華，為現代 C++ 量身打造的高效能實現。
+**semantic-cpp**：  
+**索引決定順序，執行只管快慢。**  
+寫 `redirect` 就真的反轉，寫 `toUnordered()` 就真的最快。  
+沒有妥協，只有選擇。
+
+寫流，不再需要猜。  
+只說一句：**「我要語義，還是要效能？」**

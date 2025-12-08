@@ -55,7 +55,7 @@ auto stream = Semantic<int>::iterate([](auto yield, auto cancel) {
 // Finite example: odds using Sieve-like lazy filter
 auto odds = Semantic<long long>::range(2LL, 1'000'000LL)
   .filter([](long long n) {
-    return n % 2 == 0;
+    return n % 2 == 1;
   }).sub(10, 25).cout();// [11,13,15,17,19,21,23,25]
 
 // Parallel word count
@@ -82,4 +82,5 @@ MIT Licence – feel free to use in commercial and open-source projects.
 ## Author
 
 Written with inspiration from the best ideas in modern functional programming, adapted for idiomatic, performant C++.
+
 

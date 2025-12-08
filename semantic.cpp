@@ -110,6 +110,127 @@ Module ThreadPool::getTaskQueueSize()
 	return tasks.size();
 }
 
+template <typename E>
+Collector<E, std::string, std::string> joining() {
+    return Collector<E, std::string, std::string>(
+        []() -> std::string {
+            return std::string{};
+        },
+        [](std::string& acc, const E& elem) -> std::string& {
+            if (!acc.empty()) {
+                acc += ',';
+            }
+            acc += toString(elem);
+            return acc;
+        },
+        [](std::string& a, const std::string& b) -> std::string& {
+            if (!a.empty() && !b.empty()) {
+                a += ',';
+            }
+            a += b;
+            return a;
+        },
+        [](const std::string& s) -> std::string {
+            return s;
+        }
+    );
+}
+
+template <typename E>
+Collector<E, std::string, std::string> joining(const std::string& delimiter) {
+    return Collector<E, std::string, std::string>(
+        []() -> std::string {
+            return std::string{};
+        },
+        [delimiter](std::string& acc, const E& elem) -> std::string& {
+            if (!acc.empty()) {
+                acc += delimiter;
+            }
+            acc += toString(elem);
+            return acc;
+        },
+        [delimiter](std::string& a, const std::string& b) -> std::string& {
+            if (!a.empty() && !b.empty()) {
+                a += delimiter;
+            }
+            a += b;
+            return a;
+        },
+        [](const std::string& s) -> std::string {
+            return s;
+        }
+    );
+}
+
+template <typename E>
+Collector<E, std::string, std::string> joining(const std::string& delimiter, const std::string& prefix, const std::string& suffix) {
+    return Collector<E, std::string, std::string>(
+        []() -> std::string {
+            return std::string{};
+        },
+        [delimiter](std::string& acc, const E& elem) -> std::string& {
+            if (!acc.empty()) {
+                acc += delimiter;
+            }
+            acc += toString(elem);
+            return acc;
+        },
+        [delimiter](std::string& a, const std::string& b) -> std::string& {
+            if (!a.empty() && !b.empty()) {
+                a += delimiter;
+            }
+            a += b;
+            return a;
+        },
+        [prefix, suffix](const std::string& s) -> std::string {
+            return prefix + s + suffix;
+        }
+    );
+}
+
+template <typename E>
+Collector<E, std::string, std::string> quotedJoining(const std::string& delimiter, char quote, char escape) {
+    return Collector<E, std::string, std::string>(
+        []() { return std::string{}; },
+        [delimiter, quote, escape](std::string& acc, const E& elem) {
+            if (!acc.empty()) acc += delimiter;
+            std::string s = toString(elem);
+            std::string quoted;
+            quoted += quote;
+            for (char c : s) {
+                if (c == quote || c == escape) quoted += escape;
+                quoted += c;
+            }
+            quoted += quote;
+            acc += quoted;
+            return acc;
+        },
+        [delimiter, quote, escape](std::string& a, const std::string& b) {
+            if (!a.empty() && !b.empty()) a += delimiter;
+            a += b;
+            return a;
+        },
+        [](const std::string& s) { return s; }
+    );
+}
+
+template <typename E, typename D>
+Collector<E, Statistics<E, D>, Statistics<E, D>> toStatistics() {
+    return Collector<E, Statistics<E, D>, Statistics<E, D>>(
+        []() { return Statistics<E, D>{}; },
+        [](Statistics<E, D>& stats, const E& elem) {
+            stats.accept(elem);
+            return stats;
+        },
+        [](Statistics<E, D>& a, const Statistics<E, D>& b) {
+            a.combine(b);
+            return a;
+        },
+        [](const Statistics<E, D>& s) { return s; }
+    );
+}
+
+
 //Collectable
 template <typename E>
 Collectable<E> &Collectable<E>::operator=(const Collectable<E> &other) {
@@ -996,27 +1117,6 @@ Statistics<E, D> &Statistics<E, D>::operator=(Statistics<E, D> &&other) noexcept
 
 //OrderedCollectable
 template <typename E>
-OrderedCollectable<E>::Container OrderedCollectable<E>::toIndexedSet() const {
-    Container result;
-    if (this->concurrent < 2) {
-        (*this->generator)([&](const E& elem, Timestamp ts) {
-            result.emplace(ts, elem);
-        }, [](const E&) { return false; });
-    } else {
-        std::vector<std::pair<Timestamp, E>> buffer;
-        std::mutex mtx;
-        (*this->generator)([&](const E& elem, Timestamp ts) {
-            std::lock_guard<std::mutex> lock(mtx);
-            buffer.emplace_back(ts, elem);
-        }, [](const E&) { return false; });
-        for (auto&& p : buffer) {
-            result.insert(std::move(p));
-        }
-    }
-    return result;
-}
-
-template <typename E>
 OrderedCollectable<E>::OrderedCollectable()
     : Collectable<E>(), container() {}
 
@@ -1055,6 +1155,28 @@ OrderedCollectable<E>& OrderedCollectable<E>::operator=(Collectable<E>&& other) 
     Collectable<E>::operator=(std::move(other));
     return *this;
 }
+
+template <typename E>
+typename OrderedCollectable<E>::Container OrderedCollectable<E>::toIndexedSet() const {
+    Container result;
+    if (this->concurrent < 2) {
+        (*this->generator)([&](const E& elem, Timestamp ts) {
+            result.emplace(ts, elem);
+        }, [](const E&) { return false; });
+    } else {
+        std::vector<std::pair<Timestamp, E>> buffer;
+        std::mutex mtx;
+        (*this->generator)([&](const E& elem, Timestamp ts) {
+            std::lock_guard<std::mutex> lock(mtx);
+            buffer.emplace_back(ts, elem);
+        }, [](const E&) { return false; });
+        for (auto&& p : buffer) {
+            result.insert(std::move(p));
+        }
+    }
+    return result;
+}
+
 
 template <typename E>
 bool OrderedCollectable<E>::allMatch(const Predicate<E>& p) const {
@@ -2061,20 +2183,50 @@ Semantic<E> Semantic<E>::skip(const Module &n) const {
 
 template <typename E>
 OrderedCollectable<E> Semantic<E>::sorted() const {
-    return OrderedCollectable<E>([this](const BiConsumer<E, Timestamp> &accept, const Predicate<E> &interrupt) {
-        std::vector<std::pair<E, Timestamp>> buffer;
-        (*generator)([&](const E &element, Timestamp index) {
-            buffer.emplace_back(element, index);
-        }, [](const E &element) {
-            return false;
-        });
-        std::sort(buffer.begin(), buffer.end(), [](const auto &a, const auto &b) {
-            return a.first < b.first;
-        });
-        for (auto &[element, index] : buffer) {
-            accept(element, index);
+    return sorted(std::less<E>{});
+}
+
+template <typename E>
+template <typename Comparator>
+OrderedCollectable<E> Semantic<E>::sorted(Comparator comp) const {
+    using Pair = std::pair<Timestamp, E>;
+    auto pairComp = [&comp](const Pair& a, const Pair& b) {
+        if (comp(a.second, b.second)) return true;
+        if (comp(b.second, a.second)) return false;
+        return a.first < b.first;
+    };
+
+    std::set<Pair, decltype(pairComp)> sortedSet(pairComp);
+
+    if (this->concurrent < 2) {
+        (*this->generator)([&sortedSet](const E& elem, Timestamp ts) {
+            sortedSet.emplace(ts, elem);
+        }, [](const E&) { return false; });
+    } else {
+        std::vector<Pair> buffer;
+        std::mutex mtx;
+        (*this->generator)([&buffer, &mtx](const E& elem, Timestamp ts) {
+            std::lock_guard<std::mutex> lock(mtx);
+            buffer.emplace_back(ts, elem);
+        }, [](const E&) { return false; });
+        for (auto&& item : buffer) {
+            sortedSet.insert(std::move(item));
         }
-    }, concurrent);
+    }
+
+    typename OrderedCollectable<E>::Container finalContainer;
+    Timestamp newTs = 0;
+    for (const auto& item : sortedSet) {
+        finalContainer.emplace(newTs++, item.second);
+    }
+
+    auto gen = std::make_shared<Generator<E>>([finalContainer](const Consumer<E>& c, const Predicate<E>&) {
+        for (const auto& p : finalContainer) {
+            c(p.second, p.first);
+        }
+    });
+
+    return OrderedCollectable<E>(gen, this->concurrent);
 }
 
 template <typename E>
@@ -2367,3 +2519,8 @@ Semantic<E> range(const E &start, const E &end, const E &step)
 					   1);
 }
 }; // namespace semantic
+int main()
+{
+	semantic::from({1, 2, 3, 4}).cout();
+	return 0;
+}

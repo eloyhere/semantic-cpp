@@ -1,88 +1,162 @@
-# Semantic Stream — Biblioteca moderna de streams funcionales en C++
+# semantic-cpp – Biblioteca moderna de streams semánticos en C++
 
-Semantic es una biblioteca de streams funcionales de sólo cabecera, de alto rendimiento y evaluación completamente perezosa para C++17 y superiores. Está inspirada en JavaScript Generator, Java Stream API, el paquete java.util.function y en el diseño de índices de MySQL.
+**semantic-cpp** es una biblioteca header-only, C++17+, de evaluación perezosa y alto rendimiento.  
+Su idea central: **cada elemento lleva desde su nacimiento un índice lógico (Timestamp)** – todas las operaciones que afectan al orden son simplemente transformaciones de ese índice.
 
-Combina la expresividad de la programación funcional con evaluación verdaderamente perezosa, ejecución paralela y un sistema de indexación basado en marcas de tiempo, permitiendo procesar de forma elegante tanto secuencias finitas como infinitas.
+- Streams verdaderamente infinitos  
+- El índice es ciudadano de primera clase y puede remapearse libremente  
+- Paralelismo por defecto  
+- Solo al recolectar decides si respetar o ignorar todas las operaciones de índice  
 
-## Características principales
-
-- **Evaluación completamente perezosa** — Las operaciones intermedias sólo se ejecutan al invocar una operación terminal.
-- **Soporte nativo para streams infinitos** — Los generadores permiten crear secuencias infinitas de forma natural.
-- **Indexación por timestamp** — Cada elemento lleva un timestamp implícito o explícito, habilitando saltos y búsquedas eficientes al estilo de índices MySQL.
-- **Paralelismo con una sola línea** — `.parallel()` o `.parallel(n)` convierte el pipeline en multihilo.
-- **Amplio conjunto de operaciones funcionales** — `map`, `filter`, `flatMap`, `reduce`, `collect`, `group`, estadísticas, etc.
-- **API Collector al estilo Java** — supplier, accumulator, combiner y finisher.
-- **Potentes funciones estadísticas** — media, mediana, moda, varianza, desviación estándar, cuartiles, asimetría, curtosis…
-- **Múltiples formas de construcción** — desde contenedores, arrays, rangos, generadores o relleno.
+Licencia MIT – uso ilimitado en proyectos comerciales y de código abierto.
 
 ## Filosofía de diseño
 
-Semantic modela un stream como una secuencia temporal generada por un `Generator`. Las fuentes de inspiración son:
+> **El índice decide el orden – la ejecución solo decide la velocidad.**
 
-- **JavaScript Generator** — generación bajo demanda (pull).
-- **Java Stream** — API fluida y separación entre operaciones intermedias y terminales.
-- **Paquete java.util.function** — aliases para `Function`, `Consumer`, `Predicate`, etc.
-- **Índices de MySQL** — uso de timestamps lógicos para `skip`, `limit`, `redirect`, `translate` eficientes.
+- `redirect`, `reverse`, `shuffle`, `cycle` etc. modifican exclusivamente el índice lógico  
+- Solo con `.toOrdered()` se respetan esas operaciones → el resultado se ordena exactamente según el índice final  
+- Con `.toUnordered()` todas las operaciones de índice se ignoran → velocidad máxima, sin orden
 
-## Concepto central
-
-```cpp
-using Generator<E> = BiConsumer<
-    BiConsumer<E, Timestamp>,   // yield(elemento, timestamp)
-    Predicate<E>                // condición de cancelación
->;
+```text
+.toOrdered()   → todas las operaciones de índice tienen efecto
+.toUnordered() → todas las operaciones de índice se ignoran (camino más rápido)
 ```
 
-El generador recibe una función de entrega y una condición de cancelación. Esta abstracción de bajo nivel impulsa todas las fuentes de streams, tanto finitas como infinitas.
-
-## Ejemplos rápidos
+## Inicio rápido
 
 ```cpp
+#include "semantic.h"
 using namespace semantic;
 
-// Stream infinito de números aleatorios
-auto s = Semantic<int>::iterate([](auto yield, auto cancel) {
-    std::random_device rd;
-    std::mt19937 gen(rd());
-    std::uniform_int_distribution<> d(1, 100);
-    Timestamp ts = 0;
-    while (!cancel(d(gen))) {
-        yield(d(gen), ts++);
-    }
-});
+int main() {
+    // 1. Las operaciones de índice tienen efecto
+    auto v1 = Semantic<int>::range(0, 100)
+        .redirect([](auto&, auto i) { return -i; })   // invertir
+        .toOrdered()                                  // ¡obligatorio!
+        .toVector();   // resultado: [99, 98, …, 0]
 
-// Números primos con evaluación perezosa
-auto primes = Semantic<long long>::range(2LL, 1'000'000LL)
-    .filter([](long long n) {
-        return Semantic<long long>::range(2LL, n)
-            .takeWhile([n](long long d){ return d * d <= n; })
-            .noneMatch([n](long long d){ return n % d == 0; });
-    });
+    // 2. Las operaciones de índice se ignoran (máxima velocidad)
+    auto v2 = Semantic<int>::range(0, 100)
+        .redirect([](auto&, auto i) { return -i; })
+        .toUnordered()                                // índice ignorado
+        .toVector();   // resultado: desordenado, pero ultrarrápido
 
-// Conteo de palabras en paralelo
-auto wordCount = Semantic<std::string>::from(lines)
-    .flatMap([](const std::string& line) {
-        return Semantic<std::string>::from(split(line));
-    })
-    .parallel()
-    .group([](const std::string& w){ return w; })
-    .map([](auto& p){ return std::make_pair(p.first, p.second.size()); });
+    // 3. Stream cíclico infinito + recolección ordenada
+    auto top10 = Semantic<int>::range(0, 1'000'000'000)
+        .redirect([](auto&, auto i) { return i % 1000; }) // cíclico 0-999
+        .toOrdered()
+        .limit(10)
+        .toVector();   // [0,1,2,3,4,5,6,7,8,9]
+
+    return 0;
+}
 ```
+
+## Todos los métodos importantes con ejemplos de encadenamiento
+
+```cpp
+// Creación de streams
+Semantic<int>::range(0, 1000);
+Semantic<long long>::range(0, 1LL<<60);
+Semantic<int>::iterate([](auto yield, auto) {      // stream infinito
+    for (int i = 0;; ++i) yield(i);
+});
+Semantic<int>::of(1, 2, 3, 4, 5);
+Semantic<int>::from(std::vector{1,2,3,4});
+Semantic<int>::fill(42, 1'000'000);
+Semantic<int>::fill([] { return rand(); }, 1000);
+
+// Operaciones intermedias (100 % perezosas)
+stream.map([](int x) { return x * x; });
+stream.filter([](int x) { return x % 2 == 0; });
+stream.flatMap([](int x) { return Semantic<int>::range(0, x); });
+stream.distinct();                                     // eliminación de duplicados por valor
+stream.skip(100);
+stream.limit(50);
+stream.takeWhile([](int x) { return x < 1000; });
+stream.dropWhile([](int x) { return x < 100; });
+stream.peek([](int x) { std::cout << x << ' '; });
+
+// Transformaciones de índice (solo tienen efecto con toOrdered())
+stream.redirect([](auto&, auto i) { return -i; });           // invertir
+stream.redirect([](auto&, auto i) { return i % 100; });      // cíclico
+stream.redirect([](auto e, auto i) { return std::hash<int>{}(e); }); // mezclar
+stream.reverse();                                            // equivalente a redirect(-i)
+stream.shuffle();
+
+// Paralelismo
+stream.parallel();       // todos los núcleos
+stream.parallel(8);      // número fijo de hilos
+
+// Obligatorio: elegir explícitamente si se respeta el índice
+auto ordered   = stream.toOrdered();     // todas las operaciones de índice tienen efecto
+auto unordered = stream.toUnordered();   // todas las operaciones de índice se ignoran (más rápido)
+
+// Operaciones terminales ordenadas (el índice determina el orden final)
+ordered.toVector();
+ordered.toList();
+ordered.toSet();                 // deduplicar según índice final
+ordered.forEach([](int x) { std::cout << x << ' '; });
+ordered.cout();                  // [99, 98, 97, …]
+
+// Operaciones terminales sin orden (velocidad máxima)
+unordered.toVector();
+unordered.toList();
+unordered.toSet();
+unordered.forEach(...);
+unordered.cout();
+
+// Estadísticas (siempre por el camino rápido)
+auto stats = stream.toUnordered().toStatistics();
+
+// Reduce (recomendado con unordered)
+int suma = stream.toUnordered()
+    .reduce(0, [](int a, int b) { return a + b; });
+```
+
+## Resumen de métodos
+
+| Método                          | Descripción                                       | ¿Respeta operaciones de índice? |
+|---------------------------------|---------------------------------------------------|---------------------------------|
+| `toOrdered()`                   | Modo semántico – todas las operaciones de índice tienen efecto | Sí                              |
+| `toUnordered()`                 | Modo rendimiento – todas las operaciones de índice se ignoran | No (camino más rápido)          |
+| `toVector()` / `toList()`       | Recolectar en contenedor                         | depende                         |
+| `toSet()`                       | Recolectar en set (sin duplicados)               | depende                         |
+| `forEach` / `cout`              | Recorrer o imprimir                              | depende                         |
+| `redirect` / `reverse` / `shuffle` | Transformar el índice lógico                | solo con toOrdered()            |
+| `parallel`                      | Ejecución paralela                               | en ambos modos                  |
+
+## ¿Por qué hay que elegir explícitamente toOrdered / toUnordered?
+
+Porque **transformación de índice** y **ejecución paralela** son dos dimensiones completamente ortogonales:
+
+- `redirect` etc. son operaciones semánticas (¿dónde debe aparecer lógicamente el elemento?)  
+- `parallel` es solo estrategia de ejecución (¿cuánto de rápido lo calculamos?)
+
+Solo con la elección explícita al recolectar se consigue tanto la máxima velocidad como el control preciso del orden.
 
 ## Requisitos de compilación
 
-- C++17 o superior
-- Sólo cabecera — basta con `#include "semantic.hpp"`
-- Sin dependencias externas
+- C++17 o superior  
+- Solo `#include "semantic.h"`  
+- Cero dependencias externas  
+- Única cabecera
 
-Se crea automáticamente un pool de hilos global (`semantic::globalThreadPool`) con `std::thread::hardware_concurrency()` trabajadores.
+```bash
+g++ -std=c++17 -O3 -pthread semantic.cpp
+```
 
 ## Licencia
 
-MIT License — uso libre en proyectos comerciales y de código abierto.
+Licencia MIT – puede usarse sin restricciones en proyectos comerciales, de código abierto y privados.
 
-## Autor
+---
 
-Implementación de alto rendimiento que reúne las mejores ideas de la programación funcional moderna, adaptadas al C++ idiomático actual.
+**semantic-cpp**:  
+**El índice decide el orden – la ejecución solo decide la velocidad.**  
+Escribe `redirect` y realmente invierte. Escribe `toUnordered()` y realmente es lo más rápido.  
+Sin compromisos – solo decisiones claras.
 
-¡Listo! Ahora tienes también `README.es.md`.
+Escribe streams sin tener que adivinar.  
+Solo di claramente: **«Quiero semántica – o quiero pura velocidad.»**

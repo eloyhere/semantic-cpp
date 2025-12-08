@@ -1,86 +1,159 @@
-# Semantic Stream —— 现代 C++ 函数式流库
+# semantic-cpp —— 现代 C++ 语义流库（Semantic Stream）
 
-Semantic 是一个纯头文件、高性能、完全惰性求值的现代 C++17+ 函数式流库，设计灵感同时来源于 JavaScript Generator、Java Stream API、Java Function 包以及 MySQL 索引表的思想。
+**semantic-cpp** 是一个纯头文件、C++17 起、零外部依赖的高性能惰性流库。它融合了 JavaScript Generator、Java Stream、Kotlin Flow 和数据库索引访问的思想，首次在 C++ 中实现了：
 
-它将函数式编程的优雅表达能力与真正的惰性求值、并行执行以及基于时间戳的元素索引完美结合，可轻松处理有限序列与无限序列。
+- 真正的**无限流**支持  
+- 每个元素自带**逻辑索引（Timestamp）**  
+- **并行即默认**，顺序必须显式声明  
+- **强制用户在编译期选择“要性能还是要顺序”**，杜绝隐式代价  
 
-## 主要特性
+MIT 许可，商用开源完全免费。
 
-- **完全惰性求值** —— 所有中间操作仅在触发终结操作时才执行。
-- **原生支持无限流** —— 通过 Generator 可自然构造无限序列。
-- **时间戳索引机制** —— 每个元素都带有隐式或显式的时间戳，支持类 MySQL 索引的高效跳跃与定位。
-- **一键并行** —— 只需调用 `.parallel()` 或 `.parallel(n)` 即可开启多线程并行流水线。
-- **丰富的函数式操作** —— `map`、`filter`、`flatMap`、`reduce`、`collect`、`group`、统计等一应俱全。
-- **完整的 Java 风格 Collector** —— 熟悉的 supplier、accumulator、combiner、finisher 四阶段收集器。
-- **强大的统计功能** —— 均值、中位数、众数、方差、标准差、分位数、偏度、峰度等全覆盖。
-- **多种构造方式** —— 支持从容器、数组、范围、生成器、填充等方式快速创建。
+## 核心设计哲学
 
-## 设计理念
-
-Semantic 把流视为一个带时间戳的、由 Generator 产生的元素序列，核心灵感来源：
-
-- **JavaScript Generator** —— 拉取式的惰性值产生机制。
-- **Java Stream** —— 流畅的链式调用与中间/终结操作分离。
-- **Java Function 包** —— `Function`、`Consumer`、`Predicate` 等函数式接口。
-- **MySQL 索引表** —— 通过逻辑时间戳实现高效的 `skip`、`limit`、`redirect`、`translate` 等操作。
-
-## 核心概念
-
-```cpp
-using Generator<E> = BiConsumer<
-    BiConsumer<E, Timestamp>,   // yield(元素, 时间戳)
-    Predicate<E>                // 取消判断
->;
+```text
+并行是默认的，顺序是需要付费的（最终一次归并排序）。
 ```
 
-生成器接收一个 yield 函数和一个取消检查函数，这一底层抽象驱动所有流来源，包括无限流。
+- 不写 `.ordered()` → 走最快无序路径（推荐 90% 场景）
+- 写了 `.ordered()` → 结果严格按原始出现顺序（日志、协议、调试必备）
 
-## 快速示例
+没有中间状态，没有“可能有序”的模糊地带，编译器强制你做出选择。
+
+## 快速开始
 
 ```cpp
+#include "semantic.h"
 using namespace semantic;
 
-// 无限随机整数流
-auto s1 = Semantic<int>::iterate([](auto yield, auto cancel) {
-    std::random_device rd;
-    std::mt19937 gen(rd());
-    std::uniform_int_distribution<> d(1, 100);
-    Timestamp ts = 0;
-    while (!cancel(d(gen))) {
-        yield(d(gen), ts++);
-    }
-});
+int main() {
+    // 1. 最快无序收集（推荐）
+    auto fast = Semantic<int>::range(0, 1000000)
+        .parallel(16)
+        .map([](int x) { return x * x; })
+        .toUnordered()          // 必须显式调用
+        .toVector();
 
-// 惰性筛法生成素数（有限范围）
-auto primes = Semantic<long long>::range(2LL, 1'000'000LL)
-    .filter([](long long n) {
-        return Semantic<long long>::range(2LL, n)
-            .takeWhile([n](long long d){ return d * d <= n; })
-            .noneMatch([n](long long d){ return n % d == 0; });
-    });
+    // 2. 严格有序收集（必须显式声明）
+    auto ordered = Semantic<int>::range(0, 1000000)
+        .parallel(16)
+        .redirect([](auto&, auto i) { return -i; })  // 彻底打乱索引
+        .toOrdered()             // 必须显式调用
+        .toVector();             // 结果仍然是 0,1,2,...,999999
 
-// 并行单词计数
-auto wordCount = Semantic<std::string>::from(lines)
-    .flatMap([](const std::string& line) {
-        return Semantic<std::string>::from(split(line));
-    })
-    .parallel()
-    .group([](const std::string& w){ return w; })
-    .map([](auto& p){ return std::make_pair(p.first, p.second.size()); });
+    // 3. 有序去重（神器）
+    auto unique = Semantic<int>::of(3,1,4,1,5,9,2,6,5)
+        .parallel(8)
+        .toOrdered()
+        .toSet();                // {3,1,4,5,9,2,6} 按首次出现顺序
+
+    return 0;
+}
 ```
+
+## 所有链式调用示例
+
+```cpp
+// 流创建方式
+Semantic<int>::range(0, 100);                    // 有限范围
+Semantic<long long>::range(0LL, 1LL<<60);        // 支持超大范围
+Semantic<int>::iterate([](auto yield, auto) {    // 无限流
+    for (int i = 0;; ++i) yield(i);
+});
+Semantic<int>::of(1, 2, 3, 4, 5);
+Semantic<int>::from(std::vector{1,2,3,4});
+Semantic<int>::fill(42, 1'000'000);              // 填充固定值
+Semantic<int>::fill([] { return rand(); }, 1000);
+
+// 中间操作（全部惰性）
+stream.map([](int x) { return x * x; });
+stream.filter([](int x) { return x % 2 == 0; });
+stream.flatMap([](int x) { return Semantic<int>::range(0, x); });
+stream.distinct();                               // 去重（基于值）
+stream.skip(100);
+stream.limit(50);
+stream.takeWhile([](int x) { return x < 1000; });
+stream.dropWhile([](int x) { return x < 100; });
+stream.peek([](int x) { std::cout << x << ' '; });
+stream.redirect([](auto&, auto i) { return -i; });     // 逆序
+stream.redirect([](auto&, auto i) { return i % 10; }); // 循环
+stream.parallel();                               // 使用全部核心
+stream.parallel(8);                              // 指定线程数
+
+// 必须显式选择收集方式
+auto collector = stream.toOrdered();    // 我要顺序
+auto fast = stream.toUnordered();       // 我要性能（默认路径）
+
+// 有序收集（结果严格按原始顺序）
+collector.toVector();
+collector.toList();
+collector.toSet();                      // 有序去重
+collector.forEach([](int x) { std::cout << x << ' '; });
+collector.cout();                       // 直接打印 [1, 2, 3, ...]
+
+// 无序收集（最快路径）
+fast.toVector();
+fast.toList();
+fast.toSet();                           // 无序去重
+fast.forEach(...);
+fast.cout();
+
+// 统计（无序快速路径）
+auto stats = stream.toUnordered().toStatistics();
+std::cout << "均值 = " << stats.mean([](int x) { return x; });
+
+// reduce 示例
+int sum = stream.toUnordered()
+    .reduce(0, [](int a, int b) { return a + b; });
+
+std::optional<int> firstPrime = stream
+    .filter(isPrime)
+    .toOrdered()
+    .findFirst();
+```
+
+## 关键方法一览表
+
+| 方法                          | 说明                                      | 是否有序 |
+|-------------------------------|-------------------------------------------|----------|
+| `toOrdered()`                 | 进入有序收集模式（必须显式调用）          | 是       |
+| `toUnordered()`               | 进入最快无序收集模式（默认）              | 否       |
+| `toVector()` / `toList()`     | 收集为容器                                | 取决于前者 |
+| `toSet()`                     | 收集为 set（去重）                        | 取决于前者 |
+| `forEach(...)`                | 遍历每个元素                              | 取决于前者 |
+| `cout()`                      | 直接打印 [1, 2, 3, ...]                   | 取决于前者 |
+| `reduce(...)`                 | 归约                                      | 无序更快 |
+| `collect(...)`                | 自定义收集器                              | 取决于前者 |
+| `toStatistics()`             | 统计信息（均值、中位数、众数等）          | 无序更快 |
+
+## 为什么必须显式选择 ordered / unordered？
+
+因为并行后的顺序从来不是免费的。  
+我们拒绝“默认有序但偷偷变慢”或“声称并行但其实乱序”的模糊设计。
+
+你写什么，就得到什么。  
+没有惊喜，只有性能和确定性。
 
 ## 编译要求
 
-- C++17 或更高版本
-- 纯头文件 —— 仅需 `#include "semantic.hpp"`
-- 无任何外部依赖
+- C++17 或更高
+- 仅需包含 `semantic.h`
+- 零外部依赖
+- 头文件单文件，直接 `#include "semantic.h"`
 
-库内置全局线程池 `semantic::globalThreadPool`，启动时自动使用 `std::thread::hardware_concurrency()` 个线程。
+```cpp
+// 推荐编译选项
+g++ -std=c++17 -O3 -pthread semantic.cpp
+```
 
 ## 许可证
 
-MIT License —— 可自由用于商业与开源项目。
+MIT 许可证 —— 随意用于商用、开源、私有项目，无需保留版权声明。
 
-## 作者
+---
 
-融合当代函数式编程精华，为现代 C++ 量身打造的高性能实现。
+**semantic-cpp**：  
+**并行是默认的，顺序是选择的，索引是第一等公民。**
+
+你写流，不再需要猜。  
+你写流，只需要说清楚：**“我要快，还是我要顺序？”**

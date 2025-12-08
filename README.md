@@ -52,22 +52,19 @@ auto stream = Semantic<int>::iterate([](auto yield, auto cancel) {
     }
 });
 
-// Finite example: primes using Sieve-like lazy filter
-auto primes = Semantic<long long>::range(2LL, 1'000'000LL)
-                  .filter([](long long n) {
-                      return Semantic<long long>::range(2LL, n)
-                             .takeWhile([n](long long d) { return d * d <= n; })
-                             .noneMatch([n](long long d) { return n % d == 0; });
-                  });
+// Finite example: odds using Sieve-like lazy filter
+auto odds = Semantic<long long>::range(2LL, 1'000'000LL)
+  .filter([](long long n) {
+    return n % 2 == 0;
+  }).sub(10, 25).cout();// [11,13,15,17,19,21,23,25]
 
 // Parallel word count
 auto wordCount = Semantic<std::string>::from(fileLines)
-                    .flatMap([](const std::string& line) {
-                        return Semantic<std::string>::from(split(line));
-                    })
-                    .parallel()
-                    .group([](const std::string& w) { return w; })
-                    .map([](auto& pair) { return std::make_pair(pair.first, pair.second.size()); });
+  .flatMap([](const std::string& line) {
+    return Semantic<std::string>::from(split(line));
+  })
+  .parallel()
+  .group([](const std::string& w) { return w});
 ```
 
 ## Building & Requirements
@@ -85,3 +82,4 @@ MIT Licence – feel free to use in commercial and open-source projects.
 ## Author
 
 Written with inspiration from the best ideas in modern functional programming, adapted for idiomatic, performant C++.
+

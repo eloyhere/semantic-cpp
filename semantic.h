@@ -244,13 +244,14 @@ class OrderedCollectable : public Collectable<E> {
 protected:
     using Container = std::set<std::pair<Timestamp, E>>;
 
-    const Container container;
+    mutable Container container;
 
     Container toIndexedSet() const;
 
 public:
-    OrderedCollectable()
-        : Collectable<E>(), container() {}
+    OrderedCollectable() : Collectable<E>(), container() {}
+        
+        OrderedCollectable(const Container& container) : Collectable<E>(), container(container) {}
 
     OrderedCollectable(const Generator<E> &generator)
         : Collectable<E>(generator), container(toIndexedSet()) {}

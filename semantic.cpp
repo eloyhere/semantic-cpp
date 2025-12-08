@@ -19,6 +19,7 @@ D randomly(const D &start, const D &end)
 	}
 }
 
+//Thread pool
 ThreadPool::ThreadPool(Module threads) : threads(threads), stop(false)
 {
 	try
@@ -109,1235 +110,2050 @@ Module ThreadPool::getTaskQueueSize()
 	return tasks.size();
 }
 
-template <typename E, typename D>
-Module Statistics<E, D>::count() const
-{
-	return elements.size();
-}
-
-template <typename E, typename D>
-E Statistics<E, D>::maximum(const Comparator<E, E> &comparator) const
-{
-	std::string key = "maximum";
-	auto it = cache.find(key);
-	if (it != cache.end())
-	{
-		return static_cast<E>(it->second);
-	}
-	E result = *std::max_element(elements.begin(), elements.end(),
-								 [&comparator](const E &a, const E &b) { return comparator(a, b) < 0; });
-	cache[key] = static_cast<D>(result);
-	return result;
-}
-
-template <typename E, typename D>
-E Statistics<E, D>::minimum(const Comparator<E, E> &comparator) const
-{
-	std::string key = "minimum";
-	auto it = cache.find(key);
-	if (it != cache.end())
-	{
-		return static_cast<E>(it->second);
-	}
-	E result = *std::min_element(elements.begin(), elements.end(),
-								 [&comparator](const E &a, const E &b) { return comparator(a, b) < 0; });
-	cache[key] = static_cast<D>(result);
-	return result;
-}
-
-template <typename E, typename D>
-D Statistics<E, D>::range(const Function<E, D> &mapper) const
-{
-	std::string key = "range";
-	auto it = cache.find(key);
-	if (it != cache.end())
-	{
-		return it->second;
-	}
-	std::vector<D> values;
-	std::transform(elements.begin(), elements.end(), std::back_inserter(values), mapper);
-	D result = *std::max_element(values.begin(), values.end()) - *std::min_element(values.begin(), values.end());
-	cache[key] = result;
-	return result;
-}
-
-template <typename E, typename D>
-D Statistics<E, D>::variance(const Function<E, D> &mapper) const
-{
-	std::string key = "variance";
-	auto it = cache.find(key);
-	if (it != cache.end())
-	{
-		return it->second;
-	}
-	std::vector<D> values;
-	std::transform(elements.begin(), elements.end(), std::back_inserter(values), mapper);
-	D mean_val = std::accumulate(values.begin(), values.end(), D{}) / values.size();
-	D sum_sq = D{};
-	for (const auto &v : values)
-	{
-		sum_sq += (v - mean_val) * (v - mean_val);
-	}
-	D result = values.size() > 1 ? sum_sq / (values.size() - 1) : D{};
-	cache[key] = result;
-	return result;
-}
-
-template <typename E, typename D>
-D Statistics<E, D>::standardDeviation(const Function<E, D> &mapper) const
-{
-	std::string key = "standardDeviation";
-	auto it = cache.find(key);
-	if (it != cache.end())
-	{
-		return it->second;
-	}
-	D result = std::sqrt(variance(mapper));
-	cache[key] = result;
-	return result;
-}
-
-template <typename E, typename D>
-D Statistics<E, D>::mean(const Function<E, D> &mapper) const
-{
-	std::string key = "mean";
-	auto iterator = cache.find(key);
-	if (iterator != cache.end())
-	{
-		return iterator->second;
-	}
-	D sum = std::accumulate(elements.begin(), elements.end(), D{},
-							[&mapper](const D &accumulator, const E &element) {
-								return accumulator + mapper(element);
-							});
-	D result = elements.size() > 0 ? sum / static_cast<D>(elements.size()) : D{};
-	cache[key] = result;
-	return result;
-}
-
-template <typename E, typename D>
-D Statistics<E, D>::median(const Function<E, D> &mapper) const
-{
-	std::string key = "median";
-	auto it = cache.find(key);
-	if (it != cache.end())
-	{
-		return it->second;
-	}
-	std::vector<D> values;
-	std::transform(elements.begin(), elements.end(), std::back_inserter(values), mapper);
-	std::sort(values.begin(), values.end());
-	D result;
-	size_t n = values.size();
-	if (n == 0)
-	{
-		result = D{};
-	}
-	else if (n % 2 == 0)
-	{
-		result = (values[n / 2 - 1] + values[n / 2]) / 2;
-	}
-	else
-	{
-		result = values[n / 2];
-	}
-	cache[key] = result;
-	return result;
-}
-
-template <typename E, typename D>
-D Statistics<E, D>::mode(const Function<E, D> &mapper) const
-{
-	std::string key = "mode";
-	auto it = cache.find(key);
-	if (it != cache.end())
-	{
-		return it->second;
-	}
-	std::map<D, Module> freq_map;
-	for (const auto &element : elements)
-	{
-		D value = mapper(element);
-		freq_map[value]++;
-	}
-	D result = D{};
-	Module max_count = 0;
-	for (const auto &pair : freq_map)
-	{
-		if (pair.second > max_count)
-		{
-			max_count = pair.second;
-			result = pair.first;
-		}
-	}
-	cache[key] = result;
-	return result;
-}
-
-template <typename E, typename D>
-std::map<D, Module> Statistics<E, D>::frequency(const Function<E, D> &mapper) const
-{
-	std::string key = "frequency";
-	auto it = frequencyCache.find(key);
-	if (it != frequencyCache.end())
-	{
-		return it->second;
-	}
-	std::map<D, Module> result;
-	for (const auto &element : elements)
-	{
-		D value = mapper(element);
-		result[value]++;
-	}
-	frequencyCache[key] = result;
-	return result;
-}
-
-template <typename E, typename D>
-D Statistics<E, D>::sum(const Function<E, D> &mapper) const
-{
-	std::string key = "sum";
-	auto iterator = cache.find(key);
-	if (iterator != cache.end())
-	{
-		return iterator->second;
-	}
-	D result = std::accumulate(elements.begin(), elements.end(), D{},
-							   [&mapper](const D &accumulator, const E &element) {
-								   return accumulator + mapper(element);
-							   });
-	cache[key] = result;
-	return result;
-}
-
-template <typename E, typename D>
-std::vector<D> Statistics<E, D>::quartiles(const Function<E, D> &mapper) const
-{
-	std::string key = "quartiles";
-	auto it = cache.find(key);
-	if (it != cache.end())
-	{
-		return std::vector<D>{it->second}; // Simplified for caching
-	}
-	std::vector<D> values;
-	std::transform(elements.begin(), elements.end(), std::back_inserter(values), mapper);
-	std::sort(values.begin(), values.end());
-	std::vector<D> result(3);
-	size_t n = values.size();
-	result = n > 0 ? values[n / 4] : D{};
-	result = n > 0 ? values[n / 2] : D{};
-	result = n > 0 ? values[3 * n / 4] : D{};
-	cache[key] = result; // Simplified caching
-	return result;
-}
-
-template <typename E, typename D>
-D Statistics<E, D>::interquartileRange(const Function<E, D> &mapper) const
-{
-	std::string key = "interquartileRange";
-	auto it = cache.find(key);
-	if (it != cache.end())
-	{
-		return it->second;
-	}
-	std::vector<D> q = quartiles(mapper);
-	D result = q - q;
-	cache[key] = result;
-	return result;
-}
-
-template <typename E, typename D>
-D Statistics<E, D>::skewness(const Function<E, D> &mapper) const
-{
-	std::string key = "skewness";
-	auto it = cache.find(key);
-	if (it != cache.end())
-	{
-		return it->second;
-	}
-	std::vector<D> values;
-	std::transform(elements.begin(), elements.end(), std::back_inserter(values), mapper);
-	D mean_val = mean(mapper);
-	D stddev_val = standardDeviation(mapper);
-	D result = D{};
-	if (stddev_val != D{})
-	{
-		D sum_cubed = D{};
-		for (const auto &v : values)
-		{
-			sum_cubed += std::pow((v - mean_val) / stddev_val, 3);
-		}
-		result = values.size() > 2 ? sum_cubed / values.size() : D{};
-	}
-	cache[key] = result;
-	return result;
-}
-
-template <typename E, typename D>
-D Statistics<E, D>::kurtosis(const Function<E, D> &mapper) const
-{
-	std::string key = "kurtosis";
-	auto it = cache.find(key);
-	if (it != cache.end())
-	{
-		return it->second;
-	}
-	std::vector<D> values;
-	std::transform(elements.begin(), elements.end(), std::back_inserter(values), mapper);
-	D mean_val = mean(mapper);
-	D stddev_val = standardDeviation(mapper);
-	D result = D{};
-	if (stddev_val != D{})
-	{
-		D sum_quad = D{};
-		for (const auto &v : values)
-		{
-			sum_quad += std::pow((v - mean_val) / stddev_val, 4);
-		}
-		result = values.size() > 3 ? (sum_quad / values.size()) - 3 : D{};
-	}
-	cache[key] = result;
-	return result;
-}
-
-template <typename E, typename D>
-bool Statistics<E, D>::isEmpty() const
-{
-	return elements.empty();
-}
-
-template <typename E, typename D>
-void Statistics<E, D>::clear()
-{
-	elements.clear();
-	cache.clear();
-	frequencyCache.clear();
-}
-
-template <typename E, typename D>
-Statistics<E, D> &Statistics<E, D>::operator=(const std::list<E> &l)
-{
-	elements.assign(l.begin(), l.end());
-	cache.clear();
-	frequencyCache.clear();
-	return *this;
-}
-
-template <typename E, typename D>
-Statistics<E, D> &Statistics<E, D>::operator=(const std::vector<E> &v)
-{
-	elements = v;
-	cache.clear();
-	frequencyCache.clear();
-	return *this;
-}
-
-template <typename E, typename D>
-Statistics<E, D> &Statistics<E, D>::operator=(std::initializer_list<E> l)
-{
-	elements.assign(l.begin(), l.end());
-	cache.clear();
-	frequencyCache.clear();
-	return *this;
-}
-
-template <typename E, typename D>
-Statistics<E, D> &Statistics<E, D>::operator=(const Statistics &other)
-{
-	if (this != &other)
-	{
-		elements = other.elements;
-		cache = other.cache;
-		frequencyCache = other.frequencyCache;
-	}
-	return *this;
-}
-
-template <typename E, typename D>
-Statistics<E, D> &Statistics<E, D>::operator=(Statistics &&other) noexcept
-{
-	if (this != &other)
-	{
-		elements = std::move(other.elements);
-		cache = std::move(other.cache);
-		frequencyCache = std::move(other.frequencyCache);
-	}
-	return *this;
+//Collectable
+template <typename E>
+Collectable<E> &Collectable<E>::operator=(const Collectable<E> &other) {
+    if (this != &other) {
+        generator = other.generator;
+        concurrent = other.concurrent;
+    }
+    return *this;
 }
 
 template <typename E>
-bool Semantic<E>::anyMatch(const Predicate<E> &predicate) const
-{
-	if (this->concurrent < 2)
-	{
-		bool match = false;
-		(*generator)([&](const E &element, Timestamp) -> void { 
-		if(predicate(element)){
-		 match = true;
-		} }, [&](const E &) -> bool { return match; });
-	}
-	return collect([]() -> bool { return false; }, [&predicate](bool matched, const E &element) -> bool {
-                if (matched){
-                    return true;
-                }
-                return predicate(element); }, [](bool a, bool b) -> bool { return a || b; }, [](bool result) -> bool { return result; });
+Collectable<E> &Collectable<E>::operator=(Collectable<E> &&other) noexcept {
+    if (this != &other) {
+        generator = std::move(other.generator);
+        concurrent = other.concurrent;
+    }
+    return *this;
 }
 
 template <typename E>
-bool Semantic<E>::allMatch(const Predicate<E> &predicate) const
-{
-	if (this->concurrent < 2)
-	{
-		bool mismatch = false;
-		(*generator)([&](const E &element, Timestamp) -> void { 
-		if(predicate(element)){
-		 mismatch = true;
-		} }, [&](const E &) -> bool { return mismatch; });
-	}
-	return collect([]() -> bool { return true; }, [&predicate](bool allMatched, const E &element) -> bool {
-                if (!allMatched){
-                    return false;
+bool Collectable<E>::anyMatch(const Predicate<E> &predicate) const {
+    if (concurrent < 2) {
+        bool result = false;
+        (*generator)(
+            [&](const E &element, Timestamp index) {
+                if (predicate(element)) {
+                    result = true;
                 }
-                return predicate(element); }, [](bool a, bool b) -> bool { return a && b; }, [](bool result) -> bool { return result; });
+            },
+            [&](const E &element) -> bool {
+                return result;
+            }
+        );
+        return result;
+    } else {
+        std::atomic<bool> found{false};
+        std::vector<std::future<void>> futures;
+        Module threadCount = concurrent;
+
+        for (Module threadIndex = 0; threadIndex < threadCount; ++threadIndex) {
+            futures.push_back(globalThreadPool.submit([&, threadIndex]() {
+                (*generator)(
+                    [&](const E &element, Timestamp index) {
+                        if (found.load()) return;
+                        if (index % threadCount == threadIndex) {
+                            if (predicate(element)) {
+                                found.store(true);
+                            }
+                        }
+                    },
+                    [](const E &element) -> bool { return false; }
+                );
+            }));
+        }
+
+        for (auto &future : futures) {
+            future.wait();
+        }
+
+        return found.load();
+    }
+}
+
+template <typename E>
+bool Collectable<E>::allMatch(const Predicate<E> &predicate) const {
+    if (concurrent < 2) {
+        bool result = true;
+        (*generator)(
+            [&](const E &element, Timestamp index) {
+                if (!predicate(element)) {
+                    result = false;
+                }
+            },
+            [&](const E &element) -> bool {
+                return !result;
+            }
+        );
+        return result;
+    } else {
+        std::atomic<bool> allTrue{true};
+        std::vector<std::future<void>> futures;
+        Module threadCount = concurrent;
+
+        for (Module threadIndex = 0; threadIndex < threadCount; ++threadIndex) {
+            futures.push_back(globalThreadPool.submit([&, threadIndex]() {
+                (*generator)(
+                    [&](const E &element, Timestamp index) {
+                        if (!allTrue.load()) return;
+                        if (index % threadCount == threadIndex) {
+                            if (!predicate(element)) {
+                                allTrue.store(false);
+                            }
+                        }
+                    },
+                    [](const E &element) -> bool { return false; }
+                );
+            }));
+        }
+
+        for (auto &future : futures) {
+            future.wait();
+        }
+
+        return allTrue.load();
+    }
 }
 
 template <typename E>
 template <typename A, typename R>
-R Semantic<E>::collect(const Supplier<A> &supplier, const BiFunction<A, E, A> &accumulator, const BiFunction<A, A, A> &combiner, const Function<A, R> &finisher) const
-{
-	if (concurrent < 2)
-	{
-		A result = supplier();
-		(*generator)([&](const E &element, Timestamp) -> void { accumulator(result, element); }, [](const E &) -> bool { return false; });
-		return finisher(result);
-	}
-	std::vector<std::future<A>> futures;
-	std::atomic<Module> nextThread{0};
-	A localResult = supplier();
+R Collectable<E>::collect(const Supplier<A> &identity, const BiFunction<A, E, A> &accumulator, const BiFunction<A, A, A> &combiner, const Function<A, R> &finisher) const {
+    if (concurrent < 2) {
+        A result = identity();
+        (*generator)(
+            [&](const E &element, Timestamp index) {
+                result = accumulator(result, element);
+            },
+            [](const E &element) -> bool { return false; }
+        );
+        return finisher(result);
+    } else {
+        std::vector<A> localResults(concurrent);
+        std::vector<std::future<void>> futures;
+        Module threadCount = concurrent;
 
-	(*generator)([&](const E &element, Timestamp) -> void {
-            Module threadId = nextThread++ % concurrent;
-            if (threadId == 0) {
-                accumulator(localResult, element);
-            }else {
-                futures.push_back(globalThreadPool.submit([=, &element]() {
-                    A partial = supplier();
-                    accumulator(partial, element);
-                    return partial;
-                }));
-            } }, [](const E &) -> bool { return false; });
-	A finalResult = localResult;
-	for (auto &future : futures)
-	{
-		A partial = future.get();
-		finalResult = combiner(finalResult, partial);
-	}
+        for (Module threadIndex = 0; threadIndex < threadCount; ++threadIndex) {
+            localResults[threadIndex] = identity();
+            futures.push_back(globalThreadPool.submit([&, threadIndex]() {
+                (*generator)(
+                    [&](const E &element, Timestamp index) {
+                        if (index % threadCount == threadIndex) {
+                            localResults[threadIndex] = accumulator(localResults[threadIndex], element);
+                        }
+                    },
+                    [](const E &element) -> bool { return false; }
+                );
+            }));
+        }
 
-	return finisher(finalResult);
+        for (auto &future : futures) {
+            future.wait();
+        }
+
+        A merged = identity();
+        for (const auto &local : localResults) {
+            merged = combiner(merged, local);
+        }
+        return finisher(merged);
+    }
 }
 
 template <typename E>
 template <typename A, typename R>
-R Semantic<E>::collect(const Collector<E, A, R> &c) const
-{
-	return this->collect(c.identity, c.accumulator, c.combiner, c.finisher);
+R Collectable<E>::collect(const Collector<E, A, R> &collector) const {
+    return collect(collector.identity, collector.accumulator, collector.combiner, collector.finisher);
 }
 
 template <typename E>
-Semantic<E> Semantic<E>::concat(const Semantic<E> &other) const
-{
-	return Semantic<E>([this, &other](const BiConsumer<E, Timestamp> &accept, const Predicate<E> &interrupt) -> void {
-		(*this->generator)([&](const E &element, Timestamp ts) -> void { accept(element, ts); }, interrupt);
-		(*other.generator)([&](const E &element, Timestamp ts) -> void { accept(element, ts); }, interrupt);
-	},
-					   this->concurrent);
+void Collectable<E>::cout() const {
+    forEach([](const E &element) {
+        std::cout << element << std::endl;
+    });
 }
 
 template <typename E>
-void Semantic<E>::cout() const
-{
-	std::cout << '[';
-	bool splitable = false;
-	this->cout(std::cout, [&splitable](const E &element, std::ostream &stream) -> void {
-		if(splitable){
-			std::cout << ',';
-		}else{
-			splitable = true;
-		}
-		stream << element;
-	});
-	std::cout << ']';
+void Collectable<E>::cout(const BiFunction<E, std::ostream &, std::ostream &> &accumulator) const {
+    forEach([&accumulator](const E &element) {
+        accumulator(element, std::cout) << std::endl;
+    });
 }
 
 template <typename E>
-void Semantic<E>::cout(const BiFunction<E, std::ostream &, std::ostream &> &accumulator) const
-{
-	std::cout << '[';
-	this->cout(std::cout, accumulator);
-	std::cout << ']';
+void Collectable<E>::cout(std::ostream &stream) const {
+    forEach([&stream](const E &element) {
+        stream << element << std::endl;
+    });
 }
 
 template <typename E>
-void Semantic<E>::cout(std::ostream &stream) const
-{
-	this->cout(stream, [](const E &element, std::ostream &os) -> std::ostream & {
-		return os << element << ',';
-	});
+void Collectable<E>::cout(std::ostream &stream, const BiConsumer<E, std::ostream &> &accumulator) const {
+    forEach([&stream, &accumulator](const E &element) {
+        accumulator(element, stream);
+        stream << std::endl;
+    });
 }
 
 template <typename E>
-void Semantic<E>::cout(std::ostream &stream, const BiConsumer<E, std::ostream &> &accumulator) const
-{
-	if (concurrent < 2)
-	{
-		(*generator)([&](const E &element, Timestamp) -> void { accumulator(element, stream); }, [&](const E &) -> bool { return false; });
-	}
-	else
-	{
-		std::mutex streamMutex;
-		std::vector<std::future<void>> futures;
-		std::atomic<Module> nextThread{0};
-
-		(*generator)([&](const E &element, Timestamp) {
-            Module threadId = nextThread.fetch_add(1, std::memory_order_relaxed) % concurrent;
-            if (threadId == 0) {
-                std::lock_guard<std::mutex> lock(streamMutex);
-                accumulator(element, stream);
-            } else {
-                futures.push_back(std::async(std::launch::async, [&]() {
-                    std::lock_guard<std::mutex> lock(streamMutex);
-                    accumulator(element, stream);
-                }));
-            } }, [](const E &) -> bool { return false; });
-
-		for (auto &future : futures)
-		{
-			future.get();
-		}
-	}
+Module Collectable<E>::count() const {
+    return collect(
+        []() -> Module { return 0; },
+        [](Module current, const E &element) -> Module { return current + 1; },
+        [](Module a, Module b) -> Module { return a + b; },
+        [](Module result) -> Module { return result; }
+    );
 }
 
 template <typename E>
-Module Semantic<E>::count() const
-{
-	return this->toSet().size();
-}
+std::optional<E> Collectable<E>::findFirst() const {
+    if (concurrent < 2) {
+        std::optional<E> result;
+        (*generator)(
+            [&](const E &element, Timestamp index) {
+                if (!result.has_value()) {
+                    result = element;
+                }
+            },
+            [](const E &element) -> bool { return false; }
+        );
+        return result;
+    } else {
+        std::mutex resultMutex;
+        std::optional<E> firstElement;
+        std::vector<std::future<void>> futures;
+        Module threadCount = concurrent;
 
-template <typename E>
-Semantic<E> Semantic<E>::distinct() const
-{
-	return this->distinct([](const E &a) -> Timestamp {
-		return static_cast<Timestamp>(std::hash<E>{}(a));
-	});
-}
-
-template <typename E>
-Semantic<E> Semantic<E>::distinct(const Function<E, Timestamp> &identifier) const
-{
-	return Semantic<E>([this, identifier](const BiConsumer<E, Timestamp> &accept, const Predicate<E> &interrupt) {
-		std::unordered_set<Timestamp> seen;
-		std::mutex seenMutex;
-		(*generator)([&](const E &element, Timestamp index) {
-			Timestamp id = identifier(element);
-			std::lock_guard<std::mutex> lock(seenMutex);
-			if (seen.find(id) == seen.end())
-			{
-				seen.insert(id);
-				accept(element, index);
-			}
-		},
-					 interrupt);
-	},
-					   concurrent);
-}
-
-template <typename E>
-Semantic<E> Semantic<E>::dropWhile(const Predicate<E> &p) const
-{
-	return Semantic<E>([this, p](const BiConsumer<E, Timestamp> &accept, const Predicate<E> &interrupt) -> void {
-		bool dropping = true;
-		(*generator)([&](const E &element, Timestamp index) {
-            if (dropping && p(element)) {
-                return;
-            }
-            dropping = false;
-            accept(element, index); }, interrupt, [](const E &, Timestamp index) { return index; });
-	},
-					   this->concurrent);
-}
-
-template <typename E>
-Semantic<E> Semantic<E>::filter(const Predicate<E> &p) const
-{
-	return Semantic<E>([*this, &p](const BiConsumer<E, Timestamp> &accept, const Predicate<E> &interrupt) -> void {
-		(*generator)([&](const E &element, const Timestamp &index) -> void {
-            if (p(element))
-            {
-                accept(element, index);
-            } }, interrupt);
-	});
-}
-
-template <typename E>
-void Semantic<E>::forEach(const Consumer<E> &c) const
-{
-	if (concurrent < 2)
-	{
-		(*generator)([&](const E &element, const Timestamp &) -> void { c(element); }, [&](const E &) -> bool { return false; });
-	}
-	std::mutex cMutex;
-	std::vector<std::future<void>> futures;
-	std::atomic<Module> nextThread{0};
-	(*generator)([&](const E &element, const Timestamp &) {
-            Module threadId = nextThread.fetch_add(1, std::memory_order_relaxed) % concurrent;
-            if (threadId == 0)
-            {
-                c(element);
-            }
-            else
-            {
-                futures.push_back(std::async(std::launch::async, [element, &c]() { c(element); }));
-            } }, [&](const E &) -> bool { return false; });
-
-	for (auto &future : futures)
-	{
-		future.get();
-	}
-}
-
-template <typename E>
-std::optional<E> Semantic<E>::findFirst() const
-{
-	if (concurrent < 2)
-	{
-		std::optional<E> result;
-		(*generator)([&](const E &element, Timestamp) {
-            if (!result.has_value()) {
-                result = element;
-            } }, [&](const E &) -> bool { return result.has_value(); });
-		return result;
-	}
-	std::optional<E> result;
-	std::mutex resultMutex;
-	std::atomic<bool> found{false};
-	std::vector<std::future<void>> futures;
-
-	for (Module t = 0; t < concurrent; ++t)
-	{
-		futures.push_back(globalThreadPool.submit([this, &result, &resultMutex, &found]() {
-			(*generator)([&](const E &element, Timestamp) {
-                    if (!found.exchange(true)) {
-                        std::lock_guard<std::mutex> lock(resultMutex);
-                        if (!result.has_value()) {
-                            result = element;
+        for (Module threadIndex = 0; threadIndex < threadCount; ++threadIndex) {
+            futures.push_back(globalThreadPool.submit([&, threadIndex]() {
+                (*generator)(
+                    [&](const E &element, Timestamp index) {
+                        if (index % threadCount == threadIndex) {
+                            std::lock_guard<std::mutex> lock(resultMutex);
+                            if (!firstElement.has_value()) {
+                                firstElement = element;
+                            }
                         }
-                    } }, [&](const E &) -> bool { return found.load(); });
-		}));
-	}
+                    },
+                    [](const E &element) -> bool { return false; }
+                );
+            }));
+        }
 
-	for (auto &future : futures)
-	{
-		future.wait();
-	}
-	return result;
+        for (auto &future : futures) {
+            future.wait();
+        }
+
+        return firstElement;
+    }
 }
 
 template <typename E>
-std::optional<E> Semantic<E>::findAny() const
-{
-	if (concurrent < 2)
-	{
-		std::optional<E> result;
-		(*generator)([&](const E &element, Timestamp) {
-            if (!result.has_value()) {
-                result = element;
-            } }, [&](const E &) -> bool { return result.has_value(); });
-		return result;
-	}
+std::optional<E> Collectable<E>::findAny() const {
+    if (concurrent < 2) {
+        std::optional<E> result;
+        (*generator)(
+            [&](const E &element, Timestamp index) {
+                if (!result.has_value()) {
+                    result = element;
+                }
+            },
+            [](const E &element) -> bool { return false; }
+        );
+        return result;
+    } else {
+        std::mutex resultMutex;
+        std::optional<E> anyElement;
+        std::vector<std::future<void>> futures;
+        Module threadCount = concurrent;
 
-	std::optional<E> result;
-	std::mutex resultMutex;
-	std::atomic<bool> found{false};
-	std::vector<std::future<void>> futures;
-
-	for (Module t = 0; t < concurrent; ++t)
-	{
-		futures.push_back(globalThreadPool.submit([this, &result, &resultMutex, &found]() {
-			(*generator)([&](const E &element, Timestamp) {
-                    if (!found.exchange(true)) {
-                        std::lock_guard<std::mutex> lock(resultMutex);
-                        if (!result.has_value()) {
-                            result = element;
+        for (Module threadIndex = 0; threadIndex < threadCount; ++threadIndex) {
+            futures.push_back(globalThreadPool.submit([&, threadIndex]() {
+                (*generator)(
+                    [&](const E &element, Timestamp index) {
+                        if (index % threadCount == threadIndex) {
+                            std::lock_guard<std::mutex> lock(resultMutex);
+                            if (!anyElement.has_value()) {
+                                anyElement = element;
+                            }
                         }
-                    } }, [&](const E &) -> bool { return found.load(); });
-		}));
-	}
-	for (auto &future : futures)
-	{
-		future.wait();
-	}
-	return result;
+                    },
+                    [](const E &element) -> bool { return false; }
+                );
+            }));
+        }
+
+        for (auto &future : futures) {
+            future.wait();
+        }
+
+        return anyElement;
+    }
 }
 
 template <typename E>
-Semantic<E> Semantic<E>::flat(const Function<E, Semantic<E>> &mapper) const
-{
-	return Semantic<E>([this, mapper](const BiConsumer<E, Timestamp> accept, const Predicate<E> interrupt) {
-		(*generator)([&](const E &element, Timestamp timestamp) {
-			Semantic<E> innerStream = mapper(element);
-			(*innerStream.generator)([&](const E &innerElement, Timestamp innerTimestamp) {
-				accept(innerElement, innerTimestamp);
-			},
-									 interrupt);
-		},
-					 interrupt);
-	});
-}
+void Collectable<E>::forEach(const Consumer<E> &consumer) const {
+    if (concurrent < 2) {
+        (*generator)(
+            [&](const E &element, Timestamp index) {
+                consumer(element);
+            },
+            [](const E &element) -> bool { return false; }
+        );
+    } else {
+        std::vector<std::future<void>> futures;
+        Module threadCount = concurrent;
 
-template <typename E>
-template <typename R>
-Semantic<R> Semantic<E>::flatMap(const Function<E, Semantic<R>> &mapper) const
-{
-	return Semantic<R>([this, mapper](const BiConsumer<R, Timestamp> &accept, const Predicate<R> &interrupt) {
-		(*generator)([&](const E &element, Timestamp timestamp) {
-			Semantic<R> innerStream = mapper(element);
-			(*innerStream.generator)([&](const R &innerElement, Timestamp innerTimestamp) {
-				accept(innerElement, innerTimestamp);
-			},
-									 interrupt);
-		},
-					 interrupt);
-	});
+        for (Module threadIndex = 0; threadIndex < threadCount; ++threadIndex) {
+            futures.push_back(globalThreadPool.submit([&, threadIndex]() {
+                (*generator)(
+                    [&](const E &element, Timestamp index) {
+                        if (index % threadCount == threadIndex) {
+                            consumer(element);
+                        }
+                    },
+                    [](const E &element) -> bool { return false; }
+                );
+            }));
+        }
+
+        for (auto &future : futures) {
+            future.wait();
+        }
+    }
 }
 
 template <typename E>
 template <typename K>
-std::map<K, std::vector<E>> Semantic<E>::group(const Function<E, K> &classifier) const
-{
-	return this->collect<std::map<K, std::vector<E>>, std::map<K, std::vector<E>>>([]() { return std::map<K, std::vector<E>>{}; }, [classifier](std::map<K, std::vector<E>> &accumulator, const E &element) { accumulator[classifier(element)].push_back(element); }, [](std::map<K, std::vector<E>> left, const std::map<K, std::vector<E>> &right) {
-            for (const auto &pair : right)
-            {
-                auto &vector = left[pair.first];
-                vector.insert(vector.end(), pair.second.begin(), pair.second.end());
+std::map<K, std::vector<E>> Collectable<E>::group(const Function<E, K> &classifier) const {
+    if (concurrent < 2) {
+        std::map<K, std::vector<E>> result;
+        (*generator)(
+            [&](const E &element, Timestamp index) {
+                K key = classifier(element);
+                result[key].push_back(element);
+            },
+            [](const E &element) -> bool { return false; }
+        );
+        return result;
+    } else {
+        std::vector<std::map<K, std::vector<E>>> localMaps(concurrent);
+        std::vector<std::future<void>> futures;
+        Module threadCount = concurrent;
+
+        for (Module threadIndex = 0; threadIndex < threadCount; ++threadIndex) {
+            futures.push_back(globalThreadPool.submit([&, threadIndex]() {
+                (*generator)(
+                    [&](const E &element, Timestamp index) {
+                        if (index % threadCount == threadIndex) {
+                            K key = classifier(element);
+                            localMaps[threadIndex][key].push_back(element);
+                        }
+                    },
+                    [](const E &element) -> bool { return false; }
+                );
+            }));
+        }
+
+        for (auto &future : futures) {
+            future.wait();
+        }
+
+        std::map<K, std::vector<E>> merged;
+        for (const auto &localMap : localMaps) {
+            for (const auto &pair : localMap) {
+                merged[pair.first].insert(merged[pair.first].end(), pair.second.begin(), pair.second.end());
             }
-            return left; }, [](std::map<K, std::vector<E>> result) { return result; });
+        }
+        return merged;
+    }
 }
 
 template <typename E>
 template <typename K, typename V>
-std::map<K, std::vector<V>> Semantic<E>::groupBy(
-	const Function<E, K> &keyExtractor,
-	const Function<E, V> &valueExtractor) const
-{
-	return this->collect<std::map<K, std::vector<V>>, std::map<K, std::vector<V>>>(
-		[]() {
-			return std::map<K, std::vector<V>>{};
-		},
-		[keyExtractor, valueExtractor](std::map<K, std::vector<V>> &accumulator, const E &element) {
-			accumulator[keyExtractor(element)].push_back(valueExtractor(element));
-		},
-		[](std::map<K, std::vector<V>> left, const std::map<K, std::vector<V>> &right) {
-			for (const auto &pair : right)
-			{
-				auto &vector = left[pair.first];
-				vector.insert(vector.end(), pair.second.begin(), pair.second.end());
-			}
-			return left;
-		},
-		[](std::map<K, std::vector<V>> result) {
-			return result;
-		});
+std::map<K, std::vector<V>> Collectable<E>::groupBy(const Function<E, K> &keyExtractor, const Function<E, V> &valueExtractor) const {
+    if (concurrent < 2) {
+        std::map<K, std::vector<V>> result;
+        (*generator)(
+            [&](const E &element, Timestamp index) {
+                K key = keyExtractor(element);
+                V value = valueExtractor(element);
+                result[key].push_back(value);
+            },
+            [](const E &element) -> bool { return false; }
+        );
+        return result;
+    } else {
+        std::vector<std::map<K, std::vector<V>>> localMaps(concurrent);
+        std::vector<std::future<void>> futures;
+        Module threadCount = concurrent;
+
+        for (Module threadIndex = 0; threadIndex < threadCount; ++threadIndex) {
+            futures.push_back(globalThreadPool.submit([&, threadIndex]() {
+                (*generator)(
+                    [&](const E &element, Timestamp index) {
+                        if (index % threadCount == threadIndex) {
+                            K key = keyExtractor(element);
+                            V value = valueExtractor(element);
+                            localMaps[threadIndex][key].push_back(value);
+                        }
+                    },
+                    [](const E &element) -> bool { return false; }
+                );
+            }));
+        }
+
+        for (auto &future : futures) {
+            future.wait();
+        }
+
+        std::map<K, std::vector<V>> merged;
+        for (const auto &localMap : localMaps) {
+            for (const auto &pair : localMap) {
+                merged[pair.first].insert(merged[pair.first].end(), pair.second.begin(), pair.second.end());
+            }
+        }
+        return merged;
+    }
 }
 
 template <typename E>
-Semantic<E> Semantic<E>::limit(const Module &n) const
-{
-	return Semantic<E>([this, n](const BiConsumer<E, Timestamp> &accept, const Predicate<E> &interrupt) {
-		Module count = 0;
-		(*generator)([&](const E &element, Timestamp timestamp) {
-            if (count < n) {
-                accept(element, timestamp);
+bool Collectable<E>::noneMatch(const Predicate<E> &predicate) const {
+    return !anyMatch(predicate);
+}
+
+template <typename E>
+std::vector<std::vector<E>> Collectable<E>::partition(const Module &count) const {
+    if (count == 0) {
+        return {};
+    }
+    std::vector<std::vector<E>> result(count);
+    Module index = 0;
+    forEach([&](const E &element) {
+        result[(index++) % count].push_back(element);
+    });
+    return result;
+}
+
+template <typename E>
+std::vector<std::vector<E>> Collectable<E>::partitionBy(const Function<E, Module> &classifier) const {
+    auto groups = group(classifier);
+    std::vector<std::vector<E>> result;
+    for (auto &pair : groups) {
+        result.push_back(std::move(pair.second));
+    }
+    return result;
+}
+
+template <typename E>
+std::optional<E> Collectable<E>::reduce(const BiFunction<E, E, E> &accumulator) const {
+    std::optional<E> result;
+    forEach([&](const E &element) {
+        if (!result.has_value()) {
+            result = element;
+        } else {
+            result = accumulator(result.value(), element);
+        }
+    });
+    return result;
+}
+
+template <typename E>
+E Collectable<E>::reduce(const E &identity, const BiFunction<E, E, E> &accumulator) const {
+    E result = identity;
+    forEach([&](const E &element) {
+        result = accumulator(result, element);
+    });
+    return result;
+}
+
+template <typename E>
+template <typename R>
+R Collectable<E>::reduce(const R &identity, const BiFunction<R, E, R> &accumulator, const BiFunction<R, R, R> &combiner) const {
+    return collect(
+        [&identity]() -> R { return identity; },
+        [&accumulator](R current, const E &element) -> R { return accumulator(current, element); },
+        combiner,
+        [](R result) -> R { return result; }
+    );
+}
+
+template <typename E>
+std::list<E> Collectable<E>::toList() const {
+    if (concurrent < 2) {
+        std::list<E> result;
+        (*generator)(
+            [&](const E &element, Timestamp index) {
+                result.push_back(element);
+            },
+            [](const E &element) -> bool { return false; }
+        );
+        return result;
+    } else {
+        std::vector<std::list<E>> localLists(concurrent);
+        std::vector<std::future<void>> futures;
+        Module threadCount = concurrent;
+
+        for (Module threadIndex = 0; threadIndex < threadCount; ++threadIndex) {
+            futures.push_back(globalThreadPool.submit([&, threadIndex]() {
+                (*generator)(
+                    [&](const E &element, Timestamp index) {
+                        if (index % threadCount == threadIndex) {
+                            localLists[threadIndex].push_back(element);
+                        }
+                    },
+                    [](const E &element) -> bool { return false; }
+                );
+            }));
+        }
+
+        for (auto &future : futures) {
+            future.wait();
+        }
+
+        std::list<E> merged;
+        for (auto &localList : localLists) {
+            merged.splice(merged.end(), localList);
+        }
+        return merged;
+    }
+}
+
+template <typename E>
+template <typename K, typename V>
+std::map<K, V> Collectable<E>::toMap(const Function<E, K> &keyExtractor, const Function<E, V> &valueExtractor) const {
+    if (concurrent < 2) {
+        std::map<K, V> result;
+        (*generator)(
+            [&](const E &element, Timestamp index) {
+                K key = keyExtractor(element);
+                V value = valueExtractor(element);
+                result[key] = value;
+            },
+            [](const E &element) -> bool { return false; }
+        );
+        return result;
+    } else {
+        std::vector<std::map<K, V>> localMaps(concurrent);
+        std::vector<std::future<void>> futures;
+        Module threadCount = concurrent;
+
+        for (Module threadIndex = 0; threadIndex < threadCount; ++threadIndex) {
+            futures.push_back(globalThreadPool.submit([&, threadIndex]() {
+                (*generator)(
+                    [&](const E &element, Timestamp index) {
+                        if (index % threadCount == threadIndex) {
+                            K key = keyExtractor(element);
+                            V value = valueExtractor(element);
+                            localMaps[threadIndex][key] = value;
+                        }
+                    },
+                    [](const E &element) -> bool { return false; }
+                );
+            }));
+        }
+
+        for (auto &future : futures) {
+            future.wait();
+        }
+
+        std::map<K, V> merged;
+        for (const auto &localMap : localMaps) {
+            for (const auto &pair : localMap) {
+                merged[pair.first] = pair.second;
+            }
+        }
+        return merged;
+    }
+}
+
+template <typename E>
+std::set<E> Collectable<E>::toSet() const {
+    if (concurrent < 2) {
+        std::set<E> result;
+        (*generator)(
+            [&](const E &element, Timestamp index) {
+                result.insert(element);
+            },
+            [](const E &element) -> bool { return false; }
+        );
+        return result;
+    } else {
+        std::vector<std::set<E>> localSets(concurrent);
+        std::vector<std::future<void>> futures;
+        Module threadCount = concurrent;
+
+        for (Module threadIndex = 0; threadIndex < threadCount; ++threadIndex) {
+            futures.push_back(globalThreadPool.submit([&, threadIndex]() {
+                (*generator)(
+                    [&](const E &element, Timestamp index) {
+                        if (index % threadCount == threadIndex) {
+                            localSets[threadIndex].insert(element);
+                        }
+                    },
+                    [](const E &element) -> bool { return false; }
+                );
+            }));
+        }
+
+        for (auto &future : futures) {
+            future.wait();
+        }
+
+        std::set<E> merged;
+        for (const auto &localSet : localSets) {
+            merged.insert(localSet.begin(), localSet.end());
+        }
+        return merged;
+    }
+}
+
+template <typename E>
+std::unordered_set<E> Collectable<E>::toUnorderedSet() const {
+    if (concurrent < 2) {
+        std::unordered_set<E> result;
+        (*generator)(
+            [&](const E &element, Timestamp index) {
+                result.insert(element);
+            },
+            [](const E &element) -> bool { return false; }
+        );
+        return result;
+    } else {
+        std::vector<std::unordered_set<E>> localSets(concurrent);
+        std::vector<std::future<void>> futures;
+        Module threadCount = concurrent;
+
+        for (Module threadIndex = 0; threadIndex < threadCount; ++threadIndex) {
+            futures.push_back(globalThreadPool.submit([&, threadIndex]() {
+                (*generator)(
+                    [&](const E &element, Timestamp index) {
+                        if (index % threadCount == threadIndex) {
+                            localSets[threadIndex].insert(element);
+                        }
+                    },
+                    [](const E &element) -> bool { return false; }
+                );
+            }));
+        }
+
+        for (auto &future : futures) {
+            future.wait();
+        }
+
+        std::unordered_set<E> merged;
+        for (const auto &localSet : localSets) {
+            merged.insert(localSet.begin(), localSet.end());
+        }
+        return merged;
+    }
+}
+
+template <typename E>
+std::vector<E> Collectable<E>::toVector() const {
+    if (concurrent < 2) {
+        std::vector<E> result;
+        (*generator)(
+            [&](const E &element, Timestamp index) {
+                result.push_back(element);
+            },
+            [](const E &element) -> bool { return false; }
+        );
+        return result;
+    } else {
+        std::vector<std::vector<E>> localVectors(concurrent);
+        std::vector<std::future<void>> futures;
+        Module threadCount = concurrent;
+
+        for (Module threadIndex = 0; threadIndex < threadCount; ++threadIndex) {
+            futures.push_back(globalThreadPool.submit([&, threadIndex]() {
+                (*generator)(
+                    [&](const E &element, Timestamp index) {
+                        if (index % threadCount == threadIndex) {
+                            localVectors[threadIndex].push_back(element);
+                        }
+                    },
+                    [](const E &element) -> bool { return false; }
+                );
+            }));
+        }
+
+        for (auto &future : futures) {
+            future.wait();
+        }
+
+        std::vector<E> merged;
+        for (auto &localVector : localVectors) {
+            merged.insert(merged.end(), localVector.begin(), localVector.end());
+        }
+        return merged;
+    }
+}
+
+//Statistics
+template <typename E, typename D>
+Module Statistics<E, D>::count() const {
+    if (!total) {
+        total = Collectable<E>::count();
+    }
+    return total;
+}
+
+template <typename E, typename D>
+E Statistics<E, D>::maximum(const Comparator<E, E> &comparator) const {
+    std::optional<E> result;
+    forEach([&](const E &element) {
+        if (!result.has_value() || comparator(result.value(), element) < 0) {
+            result = element;
+        }
+    });
+    return result.value();
+}
+
+template <typename E, typename D>
+E Statistics<E, D>::minimum(const Comparator<E, E> &comparator) const {
+    std::optional<E> result;
+    forEach([&](const E &element) {
+        if (!result.has_value() || comparator(result.value(), element) > 0) {
+            result = element;
+        }
+    });
+    return result.value();
+}
+
+template <typename E, typename D>
+D Statistics<E, D>::range(const Function<E, D> &mapper) const {
+    std::vector<D> values = toVector(mapper);
+    return *std::max_element(values.begin(), values.end()) - *std::min_element(values.begin(), values.end());
+}
+
+template <typename E, typename D>
+D Statistics<E, D>::variance(const Function<E, D> &mapper) const {
+    std::vector<D> values = toVector(mapper);
+    D mean_val = mean(mapper);
+    D sum_sq = std::accumulate(values.begin(), values.end(), D{}, 
+        [&](D acc, D val) { return acc + (val - mean_val) * (val - mean_val); });
+    return values.size() > 1 ? sum_sq / (values.size() - 1) : D{};
+}
+
+template <typename E, typename D>
+D Statistics<E, D>::standardDeviation(const Function<E, D> &mapper) const {
+    return std::sqrt(variance(mapper));
+}
+
+template <typename E, typename D>
+D Statistics<E, D>::mean(const Function<E, D> &mapper) const {
+    return sum(mapper) / count();
+}
+
+template <typename E, typename D>
+D Statistics<E, D>::median(const Function<E, D> &mapper) const {
+    std::vector<D> values = toVector(mapper);
+    std::sort(values.begin(), values.end());
+    size_t n = values.size();
+    if (n == 0) return D{};
+    if (n % 2 == 0) {
+        return (values[n/2 - 1] + values[n/2]) / 2;
+    } else {
+        return values[n/2];
+    }
+}
+
+template <typename E, typename D>
+D Statistics<E, D>::mode(const Function<E, D> &mapper) const {
+    std::map<D, Module> freq_map = frequency(mapper);
+    return std::max_element(freq_map.begin(), freq_map.end(),
+        [](const auto& a, const auto& b) { return a.second < b.second; })->first;
+}
+
+template <typename E, typename D>
+std::map<D, Module> Statistics<E, D>::frequency(const Function<E, D> &mapper) const {
+    std::map<D, Module> freq_map;
+    forEach([&](const E &element) {
+        freq_map[mapper(element)]++;
+    });
+    return freq_map;
+}
+
+template <typename E, typename D>
+D Statistics<E, D>::sum(const Function<E, D> &mapper) const {
+    D result = std::accumulate(toVector(mapper).begin(), toVector(mapper).end(), D{});
+    return result;
+}
+
+template <typename E, typename D>
+std::vector<D> Statistics<E, D>::quartiles(const Function<E, D> &mapper) const {
+    std::vector<D> values = toVector(mapper);
+    std::sort(values.begin(), values.end());
+    std::vector<D> quartiles(3);
+    size_t n = values.size();
+    if (n == 0) return quartiles;
+    quartiles = values[n/4];
+    quartiles = values[n/2];
+    quartiles = values[3*n/4];
+    return quartiles;
+}
+
+template <typename E, typename D>
+D Statistics<E, D>::interquartileRange(const Function<E, D> &mapper) const {
+    std::vector<D> q = quartiles(mapper);
+    return q - q;
+}
+
+template <typename E, typename D>
+D Statistics<E, D>::skewness(const Function<E, D> &mapper) const {
+    std::vector<D> values = toVector(mapper);
+    D mean_val = mean(mapper);
+    D stddev_val = standardDeviation(mapper);
+    if (stddev_val == D{}) return D{};
+    D sum_cubed = std::accumulate(values.begin(), values.end(), D{},
+        [&](D acc, D val) { return acc + std::pow((val - mean_val) / stddev_val, 3); });
+    return sum_cubed / values.size();
+}
+
+template <typename E, typename D>
+D Statistics<E, D>::kurtosis(const Function<E, D> &mapper) const {
+    std::vector<D> values = toVector(mapper);
+    D mean_val = mean(mapper);
+    D stddev_val = standardDeviation(mapper);
+    if (stddev_val == D{}) return D{};
+    D sum_quad = std::accumulate(values.begin(), values.end(), D{},
+        [&](D acc, D val) { return acc + std::pow((val - mean_val) / stddev_val, 4); });
+    return (sum_quad / values.size()) - 3;
+}
+
+template <typename E, typename D>
+bool Statistics<E, D>::isEmpty() const {
+    return count() == 0;
+}
+
+template <typename E, typename D>
+void Statistics<E, D>::clear() {
+    total = 0;
+    frequencyCache.clear();
+}
+
+template <typename E, typename D>
+Statistics<E, D> &Statistics<E, D>::operator=(const std::list<E> &l) {
+    generator = std::make_shared<Generator<E>>([l](const Consumer<E> &consumer, const Predicate<E> &interrupt) {
+        for (const auto &element : l) {
+            if (interrupt(element)) return;
+            consumer(element, 0);
+        }
+    });
+    total = 0;
+    frequencyCache.clear();
+    return *this;
+}
+
+template <typename E, typename D>
+Statistics<E, D> &Statistics<E, D>::operator=(const std::vector<E> &v) {
+    generator = std::make_shared<Generator<E>>([v](const Consumer<E> &consumer, const Predicate<E> &interrupt) {
+        for (const auto &element : v) {
+            if (interrupt(element)) return;
+            consumer(element, 0);
+        }
+    });
+    total = 0;
+    frequencyCache.clear();
+    return *this;
+}
+
+template <typename E, typename D>
+Statistics<E, D> &Statistics<E, D>::operator=(std::initializer_list<E> l) {
+    generator = std::make_shared<Generator<E>>([l](const Consumer<E> &consumer, const Predicate<E> &interrupt) {
+        for (const auto &element : l) {
+            if (interrupt(element)) return;
+            consumer(element, 0);
+        }
+    });
+    total = 0;
+    frequencyCache.clear();
+    return *this;
+}
+
+template <typename E, typename D>
+Statistics<E, D> &Statistics<E, D>::operator=(const Statistics<E, D> &other) {
+    if (this != &other) {
+        generator = other.generator;
+        concurrent = other.concurrent;
+        total = other.total;
+        frequencyCache = other.frequencyCache;
+    }
+    return *this;
+}
+
+template <typename E, typename D>
+Statistics<E, D> &Statistics<E, D>::operator=(Statistics<E, D> &&other) noexcept {
+    if (this != &other) {
+        generator = std::move(other.generator);
+        concurrent = other.concurrent;
+        total = other.total;
+        frequencyCache = std::move(other.frequencyCache);
+    }
+    return *this;
+}
+
+//OrderedCollectable
+template <typename E>
+OrderedCollectable<E>::Container OrderedCollectable<E>::toIndexedSet() const {
+    Container result;
+    if (this->concurrent < 2) {
+        (*this->generator)([&](const E& elem, Timestamp ts) {
+            result.emplace(ts, elem);
+        }, [](const E&) { return false; });
+    } else {
+        std::vector<std::pair<Timestamp, E>> buffer;
+        std::mutex mtx;
+        (*this->generator)([&](const E& elem, Timestamp ts) {
+            std::lock_guard<std::mutex> lock(mtx);
+            buffer.emplace_back(ts, elem);
+        }, [](const E&) { return false; });
+        for (auto&& p : buffer) {
+            result.insert(std::move(p));
+        }
+    }
+    return result;
+}
+
+template <typename E>
+OrderedCollectable<E>::OrderedCollectable()
+    : Collectable<E>(), container() {}
+
+template <typename E>
+OrderedCollectable<E>::OrderedCollectable(const Generator<E>& generator)
+    : Collectable<E>(generator), container(toIndexedSet()) {}
+
+template <typename E>
+OrderedCollectable<E>::OrderedCollectable(const Generator<E>& generator, const Module& concurrent)
+    : Collectable<E>(generator, concurrent), container(toIndexedSet()) {}
+
+template <typename E>
+OrderedCollectable<E>::OrderedCollectable(std::shared_ptr<Generator<E>> generator)
+    : Collectable<E>(generator), container(toIndexedSet()) {}
+
+template <typename E>
+OrderedCollectable<E>::OrderedCollectable(std::shared_ptr<Generator<E>> generator, const Module& concurrent)
+    : Collectable<E>(generator, concurrent), container(toIndexedSet()) {}
+
+template <typename E>
+OrderedCollectable<E>::OrderedCollectable(const OrderedCollectable<E>& other)
+    : Collectable<E>(other), container(other.container) {}
+
+template <typename E>
+OrderedCollectable<E>::OrderedCollectable(OrderedCollectable<E>&& other) noexcept
+    : Collectable<E>(std::move(other)), container(std::move(other.container)) {}
+
+template <typename E>
+OrderedCollectable<E>& OrderedCollectable<E>::operator=(const Collectable<E>& other) {
+    Collectable<E>::operator=(other);
+    return *this;
+}
+
+template <typename E>
+OrderedCollectable<E>& OrderedCollectable<E>::operator=(Collectable<E>&& other) noexcept {
+    Collectable<E>::operator=(std::move(other));
+    return *this;
+}
+
+template <typename E>
+bool OrderedCollectable<E>::allMatch(const Predicate<E>& p) const {
+    if (this->concurrent < 2) {
+        for (const auto& pair : container) {
+            if (!p(pair.second)) return false;
+        }
+        return true;
+    } else {
+        std::vector<bool> results;
+        std::mutex mtx;
+        Module chunk_size = std::max(static_cast<Module>(1), static_cast<Module>(container.size()) / this->concurrent);
+        std::vector<std::thread> threads;
+        auto it = container.begin();
+        for (Module i = 0; i < this->concurrent && it != container.end(); ++i) {
+            auto start = it;
+            Module count = 0;
+            while (it != container.end() && count < chunk_size) {
+                ++it;
                 ++count;
-            } }, [&](const E &element) -> bool { return count >= n || interrupt(element); });
-	});
+            }
+            threads.emplace_back([&, start, end = it]() {
+                bool local_result = true;
+                for (auto iter = start; iter != end; ++iter) {
+                    if (!p(iter->second)) {
+                        local_result = false;
+                        break;
+                    }
+                }
+                std::lock_guard<std::mutex> lock(mtx);
+                results.push_back(local_result);
+            });
+        }
+        for (auto& t : threads) t.join();
+        return std::all_of(results.begin(), results.end(), [](bool b) { return b; });
+    }
 }
 
 template <typename E>
-template <typename R>
-Semantic<R> Semantic<E>::map(const Function<E, R> &mapper) const
-{
-	return Semantic<R>([this, mapper](const BiConsumer<R, Timestamp> accept, const Predicate<R> &interrupt) {
-		(*generator)([&](const E &element, Timestamp timestamp) {
-			accept(mapper(element), timestamp);
-		},
-					 interrupt);
-	});
+bool OrderedCollectable<E>::anyMatch(const Predicate<E>& p) const {
+    if (this->concurrent < 2) {
+        for (const auto& pair : container) {
+            if (p(pair.second)) return true;
+        }
+        return false;
+    } else {
+        std::atomic<bool> found(false);
+        Module chunk_size = std::max(static_cast<Module>(1), static_cast<Module>(container.size()) / this->concurrent);
+        std::vector<std::thread> threads;
+        auto it = container.begin();
+        for (Module i = 0; i < this->concurrent && it != container.end(); ++i) {
+            auto start = it;
+            Module count = 0;
+            while (it != container.end() && count < chunk_size) {
+                ++it;
+                ++count;
+            }
+            threads.emplace_back([&, start, end = it]() {
+                if (found.load()) return;
+                for (auto iter = start; iter != end; ++iter) {
+                    if (p(iter->second)) {
+                        found.store(true);
+                        return;
+                    }
+                }
+            });
+        }
+        for (auto& t : threads) t.join();
+        return found.load();
+    }
 }
 
 template <typename E>
-bool Semantic<E>::noneMatch(const Predicate<E> &p) const
-{
-	if (concurrent < 2)
-	{
-		bool found = false;
-		(*generator)([&](const E &element, Timestamp) {
-            if (p(element)) {
-                found = true;
-            } }, [&](const E &) -> bool { return found; });
-		return !found;
-	}
-	std::atomic<bool> anyMatch{false};
-	std::vector<std::future<void>> futures;
-
-	for (Module t = 0; t < concurrent; ++t)
-	{
-		futures.push_back(globalThreadPool.submit([this, &anyMatch, &p]() {
-			(*generator)([&](const E &element, Timestamp) {
-                    if (p(element)) {
-                        anyMatch.store(true);
-                    } }, [&]() -> bool { return anyMatch.load(); });
-		}));
-	}
-	for (auto &f : futures)
-	{
-		f.wait();
-	}
-	return !anyMatch.load();
+template <typename A, typename R>
+R OrderedCollectable<E>::collect(const Supplier<A>& identity, const BiFunction<A, E, A>& accumulator, const BiFunction<A, A, A>& combiner, const Function<A, R>& finisher) const {
+    if (this->concurrent < 2) {
+        A result = identity();
+        for (const auto& pair : container) {
+            result = accumulator(result, pair.second);
+        }
+        return finisher(result);
+    } else {
+        std::vector<A> partials(this->concurrent, identity());
+        Module chunk_size = std::max(static_cast<Module>(1), static_cast<Module>(container.size()) / this->concurrent);
+        std::vector<std::thread> threads;
+        auto it = container.begin();
+        Module thread_idx = 0;
+        for (Module i = 0; i < this->concurrent && it != container.end(); ++i, ++thread_idx) {
+            auto start = it;
+            Module count = 0;
+            while (it != container.end() && count < chunk_size) {
+                ++it;
+                ++count;
+            }
+            threads.emplace_back([&, start, end = it, idx = thread_idx]() {
+                A local = identity();
+                for (auto iter = start; iter != end; ++iter) {
+                    local = accumulator(local, iter->second);
+                }
+                partials[idx] = local;
+            });
+        }
+        for (auto& t : threads) t.join();
+        A result = partials;
+        for (Module i = 1; i < thread_idx; ++i) {
+            result = combiner(result, partials[i]);
+        }
+        return finisher(result);
+    }
 }
 
 template <typename E>
-Semantic<E> Semantic<E>::parallel() const
-{
-	return Semantic<E>(generator, std::max<Module>(2, std::thread::hardware_concurrency()));
+template <typename A, typename R>
+R OrderedCollectable<E>::collect(const Collector<E, A, R>& c) const {
+    if (this->concurrent < 2) {
+        A container = c.supplier()();
+        for (const auto& pair : this->container) {
+            c.accumulator()(container, pair.second);
+        }
+        return c.finisher()(container);
+    } else {
+        std::vector<A> partials(this->concurrent);
+        for (Module i = 0; i < this->concurrent; ++i) {
+            partials[i] = c.supplier()();
+        }
+        Module chunk_size = std::max(static_cast<Module>(1), static_cast<Module>(this->container.size()) / this->concurrent);
+        std::vector<std::thread> threads;
+        auto it = this->container.begin();
+        Module thread_idx = 0;
+        for (Module i = 0; i < this->concurrent && it != this->container.end(); ++i, ++thread_idx) {
+            auto start = it;
+            Module count = 0;
+            while (it != this->container.end() && count < chunk_size) {
+                ++it;
+                ++count;
+            }
+            threads.emplace_back([&, start, end = it, idx = thread_idx]() {
+                for (auto iter = start; iter != end; ++iter) {
+                    c.accumulator()(partials[idx], iter->second);
+                }
+            });
+        }
+        for (auto& t : threads) t.join();
+        A result = partials;
+        for (Module i = 1; i < thread_idx; ++i) {
+            result = c.combiner()(result, partials[i]);
+        }
+        return c.finisher()(result);
+    }
 }
 
 template <typename E>
-Semantic<E> Semantic<E>::parallel(const Module &threadCount) const
-{
-	return Semantic<E>(generator, threadCount);
+void OrderedCollectable<E>::cout() const {
+    if (this->concurrent < 2) {
+        for (const auto& pair : container) {
+            std::cout << pair.second << std::endl;
+        }
+    } else {
+        std::mutex mtx;
+        Module chunk_size = std::max(static_cast<Module>(1), static_cast<Module>(container.size()) / this->concurrent);
+        std::vector<std::thread> threads;
+        auto it = container.begin();
+        for (Module i = 0; i < this->concurrent && it != container.end(); ++i) {
+            auto start = it;
+            Module count = 0;
+            while (it != container.end() && count < chunk_size) {
+                ++it;
+                ++count;
+            }
+            threads.emplace_back([&, start, end = it]() {
+                std::ostringstream oss;
+                for (auto iter = start; iter != end; ++iter) {
+                    oss << iter->second << std::endl;
+                }
+                std::lock_guard<std::mutex> lock(mtx);
+                std::cout << oss.str();
+            });
+        }
+        for (auto& t : threads) t.join();
+    }
 }
 
 template <typename E>
-std::vector<std::vector<E>> Semantic<E>::partition(const Module &count) const
-{
-	return this->collect<std::vector<std::vector<E>>, std::vector<std::vector<E>>>(
-		[count]() {
-			return std::vector<std::vector<E>>(count);
-		},
-		[count](std::vector<std::vector<E>> &accumulator, const E &element) {
-			static std::atomic<Module> counter{0};
-			Module index = counter.fetch_add(1) % count;
-			accumulator[index].push_back(element);
-		},
-		[](std::vector<std::vector<E>> left, const std::vector<std::vector<E>> &right) {
-			for (Module i = 0; i < left.size(); ++i)
-			{
-				left[i].insert(left[i].end(), right[i].begin(), right[i].end());
-			}
-			return left;
-		},
-		[](std::vector<std::vector<E>> result) {
-			return result;
-		});
+void OrderedCollectable<E>::cout(const BiFunction<E, std::ostream&, std::ostream&>& accumulator) const {
+    if (this->concurrent < 2) {
+        for (const auto& pair : container) {
+            accumulator(pair.second, std::cout) << std::endl;
+        }
+    } else {
+        std::mutex mtx;
+        Module chunk_size = std::max(static_cast<Module>(1), static_cast<Module>(container.size()) / this->concurrent);
+        std::vector<std::thread> threads;
+        auto it = container.begin();
+        for (Module i = 0; i < this->concurrent && it != container.end(); ++i) {
+            auto start = it;
+            Module count = 0;
+            while (it != container.end() && count < chunk_size) {
+                ++it;
+                ++count;
+            }
+            threads.emplace_back([&, start, end = it]() {
+                std::ostringstream oss;
+                for (auto iter = start; iter != end; ++iter) {
+                    accumulator(iter->second, oss) << std::endl;
+                }
+                std::lock_guard<std::mutex> lock(mtx);
+                std::cout << oss.str();
+            });
+        }
+        for (auto& t : threads) t.join();
+    }
 }
 
 template <typename E>
-std::vector<std::vector<E>> Semantic<E>::partitionBy(const Function<E, Module> &classifier) const
-{
-	return this->collect<std::vector<std::vector<E>>, std::vector<std::vector<E>>>(
-		[]() {
-			return std::vector<std::vector<E>>{};
-		},
-		[classifier](std::vector<std::vector<E>> &accumulator, const E &element) {
-			Module key = classifier(element);
-			if (key >= accumulator.size())
-			{
-				accumulator.resize(key + 1);
-			}
-			accumulator[key].push_back(element);
-		},
-		[](std::vector<std::vector<E>> left, const std::vector<std::vector<E>> &right) {
-			if (right.size() > left.size())
-			{
-				left.resize(right.size());
-			}
-			for (Module i = 0; i < right.size(); ++i)
-			{
-				left[i].insert(left[i].end(), right[i].begin(), right[i].end());
-			}
-			return left;
-		},
-		[](std::vector<std::vector<E>> result) {
-			return result;
-		});
+void OrderedCollectable<E>::cout(std::ostream& stream) const {
+    if (this->concurrent < 2) {
+        for (const auto& pair : container) {
+            stream << pair.second << std::endl;
+        }
+    } else {
+        std::mutex mtx;
+        Module chunk_size = std::max(static_cast<Module>(1), static_cast<Module>(container.size()) / this->concurrent);
+        std::vector<std::thread> threads;
+        auto it = container.begin();
+        for (Module i = 0; i < this->concurrent && it != container.end(); ++i) {
+            auto start = it;
+            Module count = 0;
+            while (it != container.end() && count < chunk_size) {
+                ++it;
+                ++count;
+            }
+            threads.emplace_back([&, start, end = it]() {
+                std::ostringstream oss;
+                for (auto iter = start; iter != end; ++iter) {
+                    oss << iter->second << std::endl;
+                }
+                std::lock_guard<std::mutex> lock(mtx);
+                stream << oss.str();
+            });
+        }
+        for (auto& t : threads) t.join();
+    }
 }
 
 template <typename E>
-Semantic<E> Semantic<E>::peek(const Consumer<E> &c) const
-{
-	return Semantic<E>(
-		[this, c](const BiConsumer<E, Timestamp> &accept, const Predicate<E> &interrupt) {
-			(*generator)([&](const E &element, Timestamp index) {
-				c(element);
-				accept(element, index);
-			},
-						 interrupt);
-		},
-		concurrent);
+void OrderedCollectable<E>::cout(std::ostream& stream, const BiConsumer<E, std::ostream&>& accumulator) const {
+    if (this->concurrent < 2) {
+        for (const auto& pair : container) {
+            accumulator(pair.second, stream);
+            stream << std::endl;
+        }
+    } else {
+        std::mutex mtx;
+        Module chunk_size = std::max(static_cast<Module>(1), static_cast<Module>(container.size()) / this->concurrent);
+        std::vector<std::thread> threads;
+        auto it = container.begin();
+        for (Module i = 0; i < this->concurrent && it != container.end(); ++i) {
+            auto start = it;
+            Module count = 0;
+            while (it != container.end() && count < chunk_size) {
+                ++it;
+                ++count;
+            }
+            threads.emplace_back([&, start, end = it]() {
+                std::ostringstream oss;
+                for (auto iter = start; iter != end; ++iter) {
+                    accumulator(iter->second, oss);
+                    oss << std::endl;
+                }
+                std::lock_guard<std::mutex> lock(mtx);
+                stream << oss.str();
+            });
+        }
+        for (auto& t : threads) t.join();
+    }
 }
 
 template <typename E>
-Semantic<E> Semantic<E>::redirect(const BiFunction<E, Timestamp, Timestamp> &redirector) const
-{
-	return Semantic<E>(
-		[this, redirector](const BiConsumer<E, Timestamp> &accept, const Predicate<E> &interrupt) {
-			(*this->generator)(
-				[&](const E &element, Timestamp index) {
-					Timestamp redirectedIndex = redirector(element, index);
-					accept(element, redirectedIndex);
-				},
-				interrupt);
-		},
-		this->concurrent);
+Module OrderedCollectable<E>::count() const {
+    return static_cast<Module>(container.size());
 }
 
 template <typename E>
-std::optional<E> Semantic<E>::reduce(const BiFunction<E, E, E> &accumulator) const
-{
-	return this->collect<std::optional<E>, std::optional<E>>(
-		[]() -> std::optional<E> {
-			return std::nullopt;
-		},
-		[&accumulator](std::optional<E> &currentResult, const E &element) {
-			if (!currentResult.has_value())
-			{
-				currentResult = element;
-			}
-			else
-			{
-				currentResult = accumulator(currentResult.value(), element);
-			}
-		},
-		[&accumulator](const std::optional<E> &left, const std::optional<E> &right) -> std::optional<E> {
-			if (!left.has_value())
-			{
-				return right;
-			}
-			if (!right.has_value())
-			{
-				return left;
-			}
-			return std::optional<E>(accumulator(left.value(), right.value()));
-		},
-		[](std::optional<E> finalResult) -> std::optional<E> {
-			return finalResult;
-		});
+std::optional<E> OrderedCollectable<E>::findFirst() const {
+    if (container.empty()) return std::nullopt;
+    return container.begin()->second;
 }
 
 template <typename E>
-E Semantic<E>::reduce(const E &identity, const BiFunction<E, E, E> &accumulator) const
-{
-	return this->collect<E, E>(
-		[&identity]() {
-			return identity;
-		},
-		[&accumulator](E &currentValue, const E &element) {
-			currentValue = accumulator(currentValue, element);
-		},
-		[&accumulator](const E &left, const E &right) {
-			return accumulator(left, right);
-		},
-		[](E result) {
-			return result;
-		});
+std::optional<E> OrderedCollectable<E>::findAny() const {
+    return findFirst();
 }
 
 template <typename E>
-template <typename R>
-R Semantic<E>::reduce(const R &identity, const BiFunction<R, E, R> &accumulator, const BiFunction<R, R, R> &combiner) const
-{
-	return this->collect<R, R>(
-		[&identity]() {
-			return identity;
-		},
-		[&accumulator](R &currentResult, const E &element) {
-			currentResult = accumulator(currentResult, element);
-		},
-		[&combiner](const R &left, const R &right) {
-			return combiner(left, right);
-		},
-		[](R result) {
-			return result;
-		});
+void OrderedCollectable<E>::forEach(const Consumer<E>& c) const {
+    if (this->concurrent < 2) {
+        for (const auto& pair : container) {
+            c(pair.second);
+        }
+    } else {
+        Module chunk_size = std::max(static_cast<Module>(1), static_cast<Module>(container.size()) / this->concurrent);
+        std::vector<std::thread> threads;
+        auto it = container.begin();
+        for (Module i = 0; i < this->concurrent && it != container.end(); ++i) {
+            auto start = it;
+            Module count = 0;
+            while (it != container.end() && count < chunk_size) {
+                ++it;
+                ++count;
+            }
+            threads.emplace_back([&, start, end = it]() {
+                for (auto iter = start; iter != end; ++iter) {
+                    c(iter->second);
+                }
+            });
+        }
+        for (auto& t : threads) t.join();
+    }
 }
 
 template <typename E>
-Semantic<E> Semantic<E>::reverse() const
-{
-	return this->redirect([](const E &, Timestamp index) { return -index; });
-}
-
-template <typename E>
-Semantic<E> Semantic<E>::shuffle() const
-{
-	return this->redirect([](const E &element, const Timestamp &index) {
-		Timestamp h1 = std::hash<E>{}(element);
-		Timestamp h2 = std::hash<Timestamp>{}(index);
-		return h1 ^ (h2 << 1);
-	});
-}
-
-template <typename E>
-Semantic<E> Semantic<E>::shuffle(const Function<E, Timestamp> &mapper) const
-{
-	return this->redirect([&](const E &element, const Timestamp &index) {
-		Timestamp base = mapper(element);
-		Timestamp h1 = std::hash<E>{}(element);
-		Timestamp h2 = std::hash<Timestamp>{}(index);
-		Timestamp h3 = std::hash<Timestamp>{}(base);
-		Timestamp combined = h1 ^ (h2 << 1) ^ (h3 << 2);
-		return combined;
-	});
-}
-
-template <typename E>
-Semantic<E> Semantic<E>::skip(const Module &n) const
-{
-	return Semantic<E>(
-		[this, n](const BiConsumer<E, Timestamp> &accept, const Predicate<E> &interrupt) {
-			Module skippedCount = 0;
-			(*this->generator)(
-				[&](const E &element, Timestamp timestamp) {
-					if (skippedCount >= n)
-					{
-						if (!interrupt(element))
-						{
-							accept(element, timestamp);
-						}
-					}
-					else
-					{
-						++skippedCount;
-					}
-				},
-				[&](const E &element) -> bool {
-					return interrupt(element);
-				});
-		},
-		this->concurrent);
-}
-
-template <typename E>
-Semantic<E> Semantic<E>::sorted() const
-{
-	static_assert(std::is_arithmetic<E>::value, "E must be a type cast into an unsigned long long.");
-	return this->sorted([](const E &element) -> Timestamp {
-		return static_cast<Timestamp>(element);
-	});
-}
-
-template <typename E>
-Semantic<E> Semantic<E>::sorted(const Function<E, Timestamp> &indexer) const
-{
-	return this->redirect([&indexer](const E &element, const Timestamp &index) -> Timestamp {
-		return indexer(element);
-	});
-}
-
-template <typename E>
-Semantic<E> Semantic<E>::sub(const Module &start, const Module &end) const
-{
-	return Semantic<E>([this, start, end](const BiConsumer<E, Timestamp> &accept, const Predicate<E> &interrupt) {
-		Module index = 0;
-		(*this->generator)(
-			[&](const E &element, Timestamp ts) {
-				if (index >= start && index < end)
-				{
-					if (interrupt(element))
-						return;
-					accept(element, ts);
-				}
-				++index;
-			},
-			[&](const E &element) -> bool {
-				return interrupt(element);
-			});
-	},
-					   this->concurrent);
-}
-
-template <typename E>
-Semantic<E> Semantic<E>::takeWhile(const Predicate<E> &p) const
-{
-	return Semantic<E>([this, p](const BiConsumer<E, Timestamp> &accept, const Predicate<E> &interrupt) {
-		bool shouldContinue = true;
-		(*this->generator)(
-			[&](const E &element, Timestamp ts) {
-				if (!shouldContinue || interrupt(element))
-				{
-					return;
-				}
-				if (p(element))
-				{
-					accept(element, ts);
-				}
-				else
-				{
-					shouldContinue = false;
-				}
-			},
-			[&](const E &element) -> bool {
-				return !shouldContinue || interrupt(element);
-			});
-	},
-					   this->concurrent);
-}
-
-template <typename E>
-std::set<std::pair<Timestamp, E>> Semantic<E>::toIndexedSet() const
-{
-	if (concurrent < 2)
-	{
-		std::set<std::pair<Timestamp, E>> result;
-		(*generator)(
-			[&](const E &element, const Timestamp &timestamp) {
-				result.emplace(timestamp, element);
-			},
-			[](const E &) -> bool {
-				return false;
-			});
-		return result;
-	}
-
-	std::vector<std::vector<std::pair<Timestamp, E>>> threadLocalBuffers(concurrent);
-	std::atomic<Module> sequenceCounter{0};
-
-	(*generator)(
-		[&](const E &element, const Timestamp &timestamp) {
-			Module sequence = sequenceCounter.fetch_add(1, std::memory_order_relaxed);
-			Module targetThread = sequence % concurrent;
-			threadLocalBuffers[targetThread].emplace_back(timestamp, element);
-		},
-		[](const E &) -> bool {
-			return false;
-		});
-
-	std::set<std::pair<Timestamp, E>> finalResult;
-	std::mutex resultMutex;
-	std::vector<std::thread> workerThreads;
-
-	for (Module threadIndex = 0; threadIndex < concurrent; ++threadIndex)
-	{
-		workerThreads.emplace_back([&, threadIndex]() {
-			for (const auto &item : threadLocalBuffers[threadIndex])
-			{
-				std::lock_guard<std::mutex> lock(resultMutex);
-				finalResult.insert(item);
-			}
-		});
-	}
-
-	for (auto &thread : workerThreads)
-	{
-		thread.join();
-	}
-
-	return finalResult;
-}
-
-template <typename E>
-std::list<E> Semantic<E>::toList() const
-{
-	return collect(
-		[]() {
-			return std::list<E>{};
-		},
-		[](std::list<E> &accumulator, const E &element) {
-			accumulator.push_back(element);
-		},
-		[](std::list<E> left, const std::list<E> &right) {
-			left.insert(left.end(), right.begin(), right.end());
-			return left;
-		},
-		[](std::list<E> result) {
-			return result;
-		});
+template <typename K>
+std::map<K, std::vector<E>> OrderedCollectable<E>::group(const Function<E, K>& classifier) const {
+    if (this->concurrent < 2) {
+        std::map<K, std::vector<E>> result;
+        for (const auto& pair : container) {
+            K key = classifier(pair.second);
+            result[key].push_back(pair.second);
+        }
+        return result;
+    } else {
+        std::vector<std::map<K, std::vector<E>>> partials(this->concurrent);
+        Module chunk_size = std::max(static_cast<Module>(1), static_cast<Module>(container.size()) / this->concurrent);
+        std::vector<std::thread> threads;
+        auto it = container.begin();
+        Module thread_idx = 0;
+        for (Module i = 0; i < this->concurrent && it != container.end(); ++i, ++thread_idx) {
+            auto start = it;
+            Module count = 0;
+            while (it != container.end() && count < chunk_size) {
+                ++it;
+                ++count;
+            }
+            threads.emplace_back([&, start, end = it, idx = thread_idx]() {
+                for (auto iter = start; iter != end; ++iter) {
+                    K key = classifier(iter->second);
+                    partials[idx][key].push_back(iter->second);
+                }
+            });
+        }
+        for (auto& t : threads) t.join();
+        std::map<K, std::vector<E>> result;
+        for (Module i = 0; i < thread_idx; ++i) {
+            for (auto& kv : partials[i]) {
+                result[kv.first].insert(result[kv.first].end(), kv.second.begin(), kv.second.end());
+            }
+        }
+        return result;
+    }
 }
 
 template <typename E>
 template <typename K, typename V>
-std::map<K, V> Semantic<E>::toMap(
-	const Function<E, K> &keyExtractor,
-	const Function<E, V> &valueExtractor) const
-{
-	return collect(
-		[]() {
-			return std::map<K, V>{};
-		},
-		[keyExtractor, valueExtractor](std::map<K, V> &accumulator, const E &element) {
-			accumulator[keyExtractor(element)] = valueExtractor(element);
-		},
-		[](std::map<K, V> left, const std::map<K, V> &right) {
-			for (const auto &pair : right)
-			{
-				left[pair.first] = pair.second;
-			}
-			return left;
-		},
-		[](std::map<K, V> result) {
-			return result;
-		});
+std::map<K, std::vector<V>> OrderedCollectable<E>::groupBy(const Function<E, K>& keyExtractor, const Function<E, V>& valueExtractor) const {
+    if (this->concurrent < 2) {
+        std::map<K, std::vector<V>> result;
+        for (const auto& pair : container) {
+            K key = keyExtractor(pair.second);
+            V value = valueExtractor(pair.second);
+            result[key].push_back(value);
+        }
+        return result;
+    } else {
+        std::vector<std::map<K, std::vector<V>>> partials(this->concurrent);
+        Module chunk_size = std::max(static_cast<Module>(1), static_cast<Module>(container.size()) / this->concurrent);
+        std::vector<std::thread> threads;
+        auto it = container.begin();
+        Module thread_idx = 0;
+        for (Module i = 0; i < this->concurrent && it != container.end(); ++i, ++thread_idx) {
+            auto start = it;
+            Module count = 0;
+            while (it != container.end() && count < chunk_size) {
+                ++it;
+                ++count;
+            }
+            threads.emplace_back([&, start, end = it, idx = thread_idx]() {
+                for (auto iter = start; iter != end; ++iter) {
+                    K key = keyExtractor(iter->second);
+                    V value = valueExtractor(iter->second);
+                    partials[idx][key].push_back(value);
+                }
+            });
+        }
+        for (auto& t : threads) t.join();
+        std::map<K, std::vector<V>> result;
+        for (Module i = 0; i < thread_idx; ++i) {
+            for (auto& kv : partials[i]) {
+                result[kv.first].insert(result[kv.first].end(), kv.second.begin(), kv.second.end());
+            }
+        }
+        return result;
+    }
 }
 
 template <typename E>
-std::set<E> Semantic<E>::toSet() const
-{
-	return collect(
-		[]() {
-			return std::set<E>{};
-		},
-		[](std::set<E> &accumulator, const E &element) {
-			accumulator.insert(element);
-		},
-		[](std::set<E> left, const std::set<E> &right) {
-			for (const auto &element : right)
-			{
-				left.insert(element);
-			}
-			return left;
-		},
-		[](std::set<E> result) {
-			return result;
-		});
+bool OrderedCollectable<E>::noneMatch(const Predicate<E>& p) const {
+    return !anyMatch(p);
 }
 
 template <typename E>
-std::vector<E> Semantic<E>::toVector() const
-{
-	return collect(
-		[]() {
-			return std::vector<E>{};
-		},
-		[](std::vector<E> &accumulator, const E &element) {
-			accumulator.push_back(element);
-		},
-		[](std::vector<E> left, const std::vector<E> &right) {
-			left.insert(left.end(), right.begin(), right.end());
-			return left;
-		},
-		[](std::vector<E> result) {
-			return result;
-		});
+std::vector<std::vector<E>> OrderedCollectable<E>::partition(const Module& count) const {
+    if (count == 0) return {};
+    std::vector<std::vector<E>> result;
+    result.resize((container.size() + count - 1) / count);
+    Module i = 0;
+    for (const auto& pair : container) {
+        result[i / count].push_back(pair.second);
+        ++i;
+    }
+    return result;
 }
 
 template <typename E>
-Semantic<E> Semantic<E>::translate(const Timestamp &offset) const
-{
-	return this->redirect([offset](const E &, const Timestamp &index) {
-		return index + offset;
-	});
+std::vector<std::vector<E>> OrderedCollectable<E>::partitionBy(const Function<E, Module>& classifier) const {
+    if (this->concurrent < 2) {
+        std::map<Module, std::vector<E>> groups;
+        for (const auto& pair : container) {
+            Module key = classifier(pair.second);
+            groups[key].push_back(pair.second);
+        }
+        std::vector<std::vector<E>> result;
+        for (auto& kv : groups) {
+            result.push_back(std::move(kv.second));
+        }
+        return result;
+    } else {
+        std::vector<std::map<Module, std::vector<E>>> partials(this->concurrent);
+        Module chunk_size = std::max(static_cast<Module>(1), static_cast<Module>(container.size()) / this->concurrent);
+        std::vector<std::thread> threads;
+        auto it = container.begin();
+        Module thread_idx = 0;
+        for (Module i = 0; i < this->concurrent && it != container.end(); ++i, ++thread_idx) {
+            auto start = it;
+            Module count = 0;
+            while (it != container.end() && count < chunk_size) {
+                ++it;
+                ++count;
+            }
+            threads.emplace_back([&, start, end = it, idx = thread_idx]() {
+                for (auto iter = start; iter != end; ++iter) {
+                    Module key = classifier(iter->second);
+                    partials[idx][key].push_back(iter->second);
+                }
+            });
+        }
+        for (auto& t : threads) t.join();
+        std::map<Module, std::vector<E>> merged;
+        for (Module i = 0; i < thread_idx; ++i) {
+            for (auto& kv : partials[i]) {
+                merged[kv.first].insert(merged[kv.first].end(), kv.second.begin(), kv.second.end());
+            }
+        }
+        std::vector<std::vector<E>> result;
+        for (auto& kv : merged) {
+            result.push_back(std::move(kv.second));
+        }
+        return result;
+    }
 }
 
+template <typename E>
+std::optional<E> OrderedCollectable<E>::reduce(const BiFunction<E, E, E>& accumulator) const {
+    if (container.empty()) return std::nullopt;
+    if (this->concurrent < 2) {
+        auto it = container.begin();
+        E result = it->second;
+        ++it;
+        for (; it != container.end(); ++it) {
+            result = accumulator(result, it->second);
+        }
+        return result;
+    } else {
+        std::vector<E> partials;
+        Module chunk_size = std::max(static_cast<Module>(1), static_cast<Module>(container.size()) / this->concurrent);
+        std::vector<std::thread> threads;
+        auto it = container.begin();
+        for (Module i = 0; i < this->concurrent && it != container.end(); ++i) {
+            auto start = it;
+            Module count = 0;
+            while (it != container.end() && count < chunk_size) {
+                ++it;
+                ++count;
+            }
+            threads.emplace_back([&partials, start, end = it, &accumulator]() {
+                auto iter = start;
+                E local = iter->second;
+                ++iter;
+                for (; iter != end; ++iter) {
+                    local = accumulator(local, iter->second);
+                }
+                partials.push_back(local);
+            });
+        }
+        for (auto& t : threads) t.join();
+        E result = partials;
+        for (size_t i = 1; i < partials.size(); ++i) {
+            result = accumulator(result, partials[i]);
+        }
+        return result;
+    }
+}
+
+template <typename E>
+E OrderedCollectable<E>::reduce(const E& identity, const BiFunction<E, E, E>& accumulator) const {
+    if (this->concurrent < 2) {
+        E result = identity;
+        for (const auto& pair : container) {
+            result = accumulator(result, pair.second);
+        }
+        return result;
+    } else {
+        std::vector<E> partials(this->concurrent, identity);
+        Module chunk_size = std::max(static_cast<Module>(1), static_cast<Module>(container.size()) / this->concurrent);
+        std::vector<std::thread> threads;
+        auto it = container.begin();
+        Module thread_idx = 0;
+        for (Module i = 0; i < this->concurrent && it != container.end(); ++i, ++thread_idx) {
+            auto start = it;
+            Module count = 0;
+            while (it != container.end() && count < chunk_size) {
+                ++it;
+                ++count;
+            }
+            threads.emplace_back([&, start, end = it, idx = thread_idx]() {
+                E local = identity;
+                for (auto iter = start; iter != end; ++iter) {
+                    local = accumulator(local, iter->second);
+                }
+                partials[idx] = local;
+            });
+        }
+        for (auto& t : threads) t.join();
+        E result = identity;
+        for (Module i = 0; i < thread_idx; ++i) {
+            result = accumulator(result, partials[i]);
+        }
+        return result;
+    }
+}
+
+template <typename E>
+template <typename R>
+R OrderedCollectable<E>::reduce(const R& identity, const BiFunction<R, E, R>& accumulator, const BiFunction<R, R, R>& combiner) const {
+    if (this->concurrent < 2) {
+        R result = identity;
+        for (const auto& pair : container) {
+            result = accumulator(result, pair.second);
+        }
+        return result;
+    } else {
+        std::vector<R> partials(this->concurrent, identity);
+        Module chunk_size = std::max(static_cast<Module>(1), static_cast<Module>(container.size()) / this->concurrent);
+        std::vector<std::thread> threads;
+        auto it = container.begin();
+        Module thread_idx = 0;
+        for (Module i = 0; i < this->concurrent && it != container.end(); ++i, ++thread_idx) {
+            auto start = it;
+            Module count = 0;
+            while (it != container.end() && count < chunk_size) {
+                ++it;
+                ++count;
+            }
+            threads.emplace_back([&, start, end = it, idx = thread_idx]() {
+                R local = identity;
+                for (auto iter = start; iter != end; ++iter) {
+                    local = accumulator(local, iter->second);
+                }
+                partials[idx] = local;
+            });
+        }
+        for (auto& t : threads) t.join();
+        R result = identity;
+        for (Module i = 0; i < thread_idx; ++i) {
+            result = combiner(result, partials[i]);
+        }
+        return result;
+    }
+}
+
+template <typename E>
+std::list<E> OrderedCollectable<E>::toList() const {
+    if (this->concurrent < 2) {
+        std::list<E> result;
+        for (const auto& pair : container) {
+            result.push_back(pair.second);
+        }
+        return result;
+    } else {
+        std::vector<std::list<E>> partials(this->concurrent);
+        Module chunk_size = std::max(static_cast<Module>(1), static_cast<Module>(container.size()) / this->concurrent);
+        std::vector<std::thread> threads;
+        auto it = container.begin();
+        Module thread_idx = 0;
+        for (Module i = 0; i < this->concurrent && it != container.end(); ++i, ++thread_idx) {
+            auto start = it;
+            Module count = 0;
+            while (it != container.end() && count < chunk_size) {
+                ++it;
+                ++count;
+            }
+            threads.emplace_back([&, start, end = it, idx = thread_idx]() {
+                for (auto iter = start; iter != end; ++iter) {
+                    partials[idx].push_back(iter->second);
+                }
+            });
+        }
+        for (auto& t : threads) t.join();
+        std::list<E> result;
+        for (Module i = 0; i < thread_idx; ++i) {
+            result.splice(result.end(), partials[i]);
+        }
+        return result;
+    }
+}
+
+template <typename E>
+template <typename K, typename V>
+std::map<K, V> OrderedCollectable<E>::toMap(const Function<E, K>& keyExtractor, const Function<E, V>& valueExtractor) const {
+    if (this->concurrent < 2) {
+        std::map<K, V> result;
+        for (const auto& pair : container) {
+            K key = keyExtractor(pair.second);
+            V value = valueExtractor(pair.second);
+            result.emplace(key, value);
+        }
+        return result;
+    } else {
+        std::vector<std::map<K, V>> partials(this->concurrent);
+        Module chunk_size = std::max(static_cast<Module>(1), static_cast<Module>(container.size()) / this->concurrent);
+        std::vector<std::thread> threads;
+        auto it = container.begin();
+        Module thread_idx = 0;
+        for (Module i = 0; i < this->concurrent && it != container.end(); ++i, ++thread_idx) {
+            auto start = it;
+            Module count = 0;
+            while (it != container.end() && count < chunk_size) {
+                ++it;
+                ++count;
+            }
+            threads.emplace_back([&, start, end = it, idx = thread_idx]() {
+                for (auto iter = start; iter != end; ++iter) {
+                    K key = keyExtractor(iter->second);
+                    V value = valueExtractor(iter->second);
+                    partials[idx].emplace(key, value);
+                }
+            });
+        }
+        for (auto& t : threads) t.join();
+        std::map<K, V> result;
+        for (Module i = 0; i < thread_idx; ++i) {
+            result.insert(partials[i].begin(), partials[i].end());
+        }
+        return result;
+    }
+}
+
+template <typename E>
+std::set<E> OrderedCollectable<E>::toSet() const {
+    if (this->concurrent < 2) {
+        std::set<E> result;
+        for (const auto& pair : container) {
+            result.insert(pair.second);
+        }
+        return result;
+    } else {
+        std::vector<std::set<E>> partials(this->concurrent);
+        Module chunk_size = std::max(static_cast<Module>(1), static_cast<Module>(container.size()) / this->concurrent);
+        std::vector<std::thread> threads;
+        auto it = container.begin();
+        Module thread_idx = 0;
+        for (Module i = 0; i < this->concurrent && it != container.end(); ++i, ++thread_idx) {
+            auto start = it;
+            Module count = 0;
+            while (it != container.end() && count < chunk_size) {
+                ++it;
+                ++count;
+            }
+            threads.emplace_back([&, start, end = it, idx = thread_idx]() {
+                for (auto iter = start; iter != end; ++iter) {
+                    partials[idx].insert(iter->second);
+                }
+            });
+        }
+        for (auto& t : threads) t.join();
+        std::set<E> result;
+        for (Module i = 0; i < thread_idx; ++i) {
+            result.insert(partials[i].begin(), partials[i].end());
+        }
+        return result;
+    }
+}
+
+template <typename E>
+std::unordered_set<E> OrderedCollectable<E>::toUnorderedSet() const {
+    if (this->concurrent < 2) {
+        std::unordered_set<E> result;
+        result.reserve(container.size());
+        for (const auto& pair : container) {
+            result.insert(pair.second);
+        }
+        return result;
+    } else {
+        std::vector<std::unordered_set<E>> partials(this->concurrent);
+        for (Module i = 0; i < this->concurrent; ++i) {
+            partials[i].reserve(container.size() / this->concurrent + 1);
+        }
+        Module chunk_size = std::max(static_cast<Module>(1), static_cast<Module>(container.size()) / this->concurrent);
+        std::vector<std::thread> threads;
+        auto it = container.begin();
+        Module thread_idx = 0;
+        for (Module i = 0; i < this->concurrent && it != container.end(); ++i, ++thread_idx) {
+            auto start = it;
+            Module count = 0;
+            while (it != container.end() && count < chunk_size) {
+                ++it;
+                ++count;
+            }
+            threads.emplace_back([&, start, end = it, idx = thread_idx]() {
+                for (auto iter = start; iter != end; ++iter) {
+                    partials[idx].insert(iter->second);
+                }
+            });
+        }
+        for (auto& t : threads) t.join();
+        std::unordered_set<E> result;
+        result.reserve(container.size());
+        for (Module i = 0; i < thread_idx; ++i) {
+            result.insert(partials[i].begin(), partials[i].end());
+        }
+        return result;
+    }
+}
+
+template <typename E>
+std::vector<E> OrderedCollectable<E>::toVector() const {
+    if (this->concurrent < 2) {
+        std::vector<E> result;
+        result.reserve(container.size());
+        for (const auto& pair : container) {
+            result.push_back(pair.second);
+        }
+        return result;
+    } else {
+        std::vector<std::vector<E>> partials(this->concurrent);
+        for (Module i = 0; i < this->concurrent; ++i) {
+            partials[i].reserve(container.size() / this->concurrent + 1);
+        }
+        Module chunk_size = std::max(static_cast<Module>(1), static_cast<Module>(container.size()) / this->concurrent);
+        std::vector<std::thread> threads;
+        auto it = container.begin();
+        Module thread_idx = 0;
+        for (Module i = 0; i < this->concurrent && it != container.end(); ++i, ++thread_idx) {
+            auto start = it;
+            Module count = 0;
+            while (it != container.end() && count < chunk_size) {
+                ++it;
+                ++count;
+            }
+            threads.emplace_back([&, start, end = it, idx = thread_idx]() {
+                for (auto iter = start; iter != end; ++iter) {
+                    partials[idx].push_back(iter->second);
+                }
+            });
+        }
+        for (auto& t : threads) t.join();
+        std::vector<E> result;
+        result.reserve(container.size());
+        for (Module i = 0; i < thread_idx; ++i) {
+            result.insert(result.end(), partials[i].begin(), partials[i].end());
+        }
+        return result;
+    }
+}
+
+//Semantic
+template <typename E>
+Semantic<E> &Semantic<E>::operator=(const Semantic<E> &other) {
+    if (this != &other) {
+        generator = other.generator;
+        concurrent = other.concurrent;
+    }
+    return *this;
+}
+
+template <typename E>
+Semantic<E> &Semantic<E>::operator=(Semantic<E> &&other) noexcept {
+    if (this != &other) {
+        generator = std::move(other.generator);
+        concurrent = other.concurrent;
+    }
+    return *this;
+}
+
+template <typename E>
+Semantic<E> Semantic<E>::concat(const Semantic<E> &other) const {
+    return Semantic<E>([this, &other](const BiConsumer<E, Timestamp> &accept, const Predicate<E> &interrupt) {
+        (*generator)(accept, interrupt);
+        (*other.generator)(accept, interrupt);
+    }, concurrent);
+}
+
+template <typename E>
+Semantic<E> Semantic<E>::distinct() const {
+    return Semantic<E>([this](const BiConsumer<E, Timestamp> &accept, const Predicate<E> &interrupt) {
+        std::set<E> seen;
+        (*generator)([&](const E &element, Timestamp index) {
+            if (seen.insert(element).second && !interrupt(element)) {
+                accept(element, index);
+            }
+        }, interrupt);
+    }, concurrent);
+}
+
+template <typename E>
+Semantic<E> Semantic<E>::distinct(const Comparator<E, E> &identifier) const {
+    return Semantic<E>([this, &identifier](const BiConsumer<E, Timestamp> &accept, const Predicate<E> &interrupt) {
+        std::set<Timestamp> seen;
+        (*generator)([&](const E &element, Timestamp index) {
+            Timestamp id = identifier(element, element);
+            if (seen.insert(id).second && !interrupt(element)) {
+                accept(element, index);
+            }
+        }, interrupt);
+    }, concurrent);
+}
+
+template <typename E>
+Semantic<E> Semantic<E>::dropWhile(const Predicate<E> &p) const {
+    return Semantic<E>([this, &p](const BiConsumer<E, Timestamp> &accept, const Predicate<E> &interrupt) {
+        bool dropping = true;
+        (*generator)([&](const E &element, Timestamp index) {
+            if (dropping && p(element)) {
+                return;
+            }
+            dropping = false;
+            accept(element, index);
+        }, [](const E &element) {
+            return false;
+        });
+    }, concurrent);
+}
+
+
+template <typename E>
+Semantic<E> Semantic<E>::filter(const Predicate<E> &p) const {
+    return Semantic<E>([this, &p](const BiConsumer<E, Timestamp> &accept, const Predicate<E> &interrupt) {
+        (*generator)([&](const E &element, Timestamp index) {
+            if (p(element) && !interrupt(element)) {
+                accept(element, index);
+            }
+        }, interrupt);
+    }, concurrent);
+}
+
+template <typename E>
+Semantic<E> Semantic<E>::flat(const Function<E, Semantic<E>> &mapper) const {
+    return Semantic<E>([this, &mapper](const BiConsumer<E, Timestamp> &accept, const Predicate<E> &interrupt) {
+        (*generator)([&](const E &element, Timestamp index) {
+            if (!interrupt(element)) {
+                Semantic<E> nested = mapper(element);
+                (*nested.generator)(accept, interrupt);
+            }
+        }, interrupt);
+    }, concurrent);
+}
+
+template <typename E>
+template <typename R>
+Semantic<R> Semantic<E>::flatMap(const Function<E, Semantic<R>> &mapper) const {
+    return Semantic<R>([this, &mapper](const BiConsumer<R, Timestamp> &accept, const Predicate<R> &interrupt) {
+        (*generator)([&](const E &element, Timestamp index) {
+            if (!interrupt(element)) {
+                Semantic<R> nested = mapper(element);
+                (*nested.generator)([&](const R &r_element, Timestamp r_index) {
+                    accept(r_element, r_index);
+                }, [&](const R &r_element) {
+                    return interrupt(r_element);
+                });
+            }
+        }, [&](const E &element) {
+            return false;
+        });
+    }, concurrent);
+}
+
+template <typename E>
+Semantic<E> Semantic<E>::limit(const Module &n) const {
+    return Semantic<E>([this, n](const BiConsumer<E, Timestamp> &accept, const Predicate<E> &interrupt) {
+        Module count = 0;
+        (*generator)([&](const E &element, Timestamp index) {
+            accept(element, index);
+            count++;
+        }, [&n](const E& element)->bool{
+        	return count < n;
+        });
+    }, concurrent);
+}
+
+template <typename E>
+template <typename R>
+Semantic<R> Semantic<E>::map(const Function<E, R> &mapper) const {
+    return Semantic<R>([this, &mapper](const BiConsumer<R, Timestamp> &accept, const Predicate<R> &interrupt) {
+        (*generator)([&](const E &element, Timestamp index) {
+            R mapped = mapper(element);
+            if (!interrupt(mapped)) {
+                accept(mapped, index);
+            }
+        }, [&](const E &element) {
+            return false;
+        });
+    }, concurrent);
+}
+
+template <typename E>
+Semantic<E> Semantic<E>::parallel() const {
+    return Semantic<E>(generator, std::thread::hardware_concurrency());
+}
+
+template <typename E>
+Semantic<E> Semantic<E>::parallel(const Module &threadCount) const {
+    return Semantic<E>(generator, threadCount);
+}
+
+template <typename E>
+Semantic<E> Semantic<E>::peek(const Consumer<E> &c) const {
+    return Semantic<E>([this, &c](const BiConsumer<E, Timestamp> &accept, const Predicate<E> &interrupt) {
+        (*generator)([&](const E &element, Timestamp index) {
+            c(element);
+            if (!interrupt(element)) {
+                accept(element, index);
+            }
+        }, interrupt);
+    }, concurrent);
+}
+
+template <typename E>
+Semantic<E> Semantic<E>::redirect(const BiFunction<E, Timestamp, Timestamp> &redirector) const {
+    return Semantic<E>([*this, &redirector](const BiConsumer<E, Timestamp> &accept, const Predicate<E> &interrupt) {
+        (*this->generator)([&](const E &element, const Timestamp &index) {
+            accept(element, redirector(element, index));
+        }, [](const E &element) {
+            return false;
+        });
+    }, concurrent);
+}
+
+template <typename E>
+Semantic<E> Semantic<E>::reverse() const {
+    return Semantic<E>([*this](const BiConsumer<E, Timestamp> &accept, const Predicate<E> &interrupt) {
+        (*this->generator)([&](const E &element, const Timestamp &index) {
+            accept(element, -index);
+        }, [](const E &element) {
+            return false;
+        });
+    }, concurrent);
+}
+
+template <typename E>
+Semantic<E> Semantic<E>::shuffle() const {
+        (*this->generator)([&](const E &element, const Timestamp &index) {
+            accept(element, std::hash<E>{}(element) ^ std::hash<E>{}(index));
+        }, [](const E &element) {
+            return false;
+        });
+    }, concurrent);
+}
+
+template <typename E>
+Semantic<E> Semantic<E>::shuffle(const Function<E, Timestamp> &mapper) const {
+    return Semantic<E>([this, &mapper](const BiConsumer<E, Timestamp> &accept, const Predicate<E> &interrupt) {
+        (*generator)([&](const E &element, Timestamp index) {
+            accept(element, mapper(element));
+        }, [](const E &element) {
+            return false;
+        });
+    }, concurrent);
+}
+
+template <typename E>
+Semantic<E> Semantic<E>::skip(const Module &n) const {
+    return Semantic<E>([this, n](const BiConsumer<E, Timestamp> &accept, const Predicate<E> &interrupt) {
+        Module count = 0;
+        (*generator)([&](const E &element, Timestamp index) {
+            if (count < n) {
+                count++;
+                return;
+            }
+            accept(element, index);
+        }, [](const E &element) {
+            return false;
+        });
+    }, concurrent);
+}
+
+template <typename E>
+OrderedCollectable<E> Semantic<E>::sorted() const {
+    return OrderedCollectable<E>([this](const BiConsumer<E, Timestamp> &accept, const Predicate<E> &interrupt) {
+        std::vector<std::pair<E, Timestamp>> buffer;
+        (*generator)([&](const E &element, Timestamp index) {
+            buffer.emplace_back(element, index);
+        }, [](const E &element) {
+            return false;
+        });
+        std::sort(buffer.begin(), buffer.end(), [](const auto &a, const auto &b) {
+            return a.first < b.first;
+        });
+        for (auto &[element, index] : buffer) {
+            accept(element, index);
+        }
+    }, concurrent);
+}
+
+template <typename E>
+Semantic<E> Semantic<E>::sub(const Module &start, const Module &end) const {
+    return Semantic<E>([this, start, end](const BiConsumer<E, Timestamp> &accept, const Predicate<E> &interrupt) {
+        Module index = 0;
+        (*generator)([&](const E &element, Timestamp timestamp) {
+            if (index >= start && index < end) {
+                accept(element, timestamp);
+            }
+            index++;
+        }, [](const E &element) {
+            return false;
+        });
+    }, concurrent);
+}
+
+template <typename E>
+Semantic<E> Semantic<E>::takeWhile(const Predicate<E> &p) const {
+    return Semantic<E>([this, &p](const BiConsumer<E, Timestamp> &accept, const Predicate<E> &interrupt) {
+        bool taking = true;
+        (*generator)([&](const E &element, Timestamp index) {
+            if (!taking) {
+                return;
+            }
+            if (p(element)) {
+                accept(element, index);
+            } else {
+                taking = false;
+            }
+        }, [](const E &element) {
+            return false;
+        });
+    }, concurrent);
+}
+
+template <typename E>
+OrderedCollectable<E> Semantic<E>::toOrdered() const {
+    return OrderedCollectable<E>(generator, concurrent);
+}
+
+template <typename E>
+Statistics<E, E> Semantic<E>::toStatistics() const {
+    return Statistics<E, E>(generator, concurrent);
+}
+
+template <typename E>
+template <typename R>
+Statistics<E, R> Semantic<E>::toStatistics(const Function<E, R> &mapper) const {
+    return Statistics<E, R>([this, &mapper](const BiConsumer<R, Timestamp> &accept, const Predicate<R> &interrupt) {
+        (*generator)([&](const E &element, Timestamp index) {
+            R mapped = mapper(element);
+            if (!interrupt(mapped)) {
+                accept(mapped, index);
+            }
+        }, [&](const E &element) {
+            return false;
+        });
+    }, concurrent);
+}
+
+template <typename E>
+UnorderedCollectable<E> Semantic<E>::toUnordered() const {
+    return UnorderedCollectable<E>(generator, concurrent);
+}
+
+template <typename E>
+Semantic<E> Semantic<E>::translate(const Timestamp &offset) const {
+    return Semantic<E>([this, offset](const BiConsumer<E, Timestamp> &accept, const Predicate<E> &interrupt) {
+        (*generator)([&](const E &element, Timestamp index) {
+            if (!interrupt(element)) {
+                accept(element, index + offset);
+            }
+        }, interrupt);
+    }, concurrent);
+}
+
+
+//Semantic factory function
 template <typename E>
 Semantic<E> empty()
 {
@@ -1551,8 +2367,3 @@ Semantic<E> range(const E &start, const E &end, const E &step)
 					   1);
 }
 }; // namespace semantic
-int main()
-{
-	semantic::from({1, 2, 3, 4}).cout();
-	return 0;
-}

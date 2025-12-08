@@ -1,87 +1,162 @@
-# Semantic Stream —— 現代 C++ 関数型ストリームライブラリ
+# semantic-cpp —— 現代 C++ 語義ストリームライブラリ
 
-Semantic は、ヘッダオンリー・高性能・完全遅延評価の C++17 以降向け関数型ストリームライブラリです。  
-JavaScript Generator、Java Stream API、Java Function パッケージ、そして MySQL のインデックス設計思想を融合して生まれました。
+**semantic-cpp** はヘッダオンリー、C++17 以降対応、ゼロ外部依存の高性能遅延評価ストリームライブラリです。  
+核心思想：**すべての要素は生まれながらにして論理インデックス（Timestamp）を持つ**。順序に関するすべての操作は、このインデックスの変換に過ぎません。
 
-有限シーケンスだけでなく、無限シーケンスも自然に扱えるよう設計されており、関数型プログラミングの表現力と真の遅延評価・並列実行・時間印ベースのインデックスを兼ね備えています。
+- 真の無限ストリーム対応  
+- インデックスは第一級市民、自由にリマップ可能  
+- 並列実行がデフォルト  
+- インデックス操作（redirect 等）を有効にするか無視するかは、**収集時のみ**で明示的に決定  
 
-## 主な特長
-
-- **完全遅延評価** — 中間操作は終端操作が呼ばれるまで一切実行されません。
-- **無限ストリームのネイティブサポート** — Generator により無限シーケンスを簡単に構築可能。
-- **時間印インデックス機構** — すべての要素に暗黙的または明示的なタイムスタンプが付与され、MySQL のインデックスのような高速スキップ・シークを実現。
-- **ワンライナーで並列化** — `.parallel()` または `.parallel(n)` のみでマルチスレッドパイプラインに変換。
-- **豊富な関数型操作** — `map`、`filter`、`flatMap`、`reduce`、`collect`、`group`、統計処理など一通り完備。
-- **Java 互換 Collector API** — supplier、accumulator、combiner、finisher の4段階構成。
-- **強力な統計機能** — 平均・中央値・最頻値・分散・標準偏差・四分位数・歪度・尖度など。
-- **多様な生成方法** — コンテナ、配列、範囲、ジェネレータ、fill などから即座にストリーム作成。
+MIT ライセンス — 商用・オープンソース問わず自由に使用可能。
 
 ## 設計思想
 
-Semantic は「時間印付きの要素列を Generator が生成する」というモデルを採用しています。以下の技術からインスピレーションを得ています：
+> **インデックスが順序を決め、実行は速度だけを決める。**
 
-- **JavaScript Generator** — プル型遅延生成
-- **Java Stream** — 流暢なチェーン構文と中間・終端操作の分離
-- **Java Function パッケージ** — `Function`、`Consumer`、`Predicate` などの型エイリアス
-- **MySQL インデックス** — 論理タイムスタンプによる効率的な `skip`、`limit`、`redirect`、`translate`
+- `redirect`、`reverse`、`shuffle`、`cycle` 等は論理インデックスだけを変更  
+- `.toOrdered()` で収集 → すべてのインデックス操作が有効（最終インデックス順にソート）  
+- `.toUnordered()` で収集 → すべてのインデックス操作を無視（最速、無順序）
 
-## コアコンセプト
-
-```cpp
-using Generator<E> = BiConsumer<
-    BiConsumer<E, Timestamp>,   // yield(要素, タイムスタンプ)
-    Predicate<E>                // キャンセル判定
->;
+```text
+.toOrdered()   → すべてのインデックス操作が有効
+.toUnordered() → すべてのインデックス操作が無視される（最速パス）
 ```
 
-ジェネレータは yield 関数とキャンセル判定関数を受け取ります。この低レベル抽象が有限・無限すべてのストリームの源泉です。
-
-## クイック例
+## クイックスタート
 
 ```cpp
+#include "semantic.h"
 using namespace semantic;
 
-// 無限乱数ストリーム
-auto s = Semantic<int>::iterate([](auto yield, auto cancel) {
-    std::random_device rd;
-    std::mt19937 gen(rd());
-    std::uniform_int_distribution<> d(1, 100);
-    Timestamp ts = 0;
-    while (!cancel(d(gen))) {
-        yield(d(gen), ts++);
-    }
-});
+int main() {
+    // 1. インデックス操作がすべて有効になる
+    auto v1 = Semantic<int>::range(0, 100)
+        .redirect([](auto&, auto i) { return -i; })   // 逆順
+        .toOrdered()                                  // 必須！
+        .toVector();   // 結果: [99, 98, ..., 0]
 
-// 遅延評価による素数生成（有限範囲）
-auto primes = Semantic<long long>::range(2LL, 1'000'000LL)
-    .filter([](long long n) {
-        return Semantic<long long>::range(2LL, n)
-            .takeWhile([n](long long d){ return d * d <= n; })
-            .noneMatch([n](long long d){ return n % d == 0; });
-    });
+    // 2. インデックス操作がすべて無視される（最速）
+    auto v2 = Semantic<int>::range(0, 100)
+        .redirect([](auto&, auto i) { return -i; })
+        .toUnordered()                                // インデックス無視
+        .toVector();   // 結果: 順序不定だが最速
 
-// 並列単語カウント
-auto wordCount = Semantic<std::string>::from(lines)
-    .flatMap([](const std::string& line) {
-        return Semantic<std::string>::from(split(line));
-    })
-    .parallel()
-    .group([](const std::string& w){ return w; })
-    .map([](auto& p){ return std::make_pair(p.first, p.second.size()); });
+    // 3. 無限循環ストリーム + 有序収集
+    auto top10 = Semantic<int>::range(0, 1'000'000'000)
+        .redirect([](auto&, auto i) { return i % 1000; }) // 0-999 循環
+        .toOrdered()
+        .limit(10)
+        .toVector();   // [0,1,2,3,4,5,6,7,8,9]
+
+    return 0;
+}
 ```
 
-## ビルド要件
+## 主要メソッドとチェーン例
 
-- C++17 以上
-- ヘッダオンリー — `#include "semantic.hpp"` のみで使用可能
-- 外部依存なし
+```cpp
+// ストリーム生成
+Semantic<int>::range(0, 1000);
+Semantic<long long>::range(0, 1LL<<60);
+Semantic<int>::iterate([](auto yield, auto) {      // 無限ストリーム
+    for (int i = 0;; ++i) yield(i);
+});
+Semantic<int>::of(1, 2, 3, 4, 5);
+Semantic<int>::from(std::vector{1,2,3,4});
+Semantic<int>::fill(42, 1'000'000);
+Semantic<int>::fill([] { return rand(); }, 1000);
 
-グローバルスレッドプール `semantic::globalThreadPool` は起動時に自動的に `std::thread::hardware_concurrency()` 個のワーカースレッドで初期化されます。
+// 中間操作（すべて遅延評価）
+stream.map([](int x) { return x * x; });
+stream.filter([](int x) { return x % 2 == 0; });
+stream.flatMap([](int x) { return Semantic<int>::range(0, x); });
+stream.distinct();                                     // 値ベース重複除去
+stream.skip(100);
+stream.limit(50);
+stream.takeWhile([](int x) { return x < 1000; });
+stream.dropWhile([](int x) { return x < 100; });
+stream.peek([](int x) { std::cout << x << ' '; });
+
+// インデックス変換操作（toOrdered() のときのみ有効）
+stream.redirect([](auto&, auto i) { return -i; });           // 逆順
+stream.redirect([](auto&, auto i) { return i % 100; });      // 循環
+stream.redirect([](auto e, auto i) { return std::hash<int>{}(e); }); // シャッフル
+stream.reverse();                                            // redirect(-i) と同等
+stream.shuffle();
+
+// 並列実行
+stream.parallel();       // 全コア使用
+stream.parallel(8);      // スレッド数指定
+
+// 必須：インデックスを尊重するか明示的に選択
+auto ordered   = stream.toOrdered();     // すべてのインデックス操作が有効
+auto unordered = stream.toUnordered();   // すべてのインデックス操作が無視される（最速）
+
+// 有序収集（最終インデックス順に並ぶ）
+ordered.toVector();
+ordered.toList();
+ordered.toSet();                 // 最終インデックス順に重複除去
+ordered.forEach([](int x) { std::cout << x << ' '; });
+ordered.cout();                  // [99, 98, 97, …]
+
+// 無序収集（最速パス）
+unordered.toVector();
+unordered.toList();
+unordered.toSet();
+unordered.forEach(...);
+unordered.cout();
+
+// 統計（常に最速パス）
+auto stats = stream.toUnordered().toStatistics();
+
+// reduce（unordered推奨）
+int sum = stream.toUnordered()
+    .reduce(0, [](int a, int b) { return a + b; });
+```
+
+## メソッド一覧
+
+| メソッド                         | 説明                                               | インデックス操作を尊重するか |
+|----------------------------------|----------------------------------------------------|------------------------------|
+| `toOrdered()`                    | 意味的モード — すべてのインデックス操作が有効     | はい                         |
+| `toUnordered()`                  | 性能優先モード — すべてのインデックス操作が無視   | いいえ（最速）               |
+| `toVector()` / `toList()`        | コンテナへ収集                                    | 選択による                   |
+| `toSet()`                        | set へ収集（重複除去）                            | 選択による                   |
+| `forEach` / `cout`               | 走査・出力                                        | 選択による                   |
+| `redirect` / `reverse` / `shuffle` | 論理インデックス変換                        | toOrdered() のときのみ有効   |
+| `parallel`                       | 並列実行                                          | 両モード対応                 |
+
+## なぜ toOrdered / toUnordered を明示的に選ぶ必要があるのか？
+
+**インデックス変換**と**並列実行**は完全に直交する2つの次元だからです。
+
+- `redirect` 等は意味的（semantic）な操作 → 「この要素は論理的にどこにいるべきか？」  
+- `parallel` は実行戦略 → 「どれだけ速く計算するか？」
+
+収集時に明示的に選択することで、最高速と正確な順序制御の両方を手に入れられます。
+
+## コンパイル要件
+
+- C++17 以上  
+- `#include "semantic.h"` のみ  
+- 外部依存ゼロ  
+- 単一ヘッダライブラリ
+
+```bash
+g++ -std=c++17 -O3 -pthread semantic.cpp
+```
 
 ## ライセンス
 
-MIT License — 商用・オープンソース問わず自由に利用可能です。
+MIT ライセンス — 商用・オープンソース・プライベートプロジェクトで無制限に使用可能。
 
-## 作者
+---
 
-現代関数型プログラミングの優れたアイデアを C++ 向けに高性能かつイディオマティックに再構築したライブラリです。
+**semantic-cpp**：  
+**インデックスが順序を決め、実行は速度だけを決める。**  
+`redirect` と書けば本当に逆順になり、`toUnordered()` と書けば本当に最速になる。  
+妥協なし、選択のみ。
+
+ストリームを書くとき、もう推測する必要はありません。  
+ただ一言：**「意味が欲しいか、速度が欲しいか？」**

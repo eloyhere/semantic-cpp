@@ -1,89 +1,155 @@
-# Semantic Stream — Moderne funktionale Stream-Bibliothek für C++
+# semantic-cpp – Moderne C++ Semantic Stream Bibliothek
 
-Semantic ist eine reine Header-Only-, hochperformante und vollständig lazy evaluierte funktionale Stream-Bibliothek für C++17 und neuer.  
-Sie vereint Ideen aus JavaScript Generator, Java Stream API, dem java.util.function-Paket sowie dem Index-Design von MySQL.
+**semantic-cpp** ist eine header-only, hochperformante, lazy auswertende Stream-Bibliothek für C++17 und neuer. Sie vereint die besten Ideen aus JavaScript-Generatoren, Java Stream API, Kotlin Flow und Datenbank-indiziertem Zugriff – und führt sie erstmals konsequent in C++ zusammen.
 
-Sie kombiniert die Ausdruckskraft funktionaler Programmierung mit echter Lazy-Evaluation, paralleler Ausführung und zeitbasierter Element-Indexierung – damit lassen sich sowohl endliche als auch unendliche Sequenzen elegant verarbeiten.
+- Echte **unendliche Streams**  
+- Jedes Element trägt einen eigenen **logischen Index (Timestamp)**  
+- **Parallelisierung ist Standard**  
+- Reihenfolge muss **explizit** angefordert werden  
+- Der Compiler **zwingt** dich, dich zwischen Geschwindigkeit und Ordnung zu entscheiden – keine versteckten Kosten  
 
-## Wichtigste Merkmale
-
-- **Vollständige Lazy-Evaluation** — Zwischenschritte werden erst bei einer terminalen Operation ausgeführt.
-- **Native Unterstützung für unendliche Streams** — Generatoren ermöglichen natürliche unendliche Sequenzen.
-- **Zeitstempel-basierte Indexierung** — Jedes Element trägt einen impliziten oder expliziten Timestamp, wodurch MySQL-ähnliche effiziente Sprünge und Suchen möglich werden.
-- **Parallele Ausführung per Einzeiler** — `.parallel()` oder `.parallel(n)` macht den gesamten Pipeline mehrthreaded.
-- **Umfangreiche funktionale Operationen** — `map`, `filter`, `flatMap`, `reduce`, `collect`, `group`, Statistik u. v. m.
-- **Java-ähnliche Collector-API** — supplier, accumulator, combiner, finisher.
-- **Leistungsstarke Statistikfunktionen** — Mittelwert, Median, Modalwert, Varianz, Standardabweichung, Quartile, Schiefe, Kurtosis usw.
-- **Viele Erzeugungsmöglichkeiten** — aus Containern, Arrays, Ranges, Generatoren oder Füllfunktionen.
+MIT-Lizenz – uneingeschränkt für kommerzielle und Open-Source-Projekte nutzbar.
 
 ## Design-Philosophie
 
-Semantic betrachtet einen Stream als zeitlich indizierte Folge, die von einem `Generator` erzeugt wird. Kerninspirationen:
+> Parallel ist kostenlos. Ordnung kostet eine einmalige Sortierung am Ende.
 
-- **JavaScript Generator** — Pull-basierte, träge Wertproduktion
-- **Java Stream** — Flüssige Verkettung und klare Trennung intermediär/terminal
-- **java.util.function** — Typ-Aliase wie `Function`, `Consumer`, `Predicate` usw.
-- **MySQL-Index** — Logische Timestamps für effiziente `skip`, `limit`, `redirect`, `translate`
+- Ohne `.ordered()` → schnellster ungeordneter Pfad (empfohlen für 90 % der Fälle)  
+- Mit `.ordered()` → Ergebnis exakt in ursprünglicher Reihenfolge (Logs, Protokolle, Debugging)
 
-## Zentrales Konzept
+Keine Grauzone, keine „vielleicht geordnet“. Der Compiler erzwingt deine Entscheidung.
 
-```cpp
-using Generator<E> = BiConsumer<
-    BiConsumer<E, Timestamp>,   // yield(Element, Timestamp)
-    Predicate<E>                // Abbruchbedingung
->;
-```
-
-Der Generator erhält eine Yield-Funktion und eine Abbruchprüfung. Diese Low-Level-Abstraktion treibt sämtliche Stream-Quellen an – endliche wie unendliche.
-
-## Kurze Beispiele
+## Schnellstart
 
 ```cpp
+#include "semantic.h"
 using namespace semantic;
 
-// Unendlicher Zufalls-Stream
-auto s = Semantic<int>::iterate([](auto yield, auto cancel) {
-    std::random_device rd;
-    std::mt19937 gen(rd());
-    std::uniform_int_distribution<> d(1, 100);
-    Timestamp ts = 0;
-    while (!cancel(d(gen))) {
-        yield(d(gen), ts++);
-    }
-});
+int main() {
+    // 1. Maximal schnell, ungeordnet (empfohlen)
+    auto schnell = Semantic<int>::range(0, 1'000'000)
+        .parallel(16)
+        .map([](int x) { return x * x; })
+        .toUnordered()          // muss explizit stehen
+        .toVector();
 
-// Lazy Primzahlen (begrenzter Bereich)
-auto primes = Semantic<long long>::range(2LL, 1'000'000LL)
-    .filter([](long long n) {
-        return Semantic<long long>::range(2LL, n)
-            .takeWhile([n](long long d){ return d * d <= n; })
-            .noneMatch([n](long long d){ return n % d == 0; });
-    });
+    // 2. Streng geordnet (muss explizit angefordert werden)
+    auto geordnet = Semantic<int>::range(0, 1'000'000)
+        .parallel(16)
+        .redirect([](auto&, auto i) { return -i; })  // Index komplett durcheinander
+        .toOrdered()                                // explizit geordnet
+        .toVector();        // Ergebnis trotzdem 0,1,2,…999999
 
-// Parallele Wortzählung
-auto wordCount = Semantic<std::string>::from(lines)
-    .flatMap([](const std::string& line) {
-        return Semantic<std::string>::from(split(line));
-    })
-    .parallel()
-    .group([](const std::string& w){ return w; })
-    .map([](auto& p){ return std::make_pair(p.first, p.second.size()); });
+    // 3. Geordnete Entduplizierung (Killer-Feature)
+    auto einzigartig = Semantic<int>::of(3,1,4,1,5,9,2,6,5)
+        .parallel(8)
+        .toOrdered()
+        .toSet();           // {3,1,4,5,9,2,6} – exakt in Erstauftretens-Reihenfolge
+}
 ```
+
+## Alle wichtigen Methoden mit Kettenbeispielen
+
+```cpp
+// Stream-Erzeugung
+Semantic<int>::range(0, 100);
+Semantic<long long>::range(0LL, 1LL<<60);           // riesige Bereiche
+Semantic<int>::iterate([](auto yield, auto) {       // unendlicher Stream
+    for (int i = 0;; ++i) yield(i);
+});
+Semantic<int>::of(1, 2, 3, 4, 5);
+Semantic<int>::from(std::vector{1,2,3,4});
+Semantic<int>::fill(42, 1'000'000);
+Semantic<int>::fill([] { return rand(); }, 1000);
+
+// Zwischenschritte (vollständig lazy)
+stream.map([](int x) { return x * x; });
+stream.filter([](int x) { return x % 2 == 0; });
+stream.flatMap([](int x) { return Semantic<int>::range(0, x); });
+stream.distinct();                     // Entduplizierung nach Wert
+stream.skip(100);
+stream.limit(50);
+stream.takeWhile([](int x) { return x < 1000; });
+stream.dropWhile([](int x) { return x < 100; });
+stream.peek([](int x) { std::cout << x << ' '; });
+stream.redirect([](auto&, auto i) { return -i; });        // umkehren
+stream.redirect([](auto&, auto i) { return i % 10; });    // zyklisch
+stream.parallel();                                        // alle Kerne
+stream.parallel(8);                                       // feste Thread-Anzahl
+
+// Pflicht: Explizite Wahl der Sammelstrategie
+auto collector = stream.toOrdered();     // ich will Ordnung
+auto schnell   = stream.toUnordered();   // ich will Geschwindigkeit
+
+// Geordnete Terminaloperationen
+collector.toVector();
+collector.toList();
+collector.toSet();                       // geordnet entduplizieren
+collector.forEach([](int x) { std::cout << x << ' '; });
+collector.cout();                        // direkte Ausgabe [1, 2, 3, …]
+
+// Ungeordnete (schnelle) Terminaloperationen
+schnell.toVector();
+schnell.toList();
+schnell.toSet();
+schnell.forEach(...);
+schnell.cout();
+
+// Statistik (immer schnell, ungeordnet)
+auto stat = stream.toUnordered().toStatistics();
+std::cout << "Mittelwert = " << stat.mean([](int x) { return x; });
+
+// Reduce-Beispiele
+int summe = stream.toUnordered()
+    .reduce(0, [](int a, int b) { return a + b; });
+
+std::optional<int> erstePrim = stream
+    .filter(istPrim)
+    .toOrdered()
+    .findFirst();
+```
+
+## Übersicht der wichtigsten Methoden
+
+| Methode                | Beschreibung                              | Geordnet?      |
+|------------------------|-------------------------------------------|----------------|
+| `toOrdered()`          | Wechsel in den geordneten Modus (Pflicht) | Ja             |
+| `toUnordered()`        | Wechsel in den schnellsten Modus          | Nein (Standard)|
+| `toVector()` / `toList()` | In Container sammeln                   | je nach Wahl   |
+| `toSet()`              | In Set sammeln (Entduplizierung)          | je nach Wahl   |
+| `forEach(...)`         | Elementweise verarbeiten                  | je nach Wahl   |
+| `cout()`               | Direkt ausgeben `[1, 2, 3, …]`            | je nach Wahl   |
+| `reduce(...)`          | Reduktion                                 | ungeordnet schneller |
+| `collect(...)`         | Eigener Collector                         | je nach Wahl   |
+| `toStatistics()`      | Umfangreiche Statistik                    | ungeordnet schneller |
+
+## Warum muss man explizit ordered / unordered wählen?
+
+Weil Ordnung nach paralleler Verarbeitung nie kostenlos ist.  
+Wir lehnen versteckte Performance-Fallen und vage Zusagen („vielleicht geordnet“) ab.
+
+Du schreibst, was du willst – und bekommst exakt das.  
+Keine Überraschungen, nur Geschwindigkeit und Determinismus.
 
 ## Build-Anforderungen
 
-- C++17 oder höher
-- Reine Header-Only-Bibliothek — einfach `#include "semantic.hpp"`
-- Keine externen Abhängigkeiten
+- C++17 oder höher  
+- Nur `#include "semantic.h"` nötig  
+- Keine externen Abhängigkeiten  
+- Einzelne Header-Datei
 
-Ein globaler Thread-Pool (`semantic::globalThreadPool`) wird automatisch mit `std::thread::hardware_concurrency()` Worker-Threads gestartet.
+```bash
+g++ -std=c++17 -O3 -pthread semantic.cpp
+```
 
 ## Lizenz
 
-MIT License — freie Nutzung in kommerziellen und Open-Source-Projekten erlaubt.
+MIT-Lizenz – darf uneingeschränkt in kommerziellen, Open-Source- und privaten Projekten verwendet werden, auch ohne Quellenangabe.
 
-## Autor
+---
 
-Hochperformante, idiomatische Umsetzung der besten Ideen moderner funktionaler Programmierung für aktuelles C++.
+**semantic-cpp**:  
+**Parallel ist Standard, Ordnung ist deine Entscheidung, Index ist Bürger erster Klasse.**
 
-Fertig! Du hast jetzt auch `README.de.md`.
+Schreibe Streams, ohne raten zu müssen.  
+Schreibe einfach nur klar: **„Ich will schnell – oder ich will Ordnung.“**

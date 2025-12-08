@@ -117,6 +117,21 @@ class Collector
 };
 
 template <typename E>
+Collector<E, std::string, std::string> joining();
+
+template <typename E>
+Collector<E, std::string, std::string> joining(const std::string& delimiter);
+
+template <typename E>
+Collector<E, std::string, std::string> joining(const std::string& delimiter, const std::string& prefix, const std::string& suffix);
+
+template <typename E>
+Collector<E, std::string, std::string> quotedJoining(const std::string& delimiter = ",", char quote = '"', char escape = '"');
+
+template <typename E, typename D>
+Collector<E, Statistics<E, D>, Statistics<E, D>> toStatistics();
+
+template <typename E>
 class Collectable{
 	protected:
 	

@@ -96,92 +96,6 @@ class ThreadPool
 
 extern ThreadPool globalThreadPool;
 
-template <typename E, typename D>
-class Statistics
-{
-	static_assert(std::is_arithmetic<D>::value, "Statistical operations require arithmetic types.");
-
-  protected:
-	std::vector<E> elements;
-
-	mutable std::map<std::string, D> cache;
-
-	mutable std::map<D, Module> frequencyCache;
-
-  public:
-	Statistics(const E *elements, const Module &length) : elements(elements)
-	{
-	}
-
-	Statistics(const std::vector<E> &elements) : elements(elements)
-	{
-	}
-
-	Statistics(const std::list<E> &elements) : elements(elements.begin(), elements.end())
-	{
-	}
-
-	Statistics(const std::initializer_list<E> &elements) : elements(elements.begin(), elements.end())
-	{
-	}
-
-	Statistics(const Statistics &other) : elements(other.elements), cache(other.cache), frequencyCache(other.frequencyCache)
-	{
-	}
-
-	Statistics(Statistics &&other) noexcept : elements(std::move(other.elements)), cache(std::move(other.cache)), frequencyCache(std::move(other.frequencyCache))
-	{
-	}
-
-	~Statistics()
-	{
-	}
-
-	Module count() const;
-
-	E maximum(const Comparator<E, E> &comparator) const;
-
-	E minimum(const Comparator<E, E> &comparator) const;
-
-	D range(const Function<E, D> &mapper) const;
-
-	D variance(const Function<E, D> &mapper) const;
-
-	D standardDeviation(const Function<E, D> &mapper) const;
-
-	D mean(const Function<E, D> &mapper) const;
-
-	D median(const Function<E, D> &mapper) const;
-
-	D mode(const Function<E, D> &mapper) const;
-
-	std::map<D, Module> frequency(const Function<E, D> &mapper) const;
-
-	D sum(const Function<E, D> &mapper) const;
-
-	std::vector<D> quartiles(const Function<E, D> &mapper) const;
-
-	D interquartileRange(const Function<E, D> &mapper) const;
-
-	D skewness(const Function<E, D> &mapper) const;
-
-	D kurtosis(const Function<E, D> &mapper) const;
-
-	bool isEmpty() const;
-
-	void clear();
-
-	Statistics &operator=(const std::list<E> &l);
-
-	Statistics &operator=(const std::vector<E> &v);
-
-	Statistics &operator=(std::initializer_list<E> l);
-
-	Statistics &operator=(const Statistics &other);
-
-	Statistics &operator=(Statistics &&other) noexcept;
-};
-
 template <typename E, typename A, typename R>
 class Collector
 {
@@ -201,6 +115,181 @@ class Collector
 
 	Collector(const Identity &identity, const Accumulator &accumulator, const Combiner &combiner, const Finisher &finisher) : identity(identity), accumulator(accumulator), combiner(combiner), finisher(finisher) {}
 };
+
+template <typename E>
+class Collectable{
+	protected:
+	
+	const std::shared_ptr<Generator<E>> generator;
+	
+	Module concurrent;
+	
+	public:
+	
+		Collectable() : generator(std::make_shared<Generator<E>>([](const Consumer<E> &, const Predicate<E> &) {})), concurrent(1) {}
+
+	Collectable(const Generator<E> &generator) : generator(std::make_shared<Generator<E>>(generator)), concurrent(1) {}
+
+	Collectable(const Generator<E> &generator, const Module &concurrent) : generator(std::make_shared<Generator<E>>(generator)), concurrent(concurrent) {}
+
+	Collectable(std::shared_ptr<Generator<E>> generator) : generator(generator), concurrent(1) {}
+
+    Collectable(std::shared_ptr<Generator<E>> generator, const Module &concurrent) : generator(generator), concurrent(concurrent) {}
+
+	Collectable(const Semantic &other) : generator(other.generator), concurrent(other.concurrent) {}
+
+	Collectable(Semantic &&other) noexcept : generator(std::move(other.generator)), concurrent(other.concurrent) {}
+
+	Collectable<E> &operator=(const Collectable<E> &other);
+
+	Collectable<E> &operator=(Collectable<E> &&other) noexcept;
+	
+	bool anyMatch(const Predicate<E> &p) const;
+    bool allMatch(const Predicate<E> &p) const;
+
+    template <typename A, typename R>
+    R collect(const Supplier<A> &identity, const BiFunction<A, E, A> &accumulator, const BiFunction<A, A, A> &combiner, const Function<A, R> &finisher) const;
+
+    template <typename A, typename R>
+    R collect(const Collector<E, A, R> &c) const;
+
+    void cout() const;
+    void cout(const BiFunction<E, std::ostream &, std::ostream &> &accumulator) const;
+    void cout(std::ostream &stream) const;
+    void cout(std::ostream &stream, const BiConsumer<E, std::ostream &> &accumulator) const;
+
+    Module count() const;
+
+    std::optional<E> findFirst() const;
+    std::optional<E> findAny() const;
+
+    void forEach(const Consumer<E> &c) const;
+
+    template <typename K>
+    std::map<K, std::vector<E>> group(const Function<E, K> &classifier) const;
+
+    template <typename K, typename V>
+    std::map<K, std::vector<V>> groupBy(const Function<E, K> &keyExtractor, const Function<E, V> &valueExtractor) const;
+
+    bool noneMatch(const Predicate<E> &p) const;
+
+    std::vector<std::vector<E>> partition(const Module &count) const;
+    std::vector<std::vector<E>> partitionBy(const Function<E, Module> &classifier) const;
+
+    std::optional<E> reduce(const BiFunction<E, E, E> &accumulator) const;
+    E reduce(const E &identity, const BiFunction<E, E, E> &accumulator) const;
+
+    template <typename R>
+    R reduce(const R &identity, const BiFunction<R, E, R> &accumulator, const BiFunction<R, R, R> &combiner) const;
+
+    std::list<E> toList() const;
+
+    template <typename K, typename V>
+    std::map<K, V> toMap(const Function<E, K> &keyExtractor, const Function<E, V> &valueExtractor) const;
+
+    std::set<E> toSet() const;
+    std::unordered_set<E> toUnorderedSet() const;
+
+    std::vector<E> toVector() const;
+};
+
+template <typename E, typename D>
+class Statistics : public Collectable<E> {
+    static_assert(std::is_arithmetic<D>::value, "Statistical operations require arithmetic types.");
+
+protected:
+
+    mutable Module total = 0;
+    mutable std::map<D, Module> frequencyCache;
+
+public:
+    Statistics() : Collectable<E>(), frequencyCache() {}
+    Statistics(const Generator<E> &generator) : Collectable<E>(generator), frequencyCache() {}
+    Statistics(const Generator<E> &generator, const Module &concurrent) : Collectable<E>(generator, concurrent), frequencyCache() {}
+    Statistics(std::shared_ptr<Generator<E>> generator) : Collectable<E>(generator), frequencyCache() {}
+    Statistics(std::shared_ptr<Generator<E>> generator, const Module &concurrent) : Collectable<E>(generator, concurrent), frequencyCache() {}
+    Statistics(const Statistics<E, D> &other) : Collectable<E>(other), frequencyCache(other.frequencyCache) {}
+    Statistics(Statistics<E, D> &&other) noexcept : Collectable<E>(std::move(other)), frequencyCache(std::move(other.frequencyCache)) {}
+
+    Statistics<E, D> &operator=(const Collectable<E> &other);
+    Statistics<E, D> &operator=(Collectable<E> &&other) noexcept;
+
+    Module count() const;
+    E maximum(const Comparator<E, E> &comparator) const;
+    E minimum(const Comparator<E, E> &comparator) const;
+    D range(const Function<E, D> &mapper) const;
+    D variance(const Function<E, D> &mapper) const;
+    D standardDeviation(const Function<E, D> &mapper) const;
+    D mean(const Function<E, D> &mapper) const;
+    D median(const Function<E, D> &mapper) const;
+    D mode(const Function<E, D> &mapper) const;
+    std::map<D, Module> frequency(const Function<E, D> &mapper) const;
+    D sum(const Function<E, D> &mapper) const;
+    std::vector<D> quartiles(const Function<E, D> &mapper) const;
+    D interquartileRange(const Function<E, D> &mapper) const;
+    D skewness(const Function<E, D> &mapper) const;
+    D kurtosis(const Function<E, D> &mapper) const;
+    bool isEmpty() const;
+    void clear();
+
+    Statistics<E, D> &operator=(const std::list<E> &l);
+    Statistics<E, D> &operator=(const std::vector<E> &v);
+    Statistics<E, D> &operator=(std::initializer_list<E> l);
+    Statistics<E, D> &operator=(const Statistics<E, D> &other);
+    Statistics<E, D> &operator=(Statistics<E, D> &&other) noexcept;
+};
+
+template <typename E>
+class OrderedCollectable : public Collectable<E> {
+protected:
+    using Container = std::set<std::pair<Timestamp, E>>;
+
+    const Container container;
+
+    Container toIndexedSet() const;
+
+public:
+    OrderedCollectable()
+        : Collectable<E>(), container() {}
+
+    OrderedCollectable(const Generator<E> &generator)
+        : Collectable<E>(generator), container(toIndexedSet()) {}
+
+    OrderedCollectable(const Generator<E> &generator, const Module &concurrent)
+        : Collectable<E>(generator, concurrent), container(toIndexedSet()) {}
+
+    OrderedCollectable(std::shared_ptr<Generator<E>> generator)
+        : Collectable<E>(generator), container(toIndexedSet()) {}
+
+    OrderedCollectable(std::shared_ptr<Generator<E>> generator, const Module &concurrent)
+        : Collectable<E>(generator, concurrent), container(toIndexedSet()) {}
+
+    OrderedCollectable(const OrderedCollectable &other)
+        : Collectable<E>(other), container(other.container) {}
+
+    OrderedCollectable(OrderedCollectable &&other) noexcept
+        : Collectable<E>(std::move(other)), container(std::move(other.container)) {}
+
+    OrderedCollectable<E> &operator=(const Collectable<E> &other);
+    OrderedCollectable<E> &operator=(Collectable<E> &&other) noexcept;
+};
+
+
+template <typename E>
+class UnorderedCollectable : public Collectable<E> {
+public:
+    UnorderedCollectable() : Collectable<E>() {}
+    UnorderedCollectable(const Generator<E> &generator) : Collectable<E>(generator) {}
+    UnorderedCollectable(const Generator<E> &generator, const Module &concurrent) : Collectable<E>(generator, concurrent) {}
+    UnorderedCollectable(std::shared_ptr<Generator<E>> generator) : Collectable<E>(generator) {}
+    UnorderedCollectable(std::shared_ptr<Generator<E>> generator, const Module &concurrent) : Collectable<E>(generator, concurrent) {}
+    UnorderedCollectable(const UnorderedCollectable &other) : Collectable<E>(other) {}
+    UnorderedCollectable(UnorderedCollectable &&other) noexcept : Collectable<E>(std::move(other)) {}
+
+    UnorderedCollectable<E> &operator=(const Collectable<E> &other);
+    UnorderedCollectable<E> &operator=(Collectable<E> &&other) noexcept;
+};
+
 
 template <typename E>
 class Semantic;
@@ -256,7 +345,7 @@ class Semantic
 	Module concurrent;
 
   public:
-	Semantic() : generator(std::make_shared<Generator<E>>([](const Consumer<E> &, const Predicate<E> &, const BiFunction<E, Timestamp, Timestamp> &) {})), concurrent(1) {}
+	Semantic() : generator(std::make_shared<Generator<E>>([](const Consumer<E> &, const Predicate<E> &) {})), concurrent(1) {}
 
 	Semantic(const Generator<E> &generator) : generator(std::make_shared<Generator<E>>(generator)), concurrent(1) {}
 
@@ -274,54 +363,20 @@ class Semantic
 
 	Semantic<E> &operator=(Semantic<E> &&other) noexcept;
 
-	bool anyMatch(const Predicate<E> &p) const;
-
-	bool allMatch(const Predicate<E> &p) const;
-
-	template <typename A, typename R>
-	R collect(const Supplier<A> &identity, const BiFunction<A, E, A> &accumulator, const BiFunction<A, A, A> &combiner, const Function<A, R> &finisher) const;
-
-	template <typename A, typename R>
-	R collect(const Collector<E, A, R> &c) const;
-
 	Semantic<E> concat(const Semantic<E> &other) const;
-
-	void cout() const;
-
-	void cout(const BiFunction<E, std::ostream &, std::ostream &> &accumulator) const;
-
-	void cout(std::ostream &stream) const;
-
-	void cout(std::ostream &stream, const BiConsumer<E, std::ostream &> &accumulator) const;
-
-	Module count() const;
 
 	Semantic<E> distinct() const;
 
-	Semantic<E> distinct(const Function<E, Timestamp> &identifier) const;
+	Semantic<E> distinct(const Comparator<E, E> &identifier) const;
 
 	Semantic<E> dropWhile(const Predicate<E> &p) const;
 
 	Semantic<E> filter(const Predicate<E> &p) const;
 
-	std::optional<E> findFirst() const;
-
-	std::optional<E> findAny() const;
-
 	Semantic<E> flat(const Function<E, Semantic<E>> &mapper) const;
 
 	template <typename R>
 	Semantic<R> flatMap(const Function<E, Semantic<R>> &mapper) const;
-
-	void forEach(const Consumer<E> &c) const;
-
-	template <typename K>
-	std::map<K, std::vector<E>> group(const Function<E, K> &classifier) const;
-
-	template <typename K, typename V>
-	std::map<K, std::vector<V>> groupBy(const Function<E, K> &keyExtractor, const Function<E, V> &valueExtractor) const;
-
-	bool noneMatch(const Predicate<E> &p) const;
 
 	Semantic<E> limit(const Module &n) const;
 
@@ -332,20 +387,9 @@ class Semantic
 
 	Semantic<E> parallel(const Module &threadCount) const;
 
-	std::vector<std::vector<E>> partition(const Module &count) const;
-
-	std::vector<std::vector<E>> partitionBy(const Function<E, Module> &classifier) const;
-
 	Semantic<E> peek(const Consumer<E> &c) const;
 
 	Semantic<E> redirect(const BiFunction<E, Timestamp, Timestamp> &redirector) const;
-
-	std::optional<E> reduce(const BiFunction<E, E, E> &accumulator) const;
-
-	E reduce(const E &identity, const BiFunction<E, E, E> &accumulator) const;
-
-	template <typename R>
-	R reduce(const R &identity, const BiFunction<R, E, R> &accumulator, const BiFunction<R, R, R> &combiner) const;
 
 	Semantic<E> reverse() const;
 
@@ -355,32 +399,23 @@ class Semantic
 
 	Semantic<E> skip(const Module &n) const;
 
-	Semantic<E> sorted() const;
+	OrderedCollectable<E> sorted() const;
 
-	Semantic<E> sorted(const Function<E, Timestamp> &indexer) const;
+	OrderedCollectable<E> sorted(const Comparator<E, E> &indexer) const;
 
 	Semantic<E> sub(const Module &start, const Module &end) const;
 
 	Semantic<E> takeWhile(const Predicate<E> &p) const;
-
-	std::set<std::pair<Timestamp, E>> toIndexedSet() const;
-
-	std::list<E> toList() const;
-
-	template <typename K, typename V>
-	std::map<K, V> toMap(const Function<E, K> &keyExtractor, const Function<E, V> &valueExtractor) const;
-
-	std::set<E> toSet() const;
-
-	std::unordered_set<E> toUnorderedSet() const;
-
+	
+	OrderedCollectable<E> toOrdered() const;
+	
 	Statistics<E, E> toStatistics() const;
-
-	template <typename R>
-	Statistics<E, R> toStatistics(const Function<E, R> &mapper) const;
-
-	std::vector<E> toVector() const;
+    template <typename R>
+    Statistics<E, R> toStatistics(const Function<E, R> &mapper) const;
+	
+	UnorderedCollectable<E> toUnordered() const;
 
 	Semantic<E> translate(const Timestamp &offset) const;
+	
 };
 }; // namespace semantic

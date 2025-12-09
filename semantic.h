@@ -127,9 +127,8 @@ class Collector
 	const Finisher finisher;
 
 	Collector(const Identity &identity, const Accumulator &accumulator, const Combiner &combiner, const Finisher &finisher) : identity(identity), interrupter([](const E &element) -> bool {
-																																  return false;
-																															  }),
-																															  accumulator(accumulator), combiner(combiner), finisher(finisher) {}
+    return false;
+}), accumulator(accumulator), combiner(combiner), finisher(finisher) {}
 
 	Collector(const Identity &identity, const Interrupter &interrupter, const Accumulator &accumulator, const Combiner &combiner, const Finisher &finisher) : identity(identity), interrupter(interrupter), accumulator(accumulator), combiner(combiner), finisher(finisher) {}
 };
@@ -254,20 +253,61 @@ class OrderedCollectable : public Collectable<E>
 	OrderedCollectable<E> &operator=(const Collectable<E> &other);
 	OrderedCollectable<E> &operator=(Collectable<E> &&other) noexcept;
 
+	bool anyMatch(const Predicate<E> &p) const;
+	bool allMatch(const Predicate<E> &p) const;
+
 	template <typename A, typename R>
 	R collect(const Supplier<A> &identity, const BiFunction<A, E, A> &accumulator, const BiFunction<A, A, A> &combiner, const Function<A, R> &finisher) const;
-
 	template <typename A, typename R>
 	R collect(const Supplier<A> &identity, const Predicate<E> &interrupter, const BiFunction<A, E, A> &accumulator, const BiFunction<A, A, A> &combiner, const Function<A, R> &finisher) const;
-
 	template <typename A, typename R>
 	R collect(const Collector<E, A, R> &c) const;
 
+	void cout() const;
+	void cout(const BiFunction<E, std::ostream &, std::ostream &> &accumulator) const;
+	void cout(std::ostream &stream) const;
+	void cout(std::ostream& stream, const BiConsumer<E, std::ostream&>& formatter) const;
+	void cout(std::ostream& stream, const std::string& prefix, const BiConsumer<E, std::ostream&>& formatter, const std::string& suffix) const;
+
 	Module count() const;
+
+	std::optional<E> findFirst() const;
+	std::optional<E> findAny() const;
 
 	void forEach(const Consumer<E> &c) const;
 
+	template <typename K>
+	std::map<K, std::vector<E>> group(const Function<E, K> &classifier) const;
+
+	template <typename K, typename V>
+	std::map<K, std::vector<V>> groupBy(const Function<E, K> &keyExtractor, const Function<E, V> &valueExtractor) const;
+
+	std::string join() const;
+	std::string join(const std::string &delimiter) const;
+	std::string join(const std::string &delimiter, const std::string &prefix, const std::string &suffix) const;
+
+	bool noneMatch(const Predicate<E> &p) const;
+
+	std::vector<std::vector<E>> partition(const Module &count) const;
+	std::vector<std::vector<E>> partitionBy(const Function<E, Module> &classifier) const;
+
+	std::optional<E> reduce(const BiFunction<E, E, E> &accumulator) const;
+	E reduce(const E &identity, const BiFunction<E, E, E> &accumulator) const;
+
+	template <typename R>
+	R reduce(const R &identity, const BiFunction<R, E, R> &accumulator, const BiFunction<R, R, R> &combiner) const;
+	
 	Semantic<E> semantic() const;
+
+	std::list<E> toList() const;
+
+	template <typename K, typename V>
+	std::map<K, V> toMap(const Function<E, K> &keyExtractor, const Function<E, V> &valueExtractor) const;
+
+	std::set<E> toSet() const;
+	std::unordered_set<E> toUnorderedSet() const;
+
+	std::vector<E> toVector() const;
 };
 
 template <typename E, typename D>
@@ -333,13 +373,12 @@ class WindowCollectable : public OrderedCollectable<E>
 	WindowCollectable() : OrderedCollectable<E>() {}
 
 	WindowCollectable(const Container &container) : OrderedCollectable<E>([container](const BiConsumer<E, Timestamp> &accept, const Predicate<E> &predicate) -> void {
-														for (const auto &pair : container)
-														{
-															if (predicate(pair.second))
-																break;
-															accept(pair.second, pair.first);
-														}
-													}) {}
+    for (const auto &pair : container){
+	    if (predicate(pair.second)){
+			break;
+	    }
+	    accept(pair.second, pair.first);
+	}}) {}
 
 	WindowCollectable(const Generator<E> &generator) : OrderedCollectable<E>(generator) {}
 

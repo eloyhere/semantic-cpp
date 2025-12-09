@@ -389,31 +389,160 @@ R Collectable<E>::collect(const Collector<E, A, R> &collector) const {
 
 template <typename E>
 void Collectable<E>::cout() const {
-    forEach([](const E &element) {
-        std::cout << element << std::endl;
-    });
+    if (concurrent < 2) {
+        std::cout << "[";
+        bool first = true;
+        (*generator)([&](const E& elem, Timestamp) {
+            if (!first) std::cout << ",";
+            std::cout << elem;
+            first = false;
+        }, [](const E&) { return false; });
+        std::cout << "]" << std::endl;
+    } else {
+        std::mutex mtx;
+        std::vector<std::future<void>> futures;
+        std::vector<std::string> buffers(concurrent);
+        Module threadCount = concurrent;
+
+        for (Module threadIndex = 0; threadIndex < threadCount; ++threadIndex) {
+            futures.push_back(globalThreadPool.submit([&, threadIndex]() {
+                std::ostringstream buffer;
+                buffer << "[";
+                bool first = true;
+                (*generator)([&](const E& elem, Timestamp index) {
+                    if (index % threadCount == threadIndex) {
+                        if (!first) buffer << ",";
+                        buffer << elem;
+                        first = false;
+                    }
+                }, [](const E&) { return false; });
+                buffer << "]";
+                buffers[threadIndex] = buffer.str();
+            }));
+        }
+
+        for (auto& future : futures) future.wait();
+
+        std::cout << "[";
+        for (size_t i = 0; i < buffers.size(); ++i) {
+            if (i > 0) std::cout << ",";
+            std::cout << buffers[i].substr(1, buffers[i].size() - 2);
+        }
+        std::cout << "]" << std::endl;
+    }
 }
 
 template <typename E>
-void Collectable<E>::cout(const BiFunction<E, std::ostream &, std::ostream &> &accumulator) const {
-    forEach([&accumulator](const E &element) {
-        accumulator(element, std::cout) << std::endl;
-    });
+void Collectable<E>::cout(const BiFunction<E, std::ostream&, std::ostream&>& accumulator) const {
+    if (concurrent < 2) {
+        std::cout << "[";
+        (*generator)([&](const E& elem, Timestamp) {
+            accumulator(elem, std::cout);
+        }, [](const E&) { return false; });
+        std::cout << "]" << std::endl;
+    } else {
+        std::mutex mtx;
+        std::vector<std::future<void>> futures;
+        std::vector<std::string> buffers(concurrent);
+        Module threadCount = concurrent;
+
+        for (Module threadIndex = 0; threadIndex < threadCount; ++threadIndex) {
+            futures.push_back(globalThreadPool.submit([&, threadIndex]() {
+                std::ostringstream buffer;
+                buffer << "[";
+                (*generator)([&](const E& elem, Timestamp index) {
+                    if (index % threadCount == threadIndex) {
+                        accumulator(elem, buffer);
+                        first = false;
+                    }
+                }, [](const E&) { return false; });
+                buffer << "]";
+                buffers[threadIndex] = buffer.str();
+            }));
+        }
+
+        for (auto& future : futures) future.wait();
+
+        std::cout << "[";
+        for (Module i = 0; i < buffers.size(); ++i) {
+            std::cout << buffers[i].substr(1, buffers[i].size() - 2);
+        }
+        std::cout << "]" << std::endl;
+    }
 }
 
 template <typename E>
-void Collectable<E>::cout(std::ostream &stream) const {
-    forEach([&stream](const E &element) {
-        stream << element << std::endl;
-    });
+void Collectable<E>::cout(std::ostream& stream) const {
+    if (concurrent < 2) {
+        bool first = true;
+        (*generator)([&](const E& elem, Timestamp) {
+            if (!first) stream << ",";
+            stream << elem;
+            first = false;
+        }, [](const E&) { return false; });
+    } else {
+        std::mutex mtx;
+        std::vector<std::future<void>> futures;
+        std::vector<std::string> buffers(concurrent);
+        Module threadCount = concurrent;
+
+        for (Module threadIndex = 0; threadIndex < threadCount; ++threadIndex) {
+            futures.push_back(globalThreadPool.submit([&, threadIndex]() {
+                std::ostringstream buffer;
+                bool first = true;
+                (*generator)([&](const E& elem, Timestamp index) {
+                    if (index % threadCount == threadIndex) {
+                        if(!first){
+                        	buffer << ',';
+                        }
+                        buffer << elem;
+                    }
+                }, [](const E&) { return false; });
+                buffers[threadIndex] = buffer.str();
+            }));
+        }
+
+        for (auto& future : futures) future.wait();
+
+        std::lock_guard<std::mutex> lock(mtx);
+        for (Module i = 0; i < buffers.size(); ++i) {
+            if (i > 0) stream << ",";
+            stream << buffers[i].substr(1, buffers[i].size() - 2);
+        }
+    }
 }
 
 template <typename E>
-void Collectable<E>::cout(std::ostream &stream, const BiConsumer<E, std::ostream &> &accumulator) const {
-    forEach([&stream, &accumulator](const E &element) {
-        accumulator(element, stream);
-        stream << std::endl;
-    });
+void Collectable<E>::cout(std::ostream& stream, const BiConsumer<E, std::ostream&>& accumulator) const {
+    if (concurrent < 2) {
+        (*generator)([&](const E& elem, Timestamp) {
+            accumulator(elem, stream);
+        }, [](const E&) { return false; });
+    } else {
+        std::mutex mtx;
+        std::vector<std::future<void>> futures;
+        std::vector<std::string> buffers(concurrent);
+        Module threadCount = concurrent;
+
+        for (Module threadIndex = 0; threadIndex < threadCount; ++threadIndex) {
+            futures.push_back(globalThreadPool.submit([&, threadIndex]() {
+                std::ostringstream buffer;
+                (*generator)([&](const E& elem, Timestamp index) {
+                    if (index % threadCount == threadIndex) {
+                        accumulator(elem, buffer);
+                    }
+                }, [](const E&) { return false; });
+                buffers[threadIndex] = buffer.str();
+            }));
+        }
+
+        for (auto& future : futures) future.wait();
+
+        std::lock_guard<std::mutex> lock(mtx);
+        for (Module i = 0; i < buffers.size(); ++i) {
+            stream << buffers[i].substr(1, buffers[i].size() - 2);
+        }
+    }
 }
 
 template <typename E>
@@ -1360,97 +1489,186 @@ void OrderedCollectable<E>::cout() const {
 }
 
 template <typename E>
-void OrderedCollectable<E>::cout(const BiFunction<E, std::ostream&, std::ostream&>& accumulator) const {
-    if (this->concurrent < 2) {
+void OrderedCollectable<E>::cout() const {
+    if (concurrent < 2) {
+        std::cout << "[";
+        bool first = true;
         for (const auto& pair : container) {
-            accumulator(pair.second, std::cout) << std::endl;
+            if (!first) {
+                std::cout << ",";
+            }
+            std::cout << pair.second;
+            first = false;
         }
+        std::cout << "]" << std::endl;
     } else {
         std::mutex mtx;
-        Module chunk_size = std::max(static_cast<Module>(1), static_cast<Module>(container.size()) / this->concurrent);
-        std::vector<std::thread> threads;
+        std::vector<std::future<void>> futures;
+        std::vector<std::string> buffers(concurrent);
+        Module threadCount = concurrent;
+        Module chunkSize = (container.size() + threadCount - 1) / threadCount;
         auto it = container.begin();
-        for (Module i = 0; i < this->concurrent && it != container.end(); ++i) {
-            auto start = it;
-            Module count = 0;
-            while (it != container.end() && count < chunk_size) {
-                ++it;
-                ++count;
-            }
-            threads.emplace_back([&, start, end = it]() {
-                std::ostringstream oss;
-                for (auto iter = start; iter != end; ++iter) {
-                    accumulator(iter->second, oss) << std::endl;
+        for (Module threadIndex = 0; threadIndex < threadCount; ++threadIndex) {
+            futures.push_back(globalThreadPool.submit([&, threadIndex]() {
+                std::ostringstream buffer;
+                buffer << "[";
+                bool first = true;
+                Module count = 0;
+                while (it != container.end() && count < chunkSize) {
+                    if (!first) {
+                        buffer << ",";
+                    }
+                    buffer << it->second;
+                    first = false;
+                    ++it;
+                    ++count;
                 }
-                std::lock_guard<std::mutex> lock(mtx);
-                std::cout << oss.str();
-            });
+                buffer << "]";
+                buffers[threadIndex] = buffer.str();
+            }));
         }
-        for (auto& t : threads) t.join();
+        for (auto& future : futures) {
+            future.wait();
+        }
+        std::cout << "[";
+        for (Module i = 0; i < buffers.size(); ++i) {
+            if (i > 0) {
+                std::cout << ",";
+            }
+            std::cout << buffers[i].substr(1, buffers[i].size() - 2);
+        }
+        std::cout << "]" << std::endl;
+    }
+}
+
+template <typename E>
+void OrderedCollectable<E>::cout(const BiFunction<E, std::ostream&, std::ostream&>& accumulator) const {
+    if (concurrent < 2) {
+        std::cout << "[";
+        for (const auto& pair : container) {
+            accumulator(pair.second, std::cout);
+        }
+        std::cout << "]" << std::endl;
+    } else {
+        std::mutex mtx;
+        std::vector<std::future<void>> futures;
+        std::vector<std::string> buffers(concurrent);
+        Module threadCount = concurrent;
+        Module chunkSize = (container.size() + threadCount - 1) / threadCount;
+        auto it = container.begin();
+        for (Module threadIndex = 0; threadIndex < threadCount; ++threadIndex) {
+            futures.push_back(globalThreadPool.submit([&, threadIndex]() {
+                std::ostringstream buffer;
+                buffer << "[";
+                Module count = 0;
+                while (it != container.end() && count < chunkSize) {
+                    accumulator(it->second, buffer);
+                    ++it;
+                    ++count;
+                }
+                buffer << "]";
+                buffers[threadIndex] = buffer.str();
+            }));
+        }
+        for (auto& future : futures) {
+            future.wait();
+        }
+        std::cout << "[";
+        for (Module i = 0; i < buffers.size(); ++i) {
+            if (i > 0) {
+                std::cout << ",";
+            }
+            std::cout << buffers[i].substr(1, buffers[i].size() - 2);
+        }
+        std::cout << "]" << std::endl;
     }
 }
 
 template <typename E>
 void OrderedCollectable<E>::cout(std::ostream& stream) const {
-    if (this->concurrent < 2) {
+    if (concurrent < 2) {
+        bool first = true;
         for (const auto& pair : container) {
-            stream << pair.second << std::endl;
+            if (!first) {
+                stream << ",";
+            }
+            stream << pair.second;
+            first = false;
         }
+        stream << std::endl;
     } else {
         std::mutex mtx;
-        Module chunk_size = std::max(static_cast<Module>(1), static_cast<Module>(container.size()) / this->concurrent);
-        std::vector<std::thread> threads;
+        std::vector<std::future<void>> futures;
+        std::vector<std::string> buffers(concurrent);
+        Module threadCount = concurrent;
+        Module chunkSize = (container.size() + threadCount - 1) / threadCount;
         auto it = container.begin();
-        for (Module i = 0; i < this->concurrent && it != container.end(); ++i) {
-            auto start = it;
-            Module count = 0;
-            while (it != container.end() && count < chunk_size) {
-                ++it;
-                ++count;
-            }
-            threads.emplace_back([&, start, end = it]() {
-                std::ostringstream oss;
-                for (auto iter = start; iter != end; ++iter) {
-                    oss << iter->second << std::endl;
+        for (Module threadIndex = 0; threadIndex < threadCount; ++threadIndex) {
+            futures.push_back(globalThreadPool.submit([&, threadIndex]() {
+                std::ostringstream buffer;
+                bool first = true;
+                Module count = 0;
+                while (it != container.end() && count < chunkSize) {
+                    if (!first) {
+                        buffer << ",";
+                    }
+                    buffer << it->second;
+                    first = false;
+                    ++it;
+                    ++count;
                 }
-                std::lock_guard<std::mutex> lock(mtx);
-                stream << oss.str();
-            });
+                buffers[threadIndex] = buffer.str();
+            }));
         }
-        for (auto& t : threads) t.join();
+        for (auto& future : futures) {
+            future.wait();
+        }
+        std::lock_guard<std::mutex> lock(mtx);
+        for (Module i = 0; i < buffers.size(); ++i) {
+            if (i > 0) {
+                stream << ",";
+            }
+            stream << buffers[i].substr(1, buffers[i].size() - 2);
+        }
+        stream << std::endl;
     }
 }
 
 template <typename E>
 void OrderedCollectable<E>::cout(std::ostream& stream, const BiConsumer<E, std::ostream&>& accumulator) const {
-    if (this->concurrent < 2) {
+    if (concurrent < 2) {
         for (const auto& pair : container) {
             accumulator(pair.second, stream);
-            stream << std::endl;
         }
+        stream << std::endl;
     } else {
         std::mutex mtx;
-        Module chunk_size = std::max(static_cast<Module>(1), static_cast<Module>(container.size()) / this->concurrent);
-        std::vector<std::thread> threads;
+        std::vector<std::future<void>> futures;
+        std::vector<std::string> buffers(concurrent);
+        Module threadCount = concurrent;
+        Module chunkSize = (container.size() + threadCount - 1) / threadCount;
         auto it = container.begin();
-        for (Module i = 0; i < this->concurrent && it != container.end(); ++i) {
-            auto start = it;
-            Module count = 0;
-            while (it != container.end() && count < chunk_size) {
-                ++it;
-                ++count;
-            }
-            threads.emplace_back([&, start, end = it]() {
-                std::ostringstream oss;
-                for (auto iter = start; iter != end; ++iter) {
-                    accumulator(iter->second, oss);
-                    oss << std::endl;
+        for (Module threadIndex = 0; threadIndex < threadCount; ++threadIndex) {
+            futures.push_back(globalThreadPool.submit([&, threadIndex]() {
+                std::ostringstream buffer;
+                Module count = 0;
+                while (it != container.end() && count < chunkSize) {
+                    accumulator(it->second, buffer);
+                    first = false;
+                    ++it;
+                    ++count;
                 }
-                std::lock_guard<std::mutex> lock(mtx);
-                stream << oss.str();
-            });
+                buffers[threadIndex] = buffer.str();
+            }));
         }
-        for (auto& t : threads) t.join();
+        for (auto& future : futures) {
+            future.wait();
+        }
+        std::lock_guard<std::mutex> lock(mtx);
+        for (Module i = 0; i < buffers.size(); ++i) {
+            stream << buffers[i].substr(1, buffers[i].size() - 2);
+        }
+        stream << std::endl;
     }
 }
 

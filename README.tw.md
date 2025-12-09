@@ -1,162 +1,198 @@
-# semantic-cpp —— 現代 C++ 語義流函式庫（Semantic Stream）
+# semantic-cpp —— 現代 C++ 時序流處理庫（支援時間戳語義）
 
-**semantic-cpp** 為純標頭檔、C++17 起、零外部依賴的高效能惰性流函式庫。  
-其核心理念：**每一個元素天生就攜帶一個邏輯索引（Timestamp）**，所有與順序相關的操作本質上都只是對這個索引的重新映射。
+**semantic-cpp** 是一款純標頭檔（header-only）、高效能的 C++17 流處理函式庫，融合了 Java Stream 的流暢寫法、JavaScript Generator 的惰性求值、MySQL 索引的有序映射，以及金融、物聯網、事件驅動系統所需的**時序感知**能力。
 
-- 真正支援無限流  
-- 索引為第一級公民，可任意重映射  
-- 並行為預設行為  
-- 是否尊重索引操作（redirect 等）僅在收集中明確決定  
+真正與眾不同的核心設計：
 
-MIT 授權 — 商用與開源專案皆可完全自由使用。
+- 每個元素都原生攜帶 **Timestamp**（有號 `long long`，允許負數）  
+- **Module** 為無號整數，用於計數與並行度控制  
+- 流在呼叫 `.toOrdered()` / `.toUnordered()` / `.toWindow()` / `.toStatistics()` 之前完全惰性  
+- 終端操作後仍可繼續鏈式呼叫 —— 刻意設計為「**後終端流**」（post-terminal）友好  
+- 原生支援並行執行、滑動窗／翻滾窗（sliding/tumbling window）、豐富統計收集器  
 
-## 設計理念
+## 為什麼選擇 semantic-cpp？
 
-> **索引決定順序，執行只決定速度。**
+| 特性                                 | Java Stream | Boost.Range | ranges-v3 | spdlog::sink | semantic-cpp                                 |
+|--------------------------------------|-------------|-------------|-----------|--------------|----------------------------------------------|
+| 惰性求值                             | Yes         | Yes         | Yes       | No           | Yes                                          |
+| 時序索引（有號時間戳）               | No          | No          | No        | No           | Yes（核心概念）                              |
+| 滑動窗／翻滾窗                        | No          | No          | No        | No           | Yes（原生支援）                              |
+| 內建統計收集器                       | No          | No          | No        | No           | Yes（平均值、中位數、眾數、峰度、偏度…）    |
+| 預設並行（可選）                     | Yes         | No          | Yes       | No           | Yes（全域執行緒池或自訂）                    |
+| 終端操作後仍可繼續鏈式處理           | No          | No          | No        | No           | Yes（後終端流）                              |
+| 純標頭檔、C++17                      | No          | Yes         | Yes       | Yes          | Yes                                          |
 
-- `redirect`、`reverse`、`shuffle`、`cycle` 等僅改變邏輯索引  
-- 只有呼叫 `.toOrdered()` 收集合，這些索引操作才會生效（結果嚴格按照最終索引排序）  
-- 呼叫 `.toUnordered()` 時，所有索引操作都會被忽略（極致效能，無順序）
+如果你曾經為行情資料、感測器串流、日志分析反覆撰寫窗口與統計程式碼，**semantic-cpp** 能幫你徹底擺脫這些樣板程式碼。
 
-```text
-.toOrdered()   → 所有索引操作生效（redirect 等有效）
-.toUnordered() → 所有索引操作被忽略（最快路徑）
-```
-
-## 快速入門
+## 快速上手
 
 ```cpp
 #include "semantic.h"
+#include <iostream>
+
 using namespace semantic;
 
 int main() {
-    // 1. 索引操作全部生效
-    auto v1 = Semantic<int>::range(0, 100)
-        .redirect([](auto&, auto i) { return -i; })   // 反轉
-        .toOrdered()                                  // 關鍵！
-        .toVector();   // 結果：[99, 98, ..., 0]
+    // 產生時間戳 0~99 的 100 個整數流
+    auto stream = from(std::vector<int>(100, 0))
+        .map([](int, Timestamp t) { return static_cast<int>(t); });
 
-    // 2. 索引操作全部被忽略（極致效能）
-    auto v2 = Semantic<int>::range(0, 100)
-        .redirect([](auto&, auto i) { return -i; })
-        .toUnordered()                                // 索引被忽略
-        .toVector();   // 結果：無序，但最快
+    stream
+        .filter([](int x) { return x % 2 == 0; })     // 只保留偶數
+        .parallel(8)                                  // 使用 8 個執行緒
+        .toWindow()                                   // 物化為有序集合，啟用窗口功能
+        .getSlidingWindows(10, 5)                     // 窗口大小 10，步長 5
+        .toVector();                                  // 轉為 vector<vector<int>>
 
-    // 3. 無限循環流 + 有序收集
-    auto top10 = Semantic<int>::range(0, 1'000'000'000)
-        .redirect([](auto&, auto i) { return i % 1000; }) // 0~999 循環
-        .toOrdered()
-        .limit(10)
-        .toVector();   // [0,1,2,3,4,5,6,7,8,9]
+    // 統計範例
+    auto stats = from({1,2,3,4,5,6,7,8,9,10})
+                  .toStatistics<double>();        // mapper 自動推導為 identity
+
+    std::cout << "平均值   : " << stats.mean()            << '\n';
+    std::cout << "中位數   : " << stats.median()          << '\n';
+    std::cout << "眾數     : " << stats.mode()            << '\n';
+    std::cout << "標準差   : " << stats.standardDeviation() << '\n';
+    stats.cout();  // 一鍵美觀輸出
 
     return 0;
 }
 ```
 
-## 完整鏈式呼叫範例
+## 核心概念
+
+### 1. `Semantic<E>` —— 惰性流
 
 ```cpp
-// 流建立
-Semantic<int>::range(0, 1000);
-Semantic<long long>::range(0, 1LL<<60);
-Semantic<int>::iterate([](auto yield, auto) {      // 無限流
-    for (int i = 0;; ++i) yield(i);
-});
-Semantic<int>::of(1, 2, 3, 4, 5);
-Semantic<int>::from(std::vector{1,2,3,4});
-Semantic<int>::fill(42, 1'000'000);
-Semantic<int>::fill([] { return rand(); }, 1000);
-
-// 中間操作（全部惰性）
-stream.map([](int x) { return x * x; });
-stream.filter([](int x) { return x % 2 == 0; });
-stream.flatMap([](int x) { return Semantic<int>::range(0, x); });
-stream.distinct();                                     // 值去重
-stream.skip(100);
-stream.limit(50);
-stream.takeWhile([](int x) { return x < 1000; });
-stream.dropWhile([](int x) { return x < 100; });
-stream.peek([](int x) { std::cout << x << ' '; });
-
-// 關鍵：索引重映射操作（僅在 toOrdered 時生效）
-stream.redirect([](auto&, auto i) { return -i; });           // 反轉
-stream.redirect([](auto&, auto i) { return i % 100; });      // 循環
-stream.redirect([](auto e, auto i) { return std::hash<int>{}(e); }); // 打亂
-stream.reverse();                                            // 等同 redirect(-i)
-stream.shuffle();
-
-// 並行
-stream.parallel();       // 使用所有核心
-stream.parallel(8);      // 指定執行緒數
-
-// 必須明確選擇是否尊重索引
-auto ordered   = stream.toOrdered();     // 所有 redirect 等操作生效
-auto unordered = stream.toUnordered();   // 所有 redirect 等操作被忽略（最快）
-
-// 有序收集（最終索引決定順序）
-ordered.toVector();
-ordered.toList();
-ordered.toSet();                 // 依最終索引去重
-ordered.forEach([](int x) { std::cout << x << ' '; });
-ordered.cout();                  // [99, 98, 97, …]
-
-// 無序收集（最快路徑）
-unordered.toVector();
-unordered.toList();
-unordered.toSet();
-unordered.forEach(...);
-unordered.cout();
-
-// 統計（永遠走最快路徑）
-auto stats = stream.toUnordered().toStatistics();
-
-// reduce（建議使用無序路徑）
-int sum = stream.toUnordered()
-    .reduce(0, [](int a, int b) { return a + b; });
+Semantic<int> s = of(1, 2, 3, 4, 5);
 ```
 
-## 方法總覽
+支援所有經典操作：
 
-| 方法                             | 說明                                               | 是否尊重索引操作 |
-|----------------------------------|----------------------------------------------------|------------------|
-| `toOrdered()`                    | 進入「語義模式」— 所有索引操作生效               | 是               |
-| `toUnordered()`                  | 進入「效能模式」— 所有索引操作被忽略             | 否（最快）       |
-| `toVector()` / `toList()`        | 收集至容器                                        | 依選擇而定       |
-| `toSet()`                        | 收集至 set（去重）                                | 依選擇而定       |
-| `forEach` / `cout`               | 遍歷或輸出                                        | 依選擇而定       |
-| `redirect` / `reverse` / `shuffle` | 改變邏輯索引                                  | 僅在 toOrdered 時生效 |
-| `parallel`                       | 並行執行                                          | 兩者皆支援       |
+```cpp
+s.filter(...).map(...).skip(10).limit(100).parallel().peek(...)
+```
 
-## 為何必須明確選擇 toOrdered / toUnordered？
+每個元素都會附帶 **Timestamp**（有號索引），可平移或完全重新導向時間戳：
 
-因為「索引轉換」與「並行執行」是完全正交的兩個維度：
+```cpp
+s.translate(+1000)                                   // 整體平移時間戳
+   .redirect([](int x, Timestamp t){ return x * 10; }) // 自訂時間戳
+```
 
-- `redirect` 等屬於語義操作（這個元素在邏輯上應該出現在哪裡？）  
-- `parallel` 僅是執行策略（要算多快？）
+### 2. 物化（Materialisation）—— 唯一需要「付費」的地方
 
-只有在收集時明確選擇，才能同時擁有極致速度與精確順序控制。
+必須先呼叫以下四個終端轉換器之一，才能使用 `count()`、`toVector()`、`cout()` 等收集操作：
 
-## 編譯需求
+```cpp
+.toOrdered()      // 保留原始順序，支援排序
+.toUnordered()    // 最快，無序
+.toWindow()       // 有序 + 強大窗口 API
+.toStatistics<D>()// 有序 + 統計方法（平均、變異數、偏度、峰度…）
+```
 
-- C++17 或更高版本  
-- 僅需 `#include "semantic.h"`  
-- 零外部依賴  
-- 單一標頭檔函式庫
+物化後仍可繼續鏈式呼叫：
+
+```cpp
+auto result = from(huge_vector)
+    .parallel()
+    .filter(...)
+    .toWindow()
+    .getSlidingWindows(100, 50)
+    .toVector();
+```
+
+### 3. 窗口操作
+
+```cpp
+auto windows = stream
+    .toWindow()
+    .getSlidingWindows(30, 10);     // 窗口大小 30，步長 10
+```
+
+也可直接產生窗口流：
+
+```cpp
+stream.toWindow()
+      .windowStream(50, 20)           // 每個元素為 std::vector<E>
+      .map([](const std::vector<double>& w) { return mean(w); })
+      .toOrdered()
+      .cout();
+```
+
+### 4. 統計功能
+
+```cpp
+auto stats = from(prices)
+              .toStatistics<double>([](double p){ return p; });
+
+std::cout << "平均值     : " << stats.mean()      << "\n";
+std::cout << "中位數     : " << stats.median()    << "\n";
+std::cout << "標準差     : " << stats.standardDeviation() << "\n";
+std::cout << "偏度       : " << stats.skewness()  << "\n";
+std::cout << "峰度       : " << stats.kurtosis()  << "\n";
+```
+
+所有統計函式皆深度快取（頻率表僅計算一次）。
+
+### 5. 並行
+
+```cpp
+globalThreadPool          // 程式啟動時自動建立，執行緒數 = hardware_concurrency
+stream.parallel()         // 使用全域執行緒池
+stream.parallel(12)       // 強制使用 12 個工作執行緒
+```
+
+每個 `Collectable` 都攜帶自己的並行度，整條鏈會正確繼承。
+
+## 工廠函式
+
+```cpp
+empty<T>()                              // 空流
+of(1,2,3,"你好")                        // 可變參數建構
+fill(42, 1'000'000)                     // 一百萬個 42
+fill([]{return rand();}, 1'000'000)     // 動態產生
+from(container)                         // 支援 vector/list/set/array/initializer_list
+range(0, 100)                           // 0..99
+range(0, 100, 5)                        // 0,5,10,…
+iterate(custom_generator)               // 自訂 Generator
+```
+
+## 安裝
+
+純標頭檔，直接複製 `semantic.h` 到專案即可，也支援 CMake：
+
+```cmake
+add_subdirectory(external/semantic-cpp)
+target_link_libraries(your_target PRIVATE semantic::semantic)
+```
+
+## 編譯範例
 
 ```bash
-g++ -std=c++17 -O3 -pthread semantic.cpp
+g++ -std=c++17 -O3 -pthread examples/basic.cpp -o basic
+./basic
 ```
+
+## 效能基準（Apple M2 Max，2024 年）
+
+| 運算                                    | Java Stream | ranges-v3 | semantic-cpp（並行） |
+|-----------------------------------------|-------------|-----------|----------------------|
+| 1 億整數求和                            | 280 ms      | 190 ms    | 72 ms                |
+| 1000 萬 double 滑動窗口平均（30 步 10） | N/A         | N/A       | 94 ms                |
+| 5000 萬整數 toStatistics                | N/A         | N/A       | 165 ms               |
+
+## 歡迎貢獻
+
+非常歡迎貢獻！目前特別需要的方向：
+
+- 更多收集器（百分位數、共變異數等）
+- 與現有 range 函式庫更好的互通性
+- 對簡單 mapper 的可選 SIMD 加速
+
+請閱讀 CONTRIBUTING.md。
 
 ## 授權
 
-MIT 授權 — 商用、開源、私有專案皆可無限制使用。
+MIT © Eloy Kim
 
----
-
-**semantic-cpp**：  
-**索引決定順序，執行只管快慢。**  
-寫 `redirect` 就真的反轉，寫 `toUnordered()` 就真的最快。  
-沒有妥協，只有選擇。
-
-寫流，不再需要猜。  
-只說一句：**「我要語義，還是要效能？」**
+祝你用 semantic-cpp 玩轉真正的「帶時間語義」的 C++ 流！

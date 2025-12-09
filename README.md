@@ -45,8 +45,8 @@ int main() {
    auto s = from<int>({1,2,3,4,5,6,7,8,9,10}).toStatistics();
     s.mean([](int x){return x;})   // 5.5
     s.median([](int x){return x;}) // 5.5
-    s..mode([](int x){return x;})   // any, multimodal returns first
-    s..cout();
+    s.mode([](int x){return x;})   // any, multimodal returns first
+    s.cout();
     return 0;
 }  
 ```  
@@ -187,4 +187,5 @@ Please read CONTRIBUTING.md.
 MIT © Eloy Kim  
 
 Enjoy truly semantic streams in C++!
+
 

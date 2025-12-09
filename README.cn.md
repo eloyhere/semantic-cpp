@@ -193,6 +193,6 @@ g++ -std=c++17 -O3 -pthread examples/basic.cpp -o basic
 
 ## 许可证
 
-MIT © 2025 Eloy Kim
+MIT © Eloy Kim
 
 祝你用 semantic-cpp 玩转真正的“有时间语义”的 C++ 流！

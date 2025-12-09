@@ -184,6 +184,7 @@ Please read CONTRIBUTING.md.
 
 ## License  
 
-MIT © 2025/12/10 Eloy Kim  
+MIT © Eloy Kim  
 
 Enjoy truly semantic streams in C++!
+

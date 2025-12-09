@@ -627,8 +627,8 @@ template<typename E>
 typename OrderedCollectable<E>::Container OrderedCollectable<E>::toIndexedSet() const {
     if (this->concurrent < 2) {
         Container indexedSet;
-        (*this->generator)([&](const E& element, Timestamp index)->void {
-            indexedSet.emplace(index, element);
+        (*this->generator)([&](const E& element, const Timestamp index)->void {
+            indexedSet.insert(std::make_pair(index, element));
         }, [](const E& element)->bool { return false; });
         return indexedSet;
     } else {
@@ -672,6 +672,28 @@ OrderedCollectable<E>& OrderedCollectable<E>::operator=(Collectable<E>&& other) 
 }
 
 template<typename E>
+bool OrderedCollectable<E>::anyMatch(const Predicate<E>& predicate) const {
+    return collect<bool, bool>(
+        []()->bool { return false; },
+        [&](const E& element)->bool { return predicate(element); },
+        [&](bool accumulated, const E& element)->bool { return accumulated || predicate(element); },
+        [](bool accumulated, bool current)->bool { return accumulated || current; },
+        [](bool result)->bool { return result; }
+    );
+}
+
+template<typename E>
+bool OrderedCollectable<E>::allMatch(const Predicate<E>& predicate) const {
+    return collect<bool, bool>(
+        []()->bool { return true; },
+        [&](const E& element)->bool { return !predicate(element); },
+        [&](bool accumulated, const E& element)->bool { return accumulated && predicate(element); },
+        [](bool accumulated, bool current)->bool { return accumulated && current; },
+        [](bool result)->bool { return result; }
+    );
+}
+
+template<typename E>
 template<typename A, typename R>
 R OrderedCollectable<E>::collect(const Supplier<A>& identity, const BiFunction<A, E, A>& accumulator, const BiFunction<A, A, A>& combiner, const Function<A, R>& finisher) const {
     if (this->concurrent < 2) {
@@ -686,7 +708,7 @@ R OrderedCollectable<E>::collect(const Supplier<A>& identity, const BiFunction<A
         auto iterator = container.begin();
         
         for (Module i = 0; i < this->concurrent; ++i) {
-            futures.push_back(std::async(std::launch::async, [&, i, chunkSize, start = iterator, end = std::next(iterator, chunkSize)]()->A {
+            futures.push_back(std::async(std::launch::async, [&, i, chunkSize, start = iterator]()->A {
                 A localResult = identity();
                 auto localIterator = start;
                 for (Module j = 0; j < chunkSize && localIterator != container.end(); ++j, ++localIterator) {
@@ -707,7 +729,7 @@ R OrderedCollectable<E>::collect(const Supplier<A>& identity, const BiFunction<A
 
 template<typename E>
 template<typename A, typename R>
-R OrderedCollectable<E>::collect(const Supplier<A>& identity, const Predicate<E>& interrupter,const BiFunction<A, E, A>& accumulator, const BiFunction<A, A, A>& combiner, const Function<A, R>& finisher) const {
+R OrderedCollectable<E>::collect(const Supplier<A>& identity, const Predicate<E>& interrupter, const BiFunction<A, E, A>& accumulator, const BiFunction<A, A, A>& combiner, const Function<A, R>& finisher) const {
     if (this->concurrent < 2) {
         A result = identity();
         bool shouldInterrupt = false;
@@ -724,7 +746,7 @@ R OrderedCollectable<E>::collect(const Supplier<A>& identity, const Predicate<E>
         auto iterator = container.begin();
         
         for (Module i = 0; i < this->concurrent; ++i) {
-            futures.push_back(std::async(std::launch::async, [&, i, chunkSize, start = iterator, end = std::next(iterator, chunkSize)]()->A {
+            futures.push_back(std::async(std::launch::async, [&, i, chunkSize, start = iterator]()->A {
                 A localResult = identity();
                 auto localIterator = start;
                 for (Module j = 0; j < chunkSize && localIterator != container.end() && !shouldInterrupt.load(); ++j, ++localIterator) {
@@ -753,35 +775,270 @@ R OrderedCollectable<E>::collect(const Collector<E, A, R>& collector) const {
 }
 
 template<typename E>
+void OrderedCollectable<E>::cout() const {
+    cout(std::cout);
+}
+
+template<typename E>
+void OrderedCollectable<E>::cout(const BiFunction<E, std::ostream&, std::ostream&>& accumulator) const {
+    cout(std::cout, accumulator);
+}
+
+template<typename E>
+void OrderedCollectable<E>::cout(std::ostream& stream) const {
+    cout(stream, [](const E& element, std::ostream& os) -> std::ostream& {
+        return os << element;
+    });
+}
+
+template<typename E>
+void OrderedCollectable<E>::cout(std::ostream& stream, const BiConsumer<E, std::ostream&>& formatter) const {
+    cout(stream, "[", formatter, "]");
+}
+
+template<typename E>
+void OrderedCollectable<E>::cout(std::ostream& stream, const std::string& prefix, const BiConsumer<E, std::ostream&>& formatter, const std::string& suffix) const {
+    std::string result = collect<std::string, std::string>(
+        []()->std::string { return ""; },
+        [](const E&)->bool { return false; },
+        [&](std::string result, const E& element)->std::string {
+            std::stringstream localStream;
+            if (!result.empty()) {
+                result += ", ";
+            }
+            formatter(element, localStream);
+            return result + localStream.str();
+        },
+        [&](std::string result1, std::string result2)->std::string {
+            if (result1.empty()) return result2;
+            if (result2.empty()) return result1;
+            return result1 + ", " + result2;
+        },
+        [](std::string result)->std::string { return result; }
+    );
+    stream << prefix << result << suffix;
+}
+
+template<typename E>
 Module OrderedCollectable<E>::count() const {
     return static_cast<Module>(container.size());
 }
 
 template<typename E>
+std::optional<E> OrderedCollectable<E>::findFirst() const {
+    return collect<std::optional<E>, std::optional<E>>(
+        []()->std::optional<E> { return std::nullopt; },
+        [](const E& element)->bool { return false; },
+        [](std::optional<E> result, const E& element)->std::optional<E> {
+            if (!result.has_value()) {
+                return element;
+            }
+            return result;
+        },
+        [](std::optional<E> a, std::optional<E> b)->std::optional<E> {
+            if (a.has_value()) return a;
+            if (b.has_value()) return b;
+            return std::nullopt;
+        },
+        [](std::optional<E> result)->std::optional<E> { return result; }
+    );
+}
+
+template<typename E>
+std::optional<E> OrderedCollectable<E>::findAny() const {
+    return findFirst();
+}
+
+template<typename E>
 void OrderedCollectable<E>::forEach(const Consumer<E>& consumer) const {
-    if (this->concurrent < 2) {
-        for (const auto& pair : container) {
-            consumer(pair.second);
+    collect<Module, Module>(
+        []()->Module { return 0; },
+        [](const E& element)->bool { return false; },
+        [&](Module count, const E& element)->Module { 
+            consumer(element);
+            return count + 1;
+        },
+        [](Module total, Module partial)->Module { return total + partial; },
+        [](Module result)->Module { return result; }
+    );
+}
+
+template<typename E>
+template<typename K>
+std::map<K, std::vector<E>> OrderedCollectable<E>::group(const Function<E, K>& classifier) const {
+    return collect<std::map<K, std::vector<E>>, std::map<K, std::vector<E>>>(
+        []()->std::map<K, std::vector<E>> { return {}; },
+        [](const E& element)->bool { return false; },
+        [&](std::map<K, std::vector<E>> groups, const E& element)->std::map<K, std::vector<E>> {
+            groups[classifier(element)].push_back(element);
+            return groups;
+        },
+        [](std::map<K, std::vector<E>> groups1, std::map<K, std::vector<E>> groups2)->std::map<K, std::vector<E>> {
+            for (const auto& pair : groups2) {
+                groups1[pair.first].insert(groups1[pair.first].end(), pair.second.begin(), pair.second.end());
+            }
+            return groups1;
+        },
+        [](std::map<K, std::vector<E>> result)->std::map<K, std::vector<E>> { return result; }
+    );
+}
+
+template<typename E>
+template<typename K, typename V>
+std::map<K, std::vector<V>> OrderedCollectable<E>::groupBy(const Function<E, K>& keyExtractor, const Function<E, V>& valueExtractor) const {
+    return collect<std::map<K, std::vector<V>>, std::map<K, std::vector<V>>>(
+        []()->std::map<K, std::vector<V>> { return {}; },
+        [](const E& element)->bool { return false; },
+        [&](std::map<K, std::vector<V>> groups, const E& element)->std::map<K, std::vector<V>> {
+            groups[keyExtractor(element)].push_back(valueExtractor(element));
+            return groups;
+        },
+        [](std::map<K, std::vector<V>> groups1, std::map<K, std::vector<V>> groups2)->std::map<K, std::vector<V>> {
+            for (const auto& pair : groups2) {
+                groups1[pair.first].insert(groups1[pair.first].end(), pair.second.begin(), pair.second.end());
+            }
+            return groups1;
+        },
+        [](std::map<K, std::vector<V>> result)->std::map<K, std::vector<V>> { return result; }
+    );
+}
+
+template<typename E>
+std::string OrderedCollectable<E>::join() const {
+    return join(",", "[", "]");
+}
+
+template<typename E>
+std::string OrderedCollectable<E>::join(const std::string& delimiter) const {
+    return join(delimiter, "[", "]");
+}
+
+template<typename E>
+std::string OrderedCollectable<E>::join(const std::string& delimiter, const std::string& prefix, const std::string& suffix) const {
+    return collect<std::string, std::string>(
+        []()->std::string { return ""; },
+        [](const E& element)->bool { return false; },
+        [&](std::string result, const E& element)->std::string {
+            if (!result.empty()) {
+                result += delimiter;
+            }
+            std::stringstream ss;
+            ss << element;
+            return result + ss.str();
+        },
+        [&](std::string result1, std::string result2)->std::string {
+            if (result1.empty()) return result2;
+            if (result2.empty()) return result1;
+            return result1 + delimiter + result2;
+        },
+        [&](std::string result)->std::string { 
+            return prefix + result + suffix;
         }
-    } else {
-        std::vector<std::future<void>> futures;
-        Module chunkSize = container.size() / this->concurrent;
-        auto iterator = container.begin();
-        
-        for (Module i = 0; i < this->concurrent; ++i) {
-            futures.push_back(std::async(std::launch::async, [&, i, chunkSize, start = iterator, end = std::next(iterator, chunkSize)]()->void {
-                auto localIterator = start;
-                for (Module j = 0; j < chunkSize && localIterator != container.end(); ++j, ++localIterator) {
-                    consumer(localIterator->second);
+    );
+}
+
+template<typename E>
+bool OrderedCollectable<E>::noneMatch(const Predicate<E>& predicate) const {
+    return collect<bool, bool>(
+        []()->bool { return true; },
+        [&](const E& element)->bool { return predicate(element); },
+        [&](bool accumulated, const E& element)->bool { return accumulated && !predicate(element); },
+        [](bool accumulated, bool current)->bool { return accumulated && current; },
+        [](bool result)->bool { return result; }
+    );
+}
+
+template<typename E>
+std::vector<std::vector<E>> OrderedCollectable<E>::partition(const Module& count) const {
+    return collect<std::vector<std::vector<E>>, std::vector<std::vector<E>>>(
+        [count]()->std::vector<std::vector<E>> { 
+            std::vector<std::vector<E>> partitions(count);
+            return partitions;
+        },
+        [](const E& element)->bool { return false; },
+        [&, index = 0](std::vector<std::vector<E>> partitions, const E& element) mutable -> std::vector<std::vector<E>> {
+            partitions[index % count].push_back(element);
+            ++index;
+            return partitions;
+        },
+        [](std::vector<std::vector<E>> partitions1, std::vector<std::vector<E>> partitions2)->std::vector<std::vector<E>> {
+            for (size_t i = 0; i < partitions1.size(); ++i) {
+                partitions1[i].insert(partitions1[i].end(), partitions2[i].begin(), partitions2[i].end());
+            }
+            return partitions1;
+        },
+        [](std::vector<std::vector<E>> result)->std::vector<std::vector<E>> { return result; }
+    );
+}
+
+template<typename E>
+std::vector<std::vector<E>> OrderedCollectable<E>::partitionBy(const Function<E, Module>& classifier) const {
+    return collect<std::vector<std::vector<E>>, std::vector<std::vector<E>>>(
+        []()->std::vector<std::vector<E>> { return {}; },
+        [](const E& element)->bool { return false; },
+        [&](std::vector<std::vector<E>> partitions, const E& element)->std::vector<std::vector<E>> {
+            Module partitionIndex = classifier(element);
+            if (partitionIndex >= partitions.size()) {
+                partitions.resize(partitionIndex + 1);
+            }
+            partitions[partitionIndex].push_back(element);
+            return partitions;
+        },
+        [](std::vector<std::vector<E>> partitions1, std::vector<std::vector<E>> partitions2)->std::vector<std::vector<E>> {
+            for (size_t i = 0; i < partitions2.size(); ++i) {
+                if (i >= partitions1.size()) {
+                    partitions1.push_back(partitions2[i]);
+                } else {
+                    partitions1[i].insert(partitions1[i].end(), partitions2[i].begin(), partitions2[i].end());
                 }
-            }));
-            std::advance(iterator, chunkSize);
-        }
-        
-        for (auto& future : futures) {
-            future.get();
-        }
-    }
+            }
+            return partitions1;
+        },
+        [](std::vector<std::vector<E>> result)->std::vector<std::vector<E>> { return result; }
+    );
+}
+
+template<typename E>
+std::optional<E> OrderedCollectable<E>::reduce(const BiFunction<E, E, E>& accumulator) const {
+    return collect<std::optional<E>, std::optional<E>>(
+        []()->std::optional<E> { return std::nullopt; },
+        [](const E& element)->bool { return false; },
+        [&](std::optional<E> result, const E& element)->std::optional<E> {
+            if (!result.has_value()) {
+                return element;
+            }
+            return accumulator(*result, element);
+        },
+        [&](std::optional<E> a, std::optional<E> b)->std::optional<E> {
+            if (!a.has_value()) return b;
+            if (!b.has_value()) return a;
+            return accumulator(*a, *b);
+        },
+        [](std::optional<E> result)->std::optional<E> { return result; }
+    );
+}
+
+template<typename E>
+E OrderedCollectable<E>::reduce(const E& identity, const BiFunction<E, E, E>& accumulator) const {
+    return collect<E, E>(
+        [&]()->E { return identity; },
+        [](const E& element)->bool { return false; },
+        accumulator,
+        accumulator,
+        [](E result)->E { return result; }
+    );
+}
+
+template<typename E>
+template<typename R>
+R OrderedCollectable<E>::reduce(const R& identity, const BiFunction<R, E, R>& accumulator, const BiFunction<R, R, R>& combiner) const {
+    return collect<R, R>(
+        [&]()->R { return identity; },
+        [](const E& element)->bool { return false; },
+        accumulator,
+        combiner,
+        [](R result)->R { return result; }
+    );
 }
 
 template<typename E>
@@ -794,6 +1051,92 @@ Semantic<E> OrderedCollectable<E>::semantic() const {
             accept(pair.second, pair.first);
         }
     });
+}
+
+template<typename E>
+std::list<E> OrderedCollectable<E>::toList() const {
+    return collect<std::list<E>, std::list<E>>(
+        []()->std::list<E> { return {}; },
+        [](const E& element)->bool { return false; },
+        [](std::list<E> list, const E& element)->std::list<E> {
+            list.push_back(element);
+            return list;
+        },
+        [](std::list<E> list1, std::list<E> list2)->std::list<E> {
+            list1.splice(list1.end(), list2);
+            return list1;
+        },
+        [](std::list<E> result)->std::list<E> { return result; }
+    );
+}
+
+template<typename E>
+template<typename K, typename V>
+std::map<K, V> OrderedCollectable<E>::toMap(const Function<E, K>& keyExtractor, const Function<E, V>& valueExtractor) const {
+    return collect<std::map<K, V>, std::map<K, V>>(
+        []()->std::map<K, V> { return {}; },
+        [](const E& element)->bool { return false; },
+        [&](std::map<K, V> map, const E& element)->std::map<K, V> {
+            map[keyExtractor(element)] = valueExtractor(element);
+            return map;
+        },
+        [](std::map<K, V> map1, std::map<K, V> map2)->std::map<K, V> {
+            map1.insert(map2.begin(), map2.end());
+            return map1;
+        },
+        [](std::map<K, V> result)->std::map<K, V> { return result; }
+    );
+}
+
+template<typename E>
+std::set<E> OrderedCollectable<E>::toSet() const {
+    return collect<std::set<E>, std::set<E>>(
+        []()->std::set<E> { return {}; },
+        [](const E& element)->bool { return false; },
+        [](std::set<E> set, const E& element)->std::set<E> {
+            set.insert(element);
+            return set;
+        },
+        [](std::set<E> set1, std::set<E> set2)->std::set<E> {
+            set1.insert(set2.begin(), set2.end());
+            return set1;
+        },
+        [](std::set<E> result)->std::set<E> { return result; }
+    );
+}
+
+template<typename E>
+std::unordered_set<E> OrderedCollectable<E>::toUnorderedSet() const {
+    return collect<std::unordered_set<E>, std::unordered_set<E>>(
+        []()->std::unordered_set<E> { return {}; },
+        [](const E& element)->bool { return false; },
+        [](std::unordered_set<E> set, const E& element)->std::unordered_set<E> {
+            set.insert(element);
+            return set;
+        },
+        [](std::unordered_set<E> set1, std::unordered_set<E> set2)->std::unordered_set<E> {
+            set1.insert(set2.begin(), set2.end());
+            return set1;
+        },
+        [](std::unordered_set<E> result)->std::unordered_set<E> { return result; }
+    );
+}
+
+template<typename E>
+std::vector<E> OrderedCollectable<E>::toVector() const {
+    return collect<std::vector<E>, std::vector<E>>(
+        []()->std::vector<E> { return {}; },
+        [](const E& element)->bool { return false; },
+        [](std::vector<E> vector, const E& element)->std::vector<E> {
+            vector.push_back(element);
+            return vector;
+        },
+        [](std::vector<E> vector1, std::vector<E> vector2)->std::vector<E> {
+            vector1.insert(vector1.end(), vector2.begin(), vector2.end());
+            return vector1;
+        },
+        [](std::vector<E> result)->std::vector<E> { return result; }
+    );
 }
 
 //Satistics
@@ -1998,10 +2341,10 @@ Semantic<E> Semantic<E>::dropWhile(const Predicate<E>& p) const {
             if (dropping) {
                 if (!p(element)) {
                     dropping = false;
-                    accept(element, index++);
+                    accept(element, index);
                 }
             } else {
-                accept(element, index++);
+                accept(element, index);
             }
         }, interrupt);
     }, this->concurrent);
@@ -2102,7 +2445,7 @@ Semantic<E> Semantic<E>::redirect(const BiFunction<E, Timestamp, Timestamp>& red
 template<typename E>
 Semantic<E> Semantic<E>::reverse() const {
     return Semantic<E>([this](const BiConsumer<E, Timestamp>& accept, const Predicate<E>& interrupt)->void {
-        (*this->generator)([&](const E& element, Timestamp index)->void {
+        (*this->generator)([&](const E& element, const Timestamp& index)->void {
             accept(element, -index);
         }, interrupt);
     }, this->concurrent);
@@ -2210,7 +2553,11 @@ Semantic<E> Semantic<E>::takeWhile(const Predicate<E>& p) const {
 
 template<typename E>
 OrderedCollectable<E> Semantic<E>::toOrdered() const {
-    return OrderedCollectable<E>(this->generator, this->concurrent);
+        return OrderedCollectable<E>([this](const BiConsumer<E, Timestamp>& accept, const Predicate<E>& interrupt)->void {
+        (*this->generator)([&](const E& element, Timestamp index)->void {
+            accept(element, index);
+        }, interrupt);
+    }, this->concurrent);
 }
 
 template<typename E>
@@ -2257,3 +2604,13 @@ Semantic<E> Semantic<E>::translate(const Function<E, Timestamp>& translator) con
 }
 
 };
+
+int main(){
+	semantic::from<int>({1,2,3,4,5}).redirect([](const int& element, const auto& index)->auto{
+		
+		return index;
+	}).reverse().redirect([](const int& element, const auto& index)->auto{
+		return index;
+	}).toOrdered().cout();
+	return 0;
+}

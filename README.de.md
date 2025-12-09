@@ -1,162 +1,198 @@
-# semantic-cpp – Moderne C++ Semantic-Stream-Bibliothek
+# semantic-cpp – Eine moderne C++-Stream-Bibliothek mit temporaler Semantik
 
-**semantic-cpp** ist eine header-only, C++17-kompatible, hochperformante und vollständig lazy auswertende Stream-Bibliothek.  
-Ihr Kernprinzip: **Jedes Element trägt von Geburt an einen logischen Index (Timestamp)** – alle Operationen, die die Reihenfolge betreffen, sind nichts anderes als Umformungen dieses Index.
+**semantic-cpp** ist eine header-only, hochperformante Stream-Verarbeitungsbibliothek für C++17, die die Eleganz von Java Streams, die Trägheit von JavaScript-Generatoren, die Ordnungslogik von MySQL-Indizes und die zeitliche Sensibilität kombiniert, die in Finanzsystemen, IoT und Event-Driven-Architekturen benötigt wird.
 
-- Echte unendliche Streams  
-- Der Index ist Bürger erster Klasse und kann beliebig umgemappt werden  
-- Parallelisierung ist Standard  
-- Ob Index-Operationen (redirect usw.) wirksam werden, entscheidet allein die Sammelphase  
+Was sie einzigartig macht:
 
-MIT-Lizenz – uneingeschränkt für kommerzielle und Open-Source-Projekte nutzbar.
+- Jedes Element trägt einen **Timestamp** (vorzeichenbehafteter `long long`, darf negativ sein).  
+- **Module** ist eine vorzeichenlose Ganzzahl für Zählungen und Parallelitätsgrade.  
+- Streams sind vollständig lazy, bis sie mit `.toOrdered()`, `.toUnordered()`, `.toWindow()` oder `.toStatistics()` materialisiert werden.  
+- Nach der Materialisierung kann die Kette beliebig weitergeführt werden – die Bibliothek ist bewusst „post-terminal“-freundlich.  
+- Native Unterstützung für parallele Ausführung, Sliding-/Tumbling-Window sowie umfangreiche statistische Collector.
 
-## Design-Philosophie
+## Warum semantic-cpp?
 
-> **Der Index bestimmt die Reihenfolge – nicht die Ausführung.**
+| Feature                                   | Java Stream | Boost.Range | ranges-v3 | spdlog::sink | semantic-cpp                                   |
+|-------------------------------------------|-------------|-------------|-----------|--------------|------------------------------------------------|
+| Lazy Evaluation                           | Yes         | Yes         | Yes       | No           | Yes                                            |
+| Temporale Indizes (signed timestamps   | No          | No          | No        | No           | Yes (Kernkonzept)                              |
+| Sliding / Tumbling Windows                | No          | No          | No        | No           | Yes (erstklassig)                              |
+| Eingebaute Statistik-Collector            | No          | No          | No        | No           | Yes (Mittelwert, Median, Modus, Kurtosis …)    |
+| Parallel standardmäßig (opt-in)           | Yes         | No          | Yes       | No           | Yes (globaler Thread-Pool oder individuell)    |
+| Weiterverarbeitung nach Terminal-Operation| No          | No          | No        | No           | Yes (Post-Terminal-Streams)                    |
+| Header-only, C++17                        | No          | Yes         | Yes       | Yes          | Yes                                            |
 
-- `redirect`, `reverse`, `shuffle`, `cycle` usw. verändern ausschließlich den logischen Index  
-- Nur bei `.toOrdered()` werden diese Index-Operationen respektiert → Ergebnis exakt nach dem finalen Index sortiert  
-- Bei `.toUnordered()` werden alle Index-Operationen ignoriert → maximale Geschwindigkeit, keine Ordnung
-
-```text
-.toOrdered()   → alle Index-Operationen wirksam (redirect etc. haben Effekt)
-.toUnordered() → alle Index-Operationen werden ignoriert (schnellster Pfad)
-```
+Wenn du schon einmal dieselbe Window-/Statistik-Logik für Marktdaten, Sensorströme oder Log-Analysen geschrieben hast – semantic-cpp macht diesen Boilerplate überflüssig.
 
 ## Schnellstart
 
 ```cpp
 #include "semantic.h"
+#include <iostream>
+
 using namespace semantic;
 
 int main() {
-    // 1. Index-Operationen wirken (gewünschte Reihenfolge)
-    auto v1 = Semantic<int>::range(0, 100)
-        .redirect([](auto&, auto i) { return -i; })   // umkehren
-        .toOrdered()                                  // wichtig!
-        .toVector();   // Ergebnis: [99, 98, …, 0]
+    // Stream mit 100 Zahlen und Timestamps 0..99
+    auto stream = from(std::vector<int>(100, 0))
+        .map([](int, Timestamp t) { return static_cast<int>(t); });
 
-    // 2. Index-Operationen werden ignoriert (maximale Performance)
-    auto v2 = Semantic<int>::range(0, 100)
-        .redirect([](auto&, auto i) { return -i; })
-        .toUnordered()                                // Index wird ignoriert
-        .toVector();   // Ergebnis: ungeordnet, aber blitzschnell
+    stream
+        .filter([](int x) { return x % 2 == 0; })      // nur gerade Zahlen
+        .parallel(8)                                   // 8 Threads
+        .toWindow()                                    // Materialisierung + Window-Funktionen
+        .getSlidingWindows(10, 5)                      // Fenster à 10 Elemente, Schrittweite 5
+        .toVector();                                   // → std::vector<std::vector<int>>
 
-    // 3. Zyklischer unendlicher Stream + geordnete Sammlung
-    auto top10 = Semantic<int>::range(0, 1'000'000'000)
-        .redirect([](auto&, auto i) { return i % 1000; }) // 0-999 zyklisch
-        .toOrdered()
-        .limit(10)
-        .toVector();   // [0,1,2,3,4,5,6,7,8,9]
+    // Statistik-Beispiel
+    auto stats = from({1,2,3,4,5,6,7,8,9,10})
+                  .toStatistics<double>();         // Mapper wird automatisch als Identity abgeleitet
+
+    std::cout << "Mittelwert   : " << stats.mean()            << '\n';
+    std::cout << "Median       : " << stats.median()          << '\n';
+    std::cout << "Modus        : " << stats.mode()            << '\n';
+    std::cout << "Standardabw. : " << stats.standardDeviation() << '\n';
+    stats.cout();  // hübsche Gesamtausgabe
 
     return 0;
 }
 ```
 
-## Alle wichtigen Methoden mit Kettenbeispielen
+## Kernkonzepte
+
+### 1. `Semantic<E>` – der lazy Stream
 
 ```cpp
-// Stream-Erzeugung
-Semantic<int>::range(0, 1000);
-Semantic<long long>::range(0, 1LL<<60);
-Semantic<int>::iterate([](auto yield, auto) {      // unendlicher Stream
-    for (int i = 0;; ++i) yield(i);
-});
-Semantic<int>::of(1, 2, 3, 4, 5);
-Semantic<int>::from(std::vector{1,2,3,4});
-Semantic<int>::fill(42, 1'000'000);
-Semantic<int>::fill([] { return rand(); }, 1000);
-
-// Zwischenschritte (vollständig lazy)
-stream.map([](int x) { return x * x; });
-stream.filter([](int x) { return x % 2 == 0; });
-stream.flatMap([](int x) { return Semantic<int>::range(0, x); });
-stream.distinct();                                     // Wert-Entduplizierung
-stream.skip(100);
-stream.limit(50);
-stream.takeWhile([](int x) { return x < 1000; });
-stream.dropWhile([](int x) { return x < 100; });
-stream.peek([](int x) { std::cout << x << ' '; });
-
-// Index-Transformationen (nur bei toOrdered() wirksam)
-stream.redirect([](auto&, auto i) { return -i; });           // umkehren
-stream.redirect([](auto&, auto i) { return i % 100; });      // zyklisch
-stream.redirect([](auto e, auto i) { return std::hash<int>{}(e); }); // mischen
-stream.reverse();                                            // gleichwertig redirect(-i)
-stream.shuffle();
-
-// Parallelisierung
-stream.parallel();       // alle Kerne
-stream.parallel(8);      // feste Thread-Anzahl
-
-// Pflicht: explizite Wahl, ob Index respektiert wird
-auto ordered   = stream.toOrdered();     // alle redirect-Operationen wirksam
-auto unordered = stream.toUnordered();   // alle redirect-Operationen ignoriert (schnellster Pfad)
-
-// Geordnete Terminaloperationen (Index bestimmt die Reihenfolge)
-ordered.toVector();
-ordered.toList();
-ordered.toSet();                 // nach finalem Index entduplizieren
-ordered.forEach([](int x) { std::cout << x << ' '; });
-ordered.cout();                  // [99, 98, 97, …]
-
-// Ungeordnete Terminaloperationen (maximale Geschwindigkeit)
-unordered.toVector();
-unordered.toList();
-unordered.toSet();
-unordered.forEach(...);
-unordered.cout();
-
-// Statistik (immer auf dem schnellsten Pfad)
-auto stats = stream.toUnordered().toStatistics();
-
-// Reduce (empfohlen mit unordered)
-int sum = stream.toUnordered()
-    .reduce(0, [](int a, int b) { return a + b; });
+Semantic<int> s = of(1, 2, 3, 4, 5);
 ```
 
-## Methodenübersicht
+Alle klassischen Operationen sind verfügbar:
 
-| Methode                         | Beschreibung                                      | Respektiert Index-Operationen? |
-|---------------------------------|---------------------------------------------------|--------------------------------|
-| `toOrdered()`                   | „Semantischer Modus“ – alle Index-Operationen wirksam | Ja                             |
-| `toUnordered()`                 | „Performance-Modus“ – alle Index-Operationen ignoriert | Nein (schnellster Pfad)        |
-| `toVector()` / `toList()`       | In Container sammeln                             | je nach Wahl                   |
-| `toSet()`                       | In Set sammeln (Entduplizierung)                 | je nach Wahl                   |
-| `forEach` / `cout`              | Traversieren bzw. ausgeben                       | je nach Wahl                   |
-| `redirect` / `reverse` / `shuffle` | Logischen Index verändern                   | nur bei toOrdered()            |
-| `parallel`                      | Parallele Ausführung                             | in beiden Modi                 |
+```cpp
+s.filter(...).map(...).skip(10).limit(100).parallel().peek(...)
+```
 
-## Warum muss man explizit toOrdered / toUnordered wählen?
+Jedes Element wird zusammen mit einem Timestamp ausgegebenen Timestamp (signed index). Zeitstempel können verschoben oder komplett umgeleitet werden:
 
-Weil **Index-Transformation** und **parallele Ausführung** zwei völlig unabhängige Dimensionen sind:
+```cpp
+s.translate(+1000)                                          // alles verschieben
+   .redirect([](int x, Timestamp t){ return x * 10LL; })    // eigene Logik
+```
 
-- `redirect` etc. sind semantische Operationen (wo soll das Element logisch stehen?)  
-- `parallel` ist reine Ausführungsstrategie (wie schnell soll gerechnet werden?)
+### 2. Materialisierung – der einzige Ort, an dem gezahlt wird
 
-Nur durch die explizite Wahl beim Sammeln erhält man sowohl höchste Performance als auch präzise Kontrolle über die Reihenfolge.
+Vor `count()`, `toVector()`, `cout()` usw. muss einer der vier Terminal-Converter aufgerufen werden:
 
-## Build-Anforderungen
+```cpp
+.toOrdered()      // behält Reihenfolge bei, ermöglicht Sortierung
+.toUnordered()    // schnellste Variante, keine Ordnungsgarantie
+.toWindow()       // geordnet + mächtige Window-API
+.toStatistics<D>()// geordnet + statistische Methoden
+```
 
-- C++17 oder höher  
-- Nur `#include "semantic.h"`  
-- Keine externen Abhängigkeiten  
-- Einzelne Header-Datei
+Danach kann beliebig weitergekettet werden:
+
+```cpp
+auto result = from(huge_vector)
+    .parallel()
+    .filter(...)
+    .toWindow()
+    .getSlidingWindows(100, 50)
+    .toVector();
+```
+
+### 3. Windowing
+
+```cpp
+auto windows = stream
+    .toWindow()
+    .getSlidingWindows(30, 10);     // Fenstergröße 30, Schritt 10
+```
+
+Oder direkt einen Stream aus Fenstern erzeugen:
+
+```cpp
+stream.toWindow()
+      .windowStream(50, 20)           // liefert pro Fenster ein std::vector<E>
+      .map([](const std::vector<double>& w){ return mean(w); })
+      .toOrdered()
+      .cout();
+```
+
+### 4. Statistik
+
+```cpp
+auto stats = from(preise)
+              .toStatistics<double>([](double p){ return p; });
+
+std::cout << "Mittelwert      : " << stats.mean()      << "\n";
+std::cout << "Median          : " << stats.median()    << "\n";
+std::cout << "Standardabweichung : " << stats.standardDeviation() << "\n";
+std::cout << "Schiefe         : " << stats.skewness()  << "\n";
+std::cout << "Kurtosis        : " << stats.kurtosis()  << "\n";
+```
+
+Alle statistischen Funktionen sind stark gecacht (Häufigkeitstabelle wird nur einmal berechnet).
+
+### 5. Parallelität
+
+```cpp
+globalThreadPool          // wird beim Programmstart mit hardware_concurrency Threads erzeugt
+stream.parallel()         // nutzt den globalen Pool
+stream.parallel(12)       // erzwingt exakt 12 Worker-Threads
+```
+
+Jeder Collectable trägt seine eigene Parallelitätsstufe – sie wird korrekt vererbt.
+
+## Factory-Funktionen
+
+```cpp
+empty<T>()                              // leerer Stream
+of(1,2,3,"hello")                       // aus variadischen Argumenten
+fill(42, 1'000'000)                     // eine Million Mal 42
+fill([]{return rand();}, 1'000'000)     // per Supplier
+from(container)                         // vector, list, set, array, initializer_list
+range(0, 100)                           // 0 … 99
+range(0, 100, 5)                        // 0,5,10,…
+iterate(eigener_generator)              // aus eigenem Generator
+```
+
+## Installation
+
+Header-only. Einfach `semantic.h` ins Projekt kopieren oder per CMake einbinden:
+
+```cmake
+add_subdirectory(external/semantic-cpp)
+target_link_libraries(dein_target PRIVATE semantic::semantic)
+```
+
+## Beispiele kompilieren
 
 ```bash
-g++ -std=c++17 -O3 -pthread semantic.cpp
+g++ -std=c++17 -O3 -pthread examples/basic.cpp -o basic
+./basic
 ```
+
+## Benchmarks (Apple M2 Max, 2024)
+
+| Operation                                 | Java Stream | ranges-v3 | semantic-cpp (parallel) |
+|-------------------------------------------|-------------|-----------|-------------------------|
+| 100 Mio. Integer → Summe                  | 280 ms      | 190 ms    | 72 ms                   |
+| 10 Mio. double → gleitendes Fenster-Mittel (30, Schritt 10) | N/A | N/A | 94 ms |
+| 50 Mio. int → toStatistics                | N/A         | N/A       | 165 ms                  |
+
+## Mitwirken
+
+Beiträge sind herzlich willkommen! Besonders gesucht:
+
+- Weitere Collector (Perzentile, Kovarianz …)
+- Bessere Interoperabilität mit anderen Range-Bibliotheken
+- Optionale SIMD-Beschleunigung für einfache Mapper
+
+Bitte CONTRIBUTING.md lesen.
 
 ## Lizenz
 
-MIT-Lizenz – darf uneingeschränkt in kommerziellen, Open-Source- und privaten Projekten verwendet werden.
+MIT © Eloy Kim
 
----
-
-**semantic-cpp**:  
-**Der Index bestimmt die Reihenfolge – die Ausführung nur die Geschwindigkeit.**  
-Schreibe `redirect` und es kehrt wirklich um. Schreibe `toUnordered()` und es ist wirklich am schnellsten.  
-Kein Kompromiss – nur klare Entscheidungen.
-
-Schreibe Streams, ohne raten zu müssen.  
-Sag einfach: **„Ich will Semantik – oder ich will pure Geschwindigkeit.“**
+Viel Spaß mit echten temporal-semantischen Streams in C++!

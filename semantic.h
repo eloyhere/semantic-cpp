@@ -11,6 +11,7 @@
 #include <thread>
 #include <cmath>
 #include <random>
+#include <fstream>
 #include <sstream>
 #include <optional>
 #include <memory>
@@ -127,7 +128,7 @@ class Collector
 	const Finisher finisher;
 
 	Collector(const Identity &identity, const Accumulator &accumulator, const Combiner &combiner, const Finisher &finisher) : identity(identity), interrupter([](const E &element) -> bool {
-    return false;
+		return false;
 }), accumulator(accumulator), combiner(combiner), finisher(finisher) {}
 
 	Collector(const Identity &identity, const Interrupter &interrupter, const Accumulator &accumulator, const Combiner &combiner, const Finisher &finisher) : identity(identity), interrupter(interrupter), accumulator(accumulator), combiner(combiner), finisher(finisher) {}
@@ -147,6 +148,66 @@ Collector<E, A, R> shortable(const Supplier<A> &identity, const Predicate<E> &in
 
 template <typename E>
 class Semantic;
+
+template <typename E>
+class Generative
+{
+  protected:
+	const std::shared_ptr<BiConsumer<E, Timestamp>> accept;
+	const std::shared_ptr<BiConsumer<E, Timestamp>> defaultAccept = std::make_shared<BiConsumer<E, Timestamp>>([](const E &element, const Timestamp &index) -> void {
+
+	});
+
+	const std::shared_ptr<Predicate<E>> interrupt;
+	const std::shared_ptr<Predicate<E>> defaultInterrupt = std::make_shared<BiConsumer<E, Timestamp>>([](const E &element) -> bool {
+		return false;
+	});
+
+  public:
+	Generative() : accept(defaultAccept), interrupt(defaultInterrupt) {}
+
+	Generative(const BiConsumer<E, Timestamp> &accept) : accept(accept), interrupt(defaultInterrupt) {}
+
+	Generative(const BiConsumer<E, Timestamp> &accept, const Predicate<E> &interrupt) : accept(accept), interrupt(interrupt) {}
+
+	~Generative() {}
+
+	Semantic<E> empty() const;
+
+	template <typename... Args>
+	Semantic<E> of(Args &&... args) const;
+
+	Semantic<E> fill(const E &element, const Module &count) const;
+
+	Semantic<E> fill(const Supplier<E> &supplier, const Module &count) const;
+
+	Semantic<E> from(std::istream &stream, const Function<std::istream &, E> &mapper) const;
+
+	Semantic<E> from(std::ifstream &stream, const Function<std::ifstream &, E> &mapper) const;
+
+	Semantic<E> from(const E *array, const Module &length) const;
+	
+	template <Module length>
+	Semantic<E> from(const std::array<E, length> &array) const;
+
+	Semantic<E> from(const std::list<E> &l) const;
+
+	Semantic<E> from(const std::vector<E> &v) const;
+
+	Semantic<E> from(const std::initializer_list<E> &l) const;
+
+	Semantic<E> from(const std::set<E> &s) const;
+
+	Semantic<E> from(const std::unordered_set<E> &s) const;
+
+	Semantic<E> from(const std::queue<E> &q) const;
+
+	Semantic<E> iterate(const Generator<E> &generator) const;
+
+	Semantic<E> range(const E &start, const E &end) const;
+
+	Semantic<E> range(const E &start, const E &end, const E &step) const;
+};
 
 template <typename E>
 class Collectable
@@ -188,8 +249,8 @@ class Collectable
 	void cout() const;
 	void cout(const BiFunction<E, std::ostream &, std::ostream &> &accumulator) const;
 	void cout(std::ostream &stream) const;
-	void cout(std::ostream& stream, const BiConsumer<E, std::ostream&>& formatter) const;
-	void cout(std::ostream& stream, const std::string& prefix, const BiConsumer<E, std::ostream&>& formatter, const std::string& suffix) const;
+	void cout(std::ostream &stream, const BiConsumer<E, std::ostream &> &formatter) const;
+	void cout(std::ostream &stream, const std::string &prefix, const BiConsumer<E, std::ostream &> &formatter, const std::string &suffix) const;
 
 	Module count() const;
 
@@ -218,7 +279,7 @@ class Collectable
 
 	template <typename R>
 	R reduce(const R &identity, const BiFunction<R, E, R> &accumulator, const BiFunction<R, R, R> &combiner) const;
-	
+
 	Semantic<E> semantic() const;
 
 	std::list<E> toList() const;
@@ -266,8 +327,8 @@ class OrderedCollectable : public Collectable<E>
 	void cout() const;
 	void cout(const BiFunction<E, std::ostream &, std::ostream &> &accumulator) const;
 	void cout(std::ostream &stream) const;
-	void cout(std::ostream& stream, const BiConsumer<E, std::ostream&>& formatter) const;
-	void cout(std::ostream& stream, const std::string& prefix, const BiConsumer<E, std::ostream&>& formatter, const std::string& suffix) const;
+	void cout(std::ostream &stream, const BiConsumer<E, std::ostream &> &formatter) const;
+	void cout(std::ostream &stream, const std::string &prefix, const BiConsumer<E, std::ostream &> &formatter, const std::string &suffix) const;
 
 	Module count() const;
 
@@ -296,7 +357,7 @@ class OrderedCollectable : public Collectable<E>
 
 	template <typename R>
 	R reduce(const R &identity, const BiFunction<R, E, R> &accumulator, const BiFunction<R, R, R> &combiner) const;
-	
+
 	Semantic<E> semantic() const;
 
 	std::list<E> toList() const;
@@ -378,7 +439,7 @@ class WindowCollectable : public OrderedCollectable<E>
 			break;
 	    }
 	    accept(pair.second, pair.first);
-	}}) {}
+	} }) {}
 
 	WindowCollectable(const Generator<E> &generator) : OrderedCollectable<E>(generator) {}
 
@@ -616,8 +677,8 @@ class Semantic
 	UnorderedCollectable<E> toUnordered() const;
 
 	WindowCollectable<E> toWindow() const;
-	
-	Semantic<E> translate(const Timestamp& offset) const;
+
+	Semantic<E> translate(const Timestamp &offset) const;
 
 	Semantic<E> translate(const Function<E, Timestamp> &translator) const;
 };

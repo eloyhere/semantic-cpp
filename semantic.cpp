@@ -106,6 +106,234 @@ auto ThreadPool::submit(F&& func, std::chrono::milliseconds timeout, const Runna
     return result;
 }
 
+//Generative
+template <typename E>
+Semantic<E> Generative<E>::empty() const {
+    return Semantic<E>();
+}
+
+template <typename E>
+template <typename... Args>
+Semantic<E> Generative<E>::of(Args&&... args) const {
+    std::vector<E> elements = {std::forward<Args>(args)...};
+    return Semantic<E>([elements = std::move(elements)](const BiConsumer<E, Timestamp>& accept, const Predicate<E>& predicate) -> void {
+        for (Timestamp index = 0; index < elements.size(); index++) {
+            const E& element = elements[index];
+            if (predicate(element)) {
+                break;
+            }
+            accept(element, index);
+        }
+    });
+}
+
+template <typename E>
+Semantic<E> Generative<E>::fill(const E& element, const Module& count) const {
+    return Semantic<E>([element, count](const BiConsumer<E, Timestamp>& accept, const Predicate<E>& predicate) -> void {
+        for (Timestamp index = 0; index < count; ++index) {
+            if (predicate(element)) {
+                break;
+            }
+            accept(element, index);
+        }
+    });
+}
+
+template <typename E>
+Semantic<E> Generative<E>::fill(const Supplier<E>& supplier, const Module& count) const {
+    return Semantic<E>([supplier, count](const BiConsumer<E, Timestamp>& accept, const Predicate<E>& predicate) -> void {
+        for (Timestamp index = 0; index < count; ++index) {
+            E element = supplier();
+            if (predicate(element)) {
+                break;
+            }
+            accept(element, index);
+        }
+    });
+}
+
+template <typename E>
+Semantic<E> Generative<E>::from(std::istream& stream, const Function<std::istream&, E>& mapper) const {
+    return Semantic<E>([&stream, mapper](const BiConsumer<E, Timestamp>& accept, const Predicate<E>& predicate) -> void {
+        Timestamp index = 0;
+        E element;
+        while (stream >> element) {
+            if (predicate(element)) {
+                break;
+            }
+            accept(mapper(stream), index);
+            index++;
+        }
+    });
+}
+
+template <typename E>
+Semantic<E> Generative<E>::from(std::ifstream& stream, const Function<std::ifstream&, E>& mapper) const {
+    return Semantic<E>([&stream, mapper](const BiConsumer<E, Timestamp>& accept, const Predicate<E>& predicate) -> void {
+        Timestamp index = 0;
+        E element;
+        while (!stream.eof()) {
+            element = mapper(stream);
+            if (predicate(element)) {
+                break;
+            }
+            accept(element, index);
+            index++;
+        }
+    });
+}
+
+template <typename E>
+Semantic<E> Generative<E>::from(const E* array, const Module& length) const {
+    return Semantic<E>([array, length](const BiConsumer<E, Timestamp>& accept, const Predicate<E>& predicate) -> void {
+        for (Timestamp index = 0; index < length; ++index) {
+            const E& element = array[index];
+            if (predicate(element)) {
+                break;
+            }
+            accept(element, index);
+        }
+    });
+}
+
+template <typename E>
+template <Module length>
+Semantic<E> Generative<E>::from(const std::array<E, length>& array) const {
+    return Semantic<E>([array](const BiConsumer<E, Timestamp>& accept, const Predicate<E>& predicate) -> void {
+        for (Timestamp index = 0; index < length; ++index) {
+            const E& element = array[index];
+            if (predicate(element)) {
+                break;
+            }
+            accept(element, index);
+        }
+    });
+}
+
+template <typename E>
+Semantic<E> Generative<E>::from(const std::list<E>& l) const {
+    return Semantic<E>([l](const BiConsumer<E, Timestamp>& accept, const Predicate<E>& predicate) -> void {
+        Timestamp index = 0;
+        for (const auto& element : l) {
+            if (predicate(element)) {
+                break;
+            }
+            accept(element, index);
+            index++;
+        }
+    });
+}
+
+template <typename E>
+Semantic<E> Generative<E>::from(const std::vector<E>& v) const {
+    return Semantic<E>([v](const BiConsumer<E, Timestamp>& accept, const Predicate<E>& predicate) -> void {
+        for (Timestamp index = 0; index < v.size(); ++index) {
+            const E& element = v[index];
+            if (predicate(element)) {
+                break;
+            }
+            accept(element, index);
+        }
+    });
+}
+
+template <typename E>
+Semantic<E> Generative<E>::from(const std::initializer_list<E>& l) const {
+    return Semantic<E>([l](const BiConsumer<E, Timestamp>& accept, const Predicate<E>& predicate) -> void {
+        Timestamp index = 0;
+        for (const auto& element : l) {
+            if (predicate(element)) {
+                break;
+            }
+            accept(element, index);
+            index++;
+        }
+    });
+}
+
+template <typename E>
+Semantic<E> Generative<E>::from(const std::set<E>& s) const {
+    return Semantic<E>([s](const BiConsumer<E, Timestamp>& accept, const Predicate<E>& predicate) -> void {
+        Timestamp index = 0;
+        for (const auto& element : s) {
+            if (predicate(element)) {
+                break;
+            }
+            accept(element, index);
+            index++;
+        }
+    });
+}
+
+template <typename E>
+Semantic<E> Generative<E>::from(const std::unordered_set<E>& s) const {
+    return Semantic<E>([s](const BiConsumer<E, Timestamp>& accept, const Predicate<E>& predicate) -> void {
+        Timestamp index = 0;
+        for (const auto& element : s) {
+            if (predicate(element)) {
+                break;
+            }
+            accept(element, index);
+            index++;
+        }
+    });
+}
+
+template <typename E>
+Semantic<E> Generative<E>::from(const std::queue<E>& q) const {
+    return Semantic<E>([q](const BiConsumer<E, Timestamp>& accept, const Predicate<E>& predicate) -> void {
+        std::queue<E> temp = q;
+        Timestamp index = 0;
+        while (!temp.empty()) {
+            E element = temp.front();
+            temp.pop();
+            if (predicate(element)) {
+                break;
+            }
+            accept(element, index);
+            index++;
+        }
+    });
+}
+
+template <typename E>
+Semantic<E> Generative<E>::iterate(const Generator<E>& generator) const {
+    return Semantic<E>(generator);
+}
+
+template <typename E>
+Semantic<E> Generative<E>::range(const E& start, const E& end) const {
+    return Semantic<E>([start, end](const BiConsumer<E, Timestamp>& accept, const Predicate<E>& predicate) -> void {
+        E current = start;
+        Timestamp index = 0;
+        while (current < end) {
+            if (predicate(current)) {
+                break;
+            }
+            accept(current, index);
+            index++;
+            ++current;
+        }
+    });
+}
+
+template <typename E>
+Semantic<E> Generative<E>::range(const E& start, const E& end, const E& step) const {
+    return Semantic<E>([start, end, step](const BiConsumer<E, Timestamp>& accept, const Predicate<E>& predicate) -> void {
+        E current = start;
+        Timestamp index = 0;
+        while (current < end) {
+            if (predicate(current)) {
+                break;
+            }
+            accept(current, index);
+            index++;
+            current += step;
+        }
+    });
+}
+
+
 //Collectable
 template<typename E>
 Collectable<E>& Collectable<E>::operator=(const Collectable<E>& other) {
@@ -625,37 +853,48 @@ std::vector<E> Collectable<E>::toVector() const {
 //OrderedCollectable
 template<typename E>
 typename OrderedCollectable<E>::Container OrderedCollectable<E>::toIndexedSet() const {
+    const Function<Container, Container> &arrange = [](const Container &container) -> Container{
+    	Module size = static_cast<Module>(container.size());
+    	Container result;
+    	for(std::pair pair : container){
+    		Timestamp first = pair.first > 0 ? (pair.first % size) : (size - (std::abs(pair.first) % size));
+    		Timestamp second = pair.second;
+    		result.insert(std::make_pair(first, second));
+    	}
+    	return result;
+    };
     if (this->concurrent < 2) {
-        Container indexedSet;
+        Container container;
         (*this->generator)([&](const E& element, const Timestamp index)->void {
-            indexedSet.insert(std::make_pair(index, element));
+            container.insert(std::make_pair(index, element));
         }, [](const E& element)->bool { return false; });
-        return indexedSet;
+        return arrange(container);
     } else {
         std::vector<std::future<Container>> futures;
         std::mutex containerMutex;
         
         for (Module i = 0; i < this->concurrent; ++i) {
             futures.push_back(std::async(std::launch::async, [&]()->Container {
-                Container localIndexedSet;
+                Container localContainer;
                 (*this->generator)([&](const E& element, Timestamp index)->void {
                     std::lock_guard<std::mutex> lock(containerMutex);
-                    localIndexedSet.emplace(index, element);
+                    localContainer.emplace(index, element);
                 }, [](const E& element)->bool { return false; });
-                return localIndexedSet;
+                return localContainer;
             }));
         }
         
-        Container finalIndexedSet;
+        Container container;
         for (auto& future : futures) {
-            Container partialIndexedSet = future.get();
-            for (const auto& pair : partialIndexedSet) {
-                finalIndexedSet.insert(pair);
+            Container partial = future.get();
+            for (const auto& pair : partial) {
+                container.insert(pair);
             }
         }
-        return finalIndexedSet;
+        return arrange(container);
     }
 }
+
 
 template<typename E>
 OrderedCollectable<E>& OrderedCollectable<E>::operator=(const Collectable<E>& other) {
@@ -746,7 +985,7 @@ R OrderedCollectable<E>::collect(const Supplier<A>& identity, const Predicate<E>
         auto iterator = container.begin();
         
         for (Module i = 0; i < this->concurrent; ++i) {
-            futures.push_back(std::async(std::launch::async, [&, i, chunkSize, start = iterator]()->A {
+            futures.push_back(std::async(std::launch::async, [&, chunkSize, start = iterator]()->A {
                 A localResult = identity();
                 auto localIterator = start;
                 for (Module j = 0; j < chunkSize && localIterator != container.end() && !shouldInterrupt.load(); ++j, ++localIterator) {
@@ -2486,15 +2725,26 @@ Semantic<E> Semantic<E>::skip(const Module& n) const {
 template<typename E>
 OrderedCollectable<E> Semantic<E>::sorted() const {
     return OrderedCollectable<E>([this](const BiConsumer<E, Timestamp>& accept, const Predicate<E>& interrupt)->void {
-        std::vector<std::pair<Timestamp, E>> elements;
+         using Container = std::vector<std::pair<Timestamp, E>>;
+    const Function<Container, Container> &arrange = [](const Container &container) -> Container{
+    	Module size = static_cast<Module>(container.size());
+    	Container result;
+    	for(std::pair pair : container){
+    		Timestamp first = pair.first > 0 ? (pair.first % size) : (size - (std::abs(pair.first) % size));
+    		Timestamp second = pair.second;
+    		result.insert(std::make_pair(first, second));
+    	}
+    	return result;
+    };
+        Container elements;
         (*this->generator)([&](const E& element, Timestamp index)->void {
             if (interrupt(element)) return;
             elements.emplace_back(index, element);
         }, interrupt);
+        Container arranged = arrange(elements);
+        std::sort(arranged.begin(), arranged.end());
         
-        std::sort(elements.begin(), elements.end());
-        
-        for (const auto& pair : elements) {
+        for (const auto& pair : arranged) {
             if (interrupt(pair.second)) return;
             accept(pair.second, pair.first);
         }
@@ -2504,24 +2754,35 @@ OrderedCollectable<E> Semantic<E>::sorted() const {
 template<typename E>
 OrderedCollectable<E> Semantic<E>::sorted(const Comparator<E, E>& indexer) const {
     return OrderedCollectable<E>([this, &indexer](const BiConsumer<E, Timestamp>& accept, const Predicate<E>& interrupt)->void {
-        std::vector<std::pair<Timestamp, E>> elements;
-        (*this->generator)([&](const E& element, Timestamp index)->void {
-            if (interrupt(element)) return;
+        using Container = std::vector<std::pair<Timestamp, E>>;
+    const Function<Container, Container> &arrange = [](const Container &container) -> Container{
+    	Module size = static_cast<Module>(container.size());
+    	Container result;
+    	for(std::pair pair : container){
+    		Timestamp first = pair.first > 0 ? (pair.first % size) : (size - (std::abs(pair.first) % size));
+    		Timestamp second = pair.second;
+    		result.insert(std::make_pair(first, second));
+    	}
+    	return result;
+    };
+        Container elements;
+        (*this->generator)([&elements](const E& element, Timestamp index)->void {
             elements.emplace_back(index, element);
         }, interrupt);
-        
-        std::sort(elements.begin(), elements.end(), 
+        Container arranged = arrange(elements);
+        std::sort(arranged.begin(), arranged.end(), 
             [&indexer](const std::pair<Timestamp, E>& a, const std::pair<Timestamp, E>& b) {
                 return indexer(a.second, b.second) < 0;
             });
         
-        for (const auto& pair : elements) {
-            if (interrupt(pair.second)) return;
+        for (const auto& pair : arranged) {
+            if (interrupt(pair.second)){
+            	break;
+            }
             accept(pair.second, pair.first);
         }
     }, this->concurrent);
 }
-
 
 template<typename E>
 Semantic<E> Semantic<E>::sub(const Module& start, const Module& end) const {
@@ -2604,13 +2865,3 @@ Semantic<E> Semantic<E>::translate(const Function<E, Timestamp>& translator) con
 }
 
 };
-
-int main(){
-	semantic::from<int>({1,2,3,4,5}).redirect([](const int& element, const auto& index)->auto{
-		
-		return index;
-	}).reverse().redirect([](const int& element, const auto& index)->auto{
-		return index;
-	}).toOrdered().cout();
-	return 0;
-}

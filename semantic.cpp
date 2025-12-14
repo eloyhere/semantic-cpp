@@ -519,11 +519,13 @@ Module Collectable<E>::count() const {
 
 template<typename E>
 std::optional<E> Collectable<E>::findFirst() const {
-    return collect<std::optional<E>, std::optional<E>>(
+      std::atomic<bool> found(false);
+    return this-> collect<std::optional<E>, std::optional<E>>(
         []()->std::optional<E> { return std::nullopt; },
-        [](const E& element)->bool { return false; },
-        [](std::optional<E> result, const E& element)->std::optional<E> {
+        [&found](const E& element)->bool { return found.load(); },
+        [&found](std::optional<E> result, const E& element)->std::optional<E> {
             if (!result.has_value()) {
+                found.store(true);
                 return element;
             }
             return result;
@@ -539,7 +541,7 @@ std::optional<E> Collectable<E>::findFirst() const {
 
 template<typename E>
 std::optional<E> Collectable<E>::findAny() const {
-    return findFirst();
+    return this-> findFirst();
 }
 
 template<typename E>
@@ -1065,11 +1067,13 @@ Module OrderedCollectable<E>::count() const {
 
 template<typename E>
 std::optional<E> OrderedCollectable<E>::findFirst() const {
-    return collect<std::optional<E>, std::optional<E>>(
+    std::atomic<bool> found(false);
+    return this-> collect<std::optional<E>, std::optional<E>>(
         []()->std::optional<E> { return std::nullopt; },
-        [](const E& element)->bool { return false; },
-        [](std::optional<E> result, const E& element)->std::optional<E> {
+        [&found](const E& element)->bool { return found.load(); },
+        [&found](std::optional<E> result, const E& element)->std::optional<E> {
             if (!result.has_value()) {
+                found.store(true);
                 return element;
             }
             return result;
@@ -1085,12 +1089,12 @@ std::optional<E> OrderedCollectable<E>::findFirst() const {
 
 template<typename E>
 std::optional<E> OrderedCollectable<E>::findAny() const {
-    return findFirst();
+    return this->findFirst();
 }
 
 template<typename E>
 void OrderedCollectable<E>::forEach(const Consumer<E>& consumer) const {
-    collect<Module, Module>(
+    this-> collect<Module, Module>(
         []()->Module { return 0; },
         [](const E& element)->bool { return false; },
         [&](Module count, const E& element)->Module { 
@@ -2865,3 +2869,12 @@ Semantic<E> Semantic<E>::translate(const Function<E, Timestamp>& translator) con
 }
 
 };
+
+int main(){
+	std::cout << semantic::from<int>({1,2,3,4,5}).reverse().redirect([](const int& element, const auto& index)->auto{
+		return index + 3;
+	}).toOrdered().anyMatch([](auto e)-> bool{
+		return e == 3;
+	});
+	return 0;
+}

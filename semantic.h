@@ -152,23 +152,8 @@ class Semantic;
 template <typename E>
 class Generative
 {
-  protected:
-	const std::shared_ptr<BiConsumer<E, Timestamp>> accept;
-	const std::shared_ptr<BiConsumer<E, Timestamp>> defaultAccept = std::make_shared<BiConsumer<E, Timestamp>>([](const E &element, const Timestamp &index) -> void {
-
-	});
-
-	const std::shared_ptr<Predicate<E>> interrupt;
-	const std::shared_ptr<Predicate<E>> defaultInterrupt = std::make_shared<BiConsumer<E, Timestamp>>([](const E &element) -> bool {
-		return false;
-	});
-
   public:
-	Generative() : accept(defaultAccept), interrupt(defaultInterrupt) {}
-
-	Generative(const BiConsumer<E, Timestamp> &accept) : accept(accept), interrupt(defaultInterrupt) {}
-
-	Generative(const BiConsumer<E, Timestamp> &accept, const Predicate<E> &interrupt) : accept(accept), interrupt(interrupt) {}
+	Generative()  {}
 
 	~Generative() {}
 

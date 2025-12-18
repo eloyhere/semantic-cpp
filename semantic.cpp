@@ -1,5 +1,27 @@
 #include "semantic.h"
 namespace semantic {
+//Global functions
+template <typename D>
+D randomly(const D &start, const D &end)
+{
+    static std::random_device random;
+    static std::mt19937_64 generator(random());
+    
+    D maximum = std::max(start, end);
+    D minimum = std::min(start, end);
+    
+    if constexpr (std::is_integral<D>::value)
+    {
+        std::uniform_int_distribution<D> distribution(minimum, maximum);
+        return distribution(generator);
+    }
+    else
+    {
+        std::uniform_real_distribution<D> distribution(minimum, maximum);
+        return distribution(generator);
+    }
+}
+
 // Thread pool
 ThreadPool::ThreadPool(Module threadCount) 
     : threads(threadCount), stop(false) {
@@ -2869,12 +2891,3 @@ Semantic<E> Semantic<E>::translate(const Function<E, Timestamp>& translator) con
 }
 
 };
-
-int main(){
-	std::cout << semantic::from<int>({1,2,3,4,5}).reverse().redirect([](const int& element, const auto& index)->auto{
-		return index + 3;
-	}).toOrdered().anyMatch([](auto e)-> bool{
-		return e == 3;
-	});
-	return 0;
-}

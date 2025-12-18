@@ -10,6 +10,7 @@
 #include <queue>
 #include <thread>
 #include <cmath>
+#include <chrono>
 #include <random>
 #include <fstream>
 #include <sstream>
@@ -418,13 +419,7 @@ class WindowCollectable : public OrderedCollectable<E>
   public:
 	WindowCollectable() : OrderedCollectable<E>() {}
 
-	WindowCollectable(const Container &container) : OrderedCollectable<E>([container](const BiConsumer<E, Timestamp> &accept, const Predicate<E> &predicate) -> void {
-    for (const auto &pair : container){
-	    if (predicate(pair.second)){
-			break;
-	    }
-	    accept(pair.second, pair.first);
-	} }) {}
+	WindowCollectable(const Container &container) : OrderedCollectable<E>(container) {}
 
 	WindowCollectable(const Generator<E> &generator) : OrderedCollectable<E>(generator) {}
 

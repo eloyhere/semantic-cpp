@@ -2,18 +2,18 @@
 
 ***
 **Guided by Jonathan Wakely**  
-(GCC libstdc++ maintainer and ISO C++ committee member)  
-***  
+(GCC libstdc++ maintainer and ISO C++ committee member)
+***
 
-**semantic-cpp** is a simple only(a header file with a cpp file), high-performance stream processing library for C++17 that combines the fluency of Java Streams, the laziness of JavaScript generators, the order mapping of MySQL indices, and the temporal awareness required for financial, IoT, and event-driven systems.
+**semantic-cpp** is a lightweight, high-performance stream processing library for C++17, consisting of a single header file paired with a separate implementation file. It blends the fluency of Java Streams, the laziness of JavaScript generators, the ordering capabilities reminiscent of database indices, and the temporal awareness essential for financial applications, IoT data processing, and event-driven systems.
 
-Key ideas that make it unique:
+Key distinguishing features:
 
-- Every element carries a Timestamp (a signed long long index that can be negative).
-- Module is a non-negative unsigned long long used for counts and concurrency levels.
-- Streams are lazy until you materialise them with `.toOrdered()`, `.toUnordered()`, `.toWindow()`, or `.toStatistics()`.
-- After materialisation you can continue chaining – the library is deliberately “post-terminal” friendly.
-- Full support for parallel execution, sliding/tumbling windows, and rich statistical operations.
+- Every element is paired with a **Timestamp** (a signed `long long` index that may be negative).
+- **Module** is an unsigned `long long` used for element counts and concurrency levels.
+- Streams remain lazy until materialised via `.toOrdered()`, `.toUnordered()`, `.toWindow()`, or `.toStatistics()`.
+- Materialisation does not terminate the pipeline — further chaining is fully supported (“post-terminal” streams).
+- Comprehensive parallel execution, sliding and tumbling windows, and advanced statistical operations.
 
 ## Why semantic-cpp?
 
@@ -21,13 +21,13 @@ Key ideas that make it unique:
 |--------------------------------------|-------------|-------------|-----------|--------------|------------------------------------------------|
 | Lazy evaluation                      | Yes         | Yes         | Yes       | No           | Yes                                            |
 | Temporal indices (signed timestamps) | No          | No          | No        | No           | Yes (core concept)                             |
-| Sliding / tumbling windows           | No          | No          | No        | No           | Yes (first-class)                              |
-| Built-in statistical operations      | No          | No          | No        | No           | Yes (mean, median, mode, kurtosis, …)          |
-| Parallel by default (opt-in)         | Yes         | No          | Yes       | No           | Yes (global thread pool or custom)             |
-| Continue streaming after terminal op | No          | No          | No        | No           | Yes (post-terminal streams)                    |
-| Simple only, C++17                    | No          | Yes         | Yes       | Yes          | Yes                                            |
+| Sliding / tumbling windows           | No          | No          | No        | No           | Yes (first-class support)                      |
+| Built-in statistical operations      | No          | No          | No        | No           | Yes (mean, median, mode, kurtosis, etc.)       |
+| Parallel execution (opt-in)          | Yes         | No          | Yes       | No           | Yes (global thread pool or custom)             |
+| Continue chaining after terminal op  | No          | No          | No        | No           | Yes (post-terminal streams)                    |
+| Single header + implementation file, C++17 | No     | Yes         | Yes       | Yes          | Yes                                            |
 
-If you have ever found yourself writing the same windowing or statistics code for market data, sensor streams, or log analysis – semantic-cpp removes that boilerplate.
+If you frequently write custom windowing or statistical code for time-series data, market feeds, sensor streams, or logs, semantic-cpp eliminates that boilerplate.
 
 ## Quick Start
 
@@ -38,22 +38,22 @@ If you have ever found yourself writing the same windowing or statistics code fo
 using namespace semantic;
 
 int main() {
-    // Create a stream of 100 numbers with timestamps 0..99
-    auto stream = from<int>(std::vector<int>(100, 0))
+    // Generate a stream of 100 integers with timestamps 0..99
+    auto stream = Generative<int>{}.of(std::vector<int>(100, 0))
         .map([](int, Timestamp t) { return static_cast<int>(t); });
 
-    stream.filter([](int x) { return x % 2 == 0; })          // even numbers only
-          .parallel(8)                                      // use 8 threads
-          .toWindow()                                       // materialise as ordered collection
-          .getSlidingWindows(10, 5)                         // windows of 10, step 5
+    stream.filter([](int x) { return x % 2 == 0; })   // even numbers only
+          .parallel(8)                               // use 8 threads
+          .toWindow()                                // materialise with ordering and windowing support
+          .getSlidingWindows(10, 5)                  // windows of size 10, step 5
           .toVector();
 
-    // Statistical example
-    auto s = from<int>({1,2,3,4,5,6,7,8,9,10}).toStatistics();
-    std::cout << s.mean()   << "\n";   // 5.5
-    std::cout << s.median() << "\n";   // 5.5
-    std::cout << s.mode()   << "\n";   // multimodal returns first found
-    s.cout();
+    // Statistics example
+    auto stats = Generative<int>{}.of(1,2,3,4,5,6,7,8,9,10).toStatistics();
+    std::cout << stats.mean()   << "\n";   // 5.5
+    std::cout << stats.median() << "\n";   // 5.5
+    std::cout << stats.mode()   << "\n";   // first mode in case of multimodality
+    stats.cout();
 
     return 0;
 }
@@ -61,37 +61,51 @@ int main() {
 
 ## Core Concepts
 
-### 1. Semantic<E> – the lazy stream
+### 1. Generative<E> – Stream Factory
+
+`Generative<E>` provides a convenient, fluent interface for creating streams:
+
+```cpp
+Generative<int> gen;
+auto s = gen.of(1, 2, 3, 4, 5);
+auto empty = gen.empty();
+auto filled = gen.fill(42, 1'000'000);
+auto ranged = gen.range(0, 100, 5);
+```
+
+All factory functions return a `Semantic<E>` lazy stream.
+
+### 2. Semantic<E> – The Lazy Stream
 
 ```cpp
 Semantic<int> s = of<int>(1, 2, 3, 4, 5);
 ```
 
-All classic operations are available:
+Standard operations are available:
 
 ```cpp
 s.filter(...).map(...).skip(10).limit(100).parallel().peek(...)
 ```
 
-Every element is emitted with a Timestamp (signed index). You can translate or completely redirect timestamps:
+Elements carry timestamps, which can be manipulated:
 
 ```cpp
-s.translate(+1000)                     // shift all timestamps
- .redirect([](int x, Timestamp t){ return x * 10; })  // custom timestamp
+s.translate(+1000)                                      // shift timestamps
+ .redirect([](int x, Timestamp t){ return x * 10; })   // custom timestamp logic
 ```
 
-### 2. Materialisation (the only place you pay)
+### 3. Materialisation
 
-You must call one of the four terminal converters before using terminal operations (count(), toVector(), cout(), …):
+Call one of the four terminal converters before using collecting operations:
 
 ```cpp
-.toOrdered()      // preserves original order, enabling sorting
+.toOrdered()      // preserves order, enables sorting
 .toUnordered()    // fastest, no ordering guarantees
-.toWindow()       // ordered + powerful windowing API
-.toStatistics<D>  // ordered + statistical methods (mean, variance, skewness…)
+.toWindow()       // ordered + full windowing capabilities
+.toStatistics<D>  // ordered + statistical methods
 ```
 
-After materialisation you can continue chaining:
+Chaining continues after materialisation:
 
 ```cpp
 auto result = from(huge_vector)
@@ -102,25 +116,25 @@ auto result = from(huge_vector)
     .toVector();
 ```
 
-### 3. Windowing
+### 4. Windowing
 
 ```cpp
 auto windows = stream
     .toWindow()
-    .getSlidingWindows(30, 10);     // 30-element windows, step 10
+    .getSlidingWindows(30, 10);     // size 30, step 10
 ```
 
-Or produce a new stream of windows:
+Or emit a stream of windows:
 
 ```cpp
 stream.toWindow()
-    .windowStream(50, 20)           // emits std::vector<E> for each window
+    .windowStream(50, 20)
     .map([](const std::vector<double>& w) { return mean(w); })
     .toOrdered()
     .cout();
 ```
 
-### 4. Statistics
+### 5. Statistics
 
 ```cpp
 auto stats = from(prices).toStatistics<double>([](auto p){ return p; });
@@ -132,44 +146,44 @@ std::cout << "Skewness  : " << stats.skewness()  << "\n";
 std::cout << "Kurtosis  : " << stats.kurtosis()  << "\n";
 ```
 
-All statistical functions are heavily cached (frequency map is computed only once).
+Statistical functions are aggressively cached (frequency map computed once).
 
-### 5. Parallelism
+### 6. Parallelism
 
 ```cpp
-globalThreadPool   // automatically created with hardware_concurrency threads
-stream.parallel()  // uses global pool
-stream.parallel(12) // forces exactly 12 worker threads
+globalThreadPool   // created automatically with hardware concurrency
+stream.parallel()  // use global pool
+stream.parallel(12) // force exactly 12 worker threads
 ```
 
-Every Collectable carries its own concurrency level – it is inherited correctly through the chain.
+Concurrency level is inherited correctly throughout the chain.
 
-## Factory Functions
+## Factory Functions (via Generative)
 
 ```cpp
 empty<T>()                              // empty stream
-of(1,2,3,"hello")                       // from variadic arguments
-fill(42, 1'000'000)                     // one million 42s
+of(1,2,3,"hello")                       // variadic arguments
+fill(42, 1'000'000)                     // repeated value
 fill([]{return rand();}, 1'000'000)     // supplied values
-from(container)                         // vector, list, set, array, initializer_list
+from(container)                         // vector, list, set, array, initializer_list, queue
 range(0, 100)                           // 0 .. 99
 range(0, 100, 5)                        // 0,5,10,…
-iterate(generator)                      // from a custom Generator
+iterate(generator)                      // custom Generator
 ```
 
 ## Installation
 
-semantic-cpp is header-only. Simply copy `semantic.h` into your project or install via CMake:
+semantic-cpp consists of a header and implementation file. Copy `semantic.h` and `semantic.cpp` into your project or install via CMake:
 
 ```cmake
 add_subdirectory(external/semantic-cpp)
 target_link_libraries(your_target PRIVATE semantic::semantic)
 ```
 
-## Building the examples
+## Building Examples
 
 ```bash
-g++ -std=c++17 -O3 -pthread examples/basic.cpp -o basic && ./basic
+g++ -std=c++17 -O3 -pthread examples/basic.cpp semantic.cpp -o basic && ./basic
 ```
 
 ## Benchmarks (Apple M2 Max, 2024)
@@ -177,16 +191,16 @@ g++ -std=c++17 -O3 -pthread examples/basic.cpp -o basic && ./basic
 | Operation                         | Java Stream | ranges-v3 | semantic-cpp (parallel) |
 |-----------------------------------|-------------|-----------|-------------------------|
 | 100 M integers → sum              | 280 ms      | 190 ms    | 72 ms                   |
-| 10 M doubles → sliding window mean| N/A         | N/A       | 94 ms (30-win, step 10) |
+| 10 M doubles → sliding window mean| N/A         | N/A       | 94 ms (window 30, step 10) |
 | 50 M ints → toStatistics          | N/A         | N/A       | 165 ms                  |
 
 ## Contributing
 
-Contributions are very welcome! Areas that need attention:
+Contributions are warmly welcomed! Areas currently needing attention:
 
-- Additional collectors (percentile, covariance, etc.)
-- Better integration with existing range libraries
-- Optional SIMD acceleration for simple mappers
+- Additional collectors (percentiles, covariance, etc.)
+- Improved integration with existing range libraries
+- Optional SIMD acceleration for simple mappings
 
 Please read CONTRIBUTING.md.
 
@@ -195,4 +209,3 @@ Please read CONTRIBUTING.md.
 MIT © Eloy Kim
 
 Enjoy truly semantic streams in C++!
-

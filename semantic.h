@@ -154,9 +154,9 @@ template <typename E>
 class Generative
 {
   public:
-	Generative()  {}
+	Generative();
 
-	~Generative() {}
+	~Generative();
 
 	Semantic<E> empty() const;
 
@@ -204,19 +204,19 @@ class Collectable
 	Module concurrent;
 
   public:
-	Collectable() : generator(std::make_shared<Generator<E>>([](const Consumer<E> &, const Predicate<E> &) {})), concurrent(1) {}
+	Collectable();
 
-	Collectable(const Generator<E> &generator) : generator(std::make_shared<Generator<E>>(generator)), concurrent(1) {}
+	Collectable(const Generator<E> &generator);
 
-	Collectable(const Generator<E> &generator, const Module &concurrent) : generator(std::make_shared<Generator<E>>(generator)), concurrent(concurrent) {}
+	Collectable(const Generator<E> &generator, const Module &concurrent);
 
-	Collectable(std::shared_ptr<Generator<E>> generator) : generator(generator), concurrent(1) {}
+	Collectable(std::shared_ptr<Generator<E>> generator);
 
-	Collectable(std::shared_ptr<Generator<E>> generator, const Module &concurrent) : generator(generator), concurrent(concurrent) {}
+	Collectable(std::shared_ptr<Generator<E>> generator, const Module &concurrent);
 
-	Collectable(const Collectable<E> &other) : generator(other.generator), concurrent(other.concurrent) {}
+	Collectable(const Collectable<E> &other);
 
-	Collectable(Collectable<E> &&other) noexcept : generator(std::move(other.generator)), concurrent(other.concurrent) {}
+	Collectable(Collectable<E> &&other) noexcept;
 
 	Collectable<E> &operator=(const Collectable<E> &other);
 
@@ -288,14 +288,16 @@ class OrderedCollectable : public Collectable<E>
 	Container toIndexedSet() const;
 
   public:
-	OrderedCollectable() : Collectable<E>(), container({}) {}
-	OrderedCollectable(const Container &container) : Collectable<E>(), container(container) {}
-	OrderedCollectable(const Generator<E> &generator) : Collectable<E>(generator), container(this->toIndexedSet()) {}
-	OrderedCollectable(const Generator<E> &generator, const Module &concurrent) : Collectable<E>(generator, concurrent), container(this->toIndexedSet()) {}
-	OrderedCollectable(std::shared_ptr<Generator<E>> generator) : Collectable<E>(generator), container(this->toIndexedSet()) {}
-	OrderedCollectable(std::shared_ptr<Generator<E>> generator, const Module &concurrent) : Collectable<E>(generator, concurrent), container(this->toIndexedSet()) {}
-	OrderedCollectable(const OrderedCollectable &other) : Collectable<E>(other), container(other.container) {}
-	OrderedCollectable(OrderedCollectable<E> &&other) noexcept : Collectable<E>(std::move(other)), container(std::move(other.container)) {}
+	OrderedCollectable();
+	OrderedCollectable(const Container &container);
+	OrderedCollectable(const Generator<E> &generator);
+	OrderedCollectable(const Generator<E> &generator, const Module &concurrent);
+	     OrderedCollectable(std::shared_ptr<Generator<E>> generator);
+	     	OrderedCollectable(std::shared_ptr<Generator<E>> generator, const Module &concurrent);
+	
+	OrderedCollectable(const OrderedCollectable &other);
+	
+	OrderedCollectable(OrderedCollectable<E> &&other) noexcept;
 
 	OrderedCollectable<E> &operator=(const Collectable<E> &other);
 	OrderedCollectable<E> &operator=(Collectable<E> &&other) noexcept;
@@ -417,22 +419,20 @@ class WindowCollectable : public OrderedCollectable<E>
 	Container convertToContainer() const;
 
   public:
-	WindowCollectable() : OrderedCollectable<E>() {}
+	WindowCollectable();
 
-	WindowCollectable(const Container &container) : OrderedCollectable<E>(container) {}
+	WindowCollectable(const Container &container);
 
-	WindowCollectable(const Generator<E> &generator) : OrderedCollectable<E>(generator) {}
+	WindowCollectable(const Generator<E> &generator);
 
-	WindowCollectable(const Generator<E> &generator, const Module &concurrent) : OrderedCollectable<E>(generator, concurrent) {}
+	WindowCollectable(const Generator<E> &generator, const Module &concurrent);
+	WindowCollectable(std::shared_ptr<Generator<E>> generator);
+	WindowCollectable(std::shared_ptr<Generator<E>> generator, const Module &concurrent);
 
-	WindowCollectable(std::shared_ptr<Generator<E>> generator) : OrderedCollectable<E>(generator) {}
+	WindowCollectable(const WindowCollectable &other);
 
-	WindowCollectable(std::shared_ptr<Generator<E>> generator, const Module &concurrent) : OrderedCollectable<E>(generator, concurrent) {}
-
-	WindowCollectable(const WindowCollectable &other) : OrderedCollectable<E>(other) {}
-
-	WindowCollectable(WindowCollectable &&other) noexcept : OrderedCollectable<E>(std::move(other)) {}
-
+	WindowCollectable(WindowCollectable &&other) noexcept;
+	
 	WindowCollectable<E> &operator=(const OrderedCollectable<E> &other);
 	WindowCollectable<E> &operator=(OrderedCollectable<E> &&other) noexcept;
 	WindowCollectable<E> &operator=(const WindowCollectable<E> &other);
@@ -511,19 +511,18 @@ template <typename E>
 class UnorderedCollectable
 {
   public:
-	UnorderedCollectable() : Collectable<E>() {}
+	UnorderedCollectable();
 
-	UnorderedCollectable(const Generator<E> &generator) : Collectable<E>(generator) {}
+	UnorderedCollectable(const Generator<E> &generator);
 
-	UnorderedCollectable(const Generator<E> &generator, const Module &concurrent) : Collectable<E>(generator, concurrent) {}
+	UnorderedCollectable(const Generator<E> &generator, const Module &concurrent);
 
-	UnorderedCollectable(std::shared_ptr<Generator<E>> generator) : Collectable<E>(generator) {}
+	UnorderedCollectable(std::shared_ptr<Generator<E>> generator);
+	UnorderedCollectable(std::shared_ptr<Generator<E>> generator, const Module &concurrent);
 
-	UnorderedCollectable(std::shared_ptr<Generator<E>> generator, const Module &concurrent) : Collectable<E>(generator, concurrent) {}
+	UnorderedCollectable(const UnorderedCollectable &other);
 
-	UnorderedCollectable(const UnorderedCollectable &other) : Collectable<E>(other) {}
-
-	UnorderedCollectable(UnorderedCollectable &&other) noexcept : Collectable<E>(std::move(other)) {}
+	UnorderedCollectable(UnorderedCollectable &&other) noexcept;
 
 	UnorderedCollectable<E> &operator=(const Collectable<E> &other);
 	UnorderedCollectable<E> &operator=(Collectable<E> &&other) noexcept;
@@ -586,19 +585,19 @@ class Semantic
 	Module concurrent;
 
   public:
-	Semantic() : generator(std::make_shared<Generator<E>>([](const Consumer<E> &, const Predicate<E> &) {})), concurrent(1) {}
+	Semantic();
 
-	Semantic(const Generator<E> &generator) : generator(std::make_shared<Generator<E>>(generator)), concurrent(1) {}
+	Semantic(const Generator<E> &generator);
 
-	Semantic(const Generator<E> &generator, const Module &concurrent) : generator(std::make_shared<Generator<E>>(generator)), concurrent(concurrent) {}
+	Semantic(const Generator<E> &generator, const Module &concurrent);
 
-	Semantic(std::shared_ptr<Generator<E>> generator) : generator(generator), concurrent(1) {}
+	Semantic(std::shared_ptr<Generator<E>> generator);
 
-	Semantic(std::shared_ptr<Generator<E>> generator, const Module &concurrent) : generator(generator), concurrent(concurrent) {}
+	Semantic(std::shared_ptr<Generator<E>> generator, const Module &concurrent);
+	
+	Semantic(const Semantic &other);
 
-	Semantic(const Semantic &other) : generator(other.generator), concurrent(other.concurrent) {}
-
-	Semantic(Semantic &&other) noexcept : generator(std::move(other.generator)), concurrent(other.concurrent) {}
+	Semantic(Semantic &&other) noexcept;
 
 	Semantic<E> &operator=(const Semantic<E> &other);
 

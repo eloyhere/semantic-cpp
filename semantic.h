@@ -573,9 +573,6 @@ Semantic<E> range(const E &start, const E &end);
 template <typename E>
 Semantic<E> range(const E &start, const E &end, const E &step);
 
-template <typename E, typename D>
-Collector<E, Statistics<E, D>, Statistics<E, D>> toStatistics();
-
 template <typename E>
 class Semantic
 {

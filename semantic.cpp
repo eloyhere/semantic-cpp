@@ -130,6 +130,12 @@ auto ThreadPool::submit(F&& func, std::chrono::milliseconds timeout, const Runna
 
 //Generative
 template <typename E>
+Generative<E>::Generative() {}
+
+template <typename E>
+Generative<E>::~Generative() {}
+
+template <typename E>
 Semantic<E> Generative<E>::empty() const {
     return Semantic<E>();
 }
@@ -357,19 +363,53 @@ Semantic<E> Generative<E>::range(const E& start, const E& end, const E& step) co
 
 
 //Collectable
-template<typename E>
-Collectable<E>& Collectable<E>::operator=(const Collectable<E>& other) {
-    if (this != &other) {
+template <typename E>
+Collectable<E>::Collectable() 
+    : generator(std::make_shared<Generator<E>>([](const Consumer<E> &, const Predicate<E> &) {})), concurrent(1) {}
+
+template <typename E>
+Collectable<E>::Collectable(const Generator<E> &generator) 
+    : generator(std::make_shared<Generator<E>>(generator)), concurrent(1) {}
+
+template <typename E>
+Collectable<E>::Collectable(const Generator<E> &generator, const Module &concurrent) 
+    : generator(std::make_shared<Generator<E>>(generator)), concurrent(concurrent) {}
+
+template <typename E>
+Collectable<E>::Collectable(std::shared_ptr<Generator<E>> generator) 
+    : generator(generator), concurrent(1) {}
+
+template <typename E>
+Collectable<E>::Collectable(std::shared_ptr<Generator<E>> generator, const Module &concurrent) 
+    : generator(generator), concurrent(concurrent) {}
+
+template <typename E>
+Collectable<E>::Collectable(const Collectable<E> &other) 
+    : generator(other.generator), concurrent(other.concurrent) {}
+
+template <typename E>
+Collectable<E>::Collectable(Collectable<E> &&other) noexcept 
+    : generator(std::move(other.generator)), concurrent(other.concurrent) {}
+
+template <typename E>
+Collectable<E> &Collectable<E>::operator=(const Collectable<E> &other)
+{
+    if (this != &other)
+    {
         generator = other.generator;
         concurrent = other.concurrent;
     }
     return *this;
 }
 
-template<typename E>
-Collectable<E>& Collectable<E>::operator=(Collectable<E>&& other) noexcept {
-    generator = std::move(other.generator);
-    concurrent = other.concurrent;
+template <typename E>
+Collectable<E> &Collectable<E>::operator=(Collectable<E> &&other) noexcept
+{
+    if (this != &other)
+    {
+        generator = std::move(other.generator);
+        concurrent = other.concurrent;
+    }
     return *this;
 }
 
@@ -875,6 +915,72 @@ std::vector<E> Collectable<E>::toVector() const {
 }
 
 //OrderedCollectable
+template <typename E>
+OrderedCollectable<E>::OrderedCollectable() 
+    : Collectable<E>(), container({}) {}
+
+template <typename E>
+OrderedCollectable<E>::OrderedCollectable(const Container &container) 
+    : Collectable<E>(), container(container) {}
+
+template <typename E>
+OrderedCollectable<E>::OrderedCollectable(const Generator<E> &generator) 
+    : Collectable<E>(generator)
+{
+    container = toIndexedSet();
+}
+
+template <typename E>
+OrderedCollectable<E>::OrderedCollectable(const Generator<E> &generator, const Module &concurrent) 
+    : Collectable<E>(generator, concurrent)
+{
+    container = toIndexedSet();
+}
+
+template <typename E>
+OrderedCollectable<E>::OrderedCollectable(std::shared_ptr<Generator<E>> generator) 
+    : Collectable<E>(generator)
+{
+    container = toIndexedSet();
+}
+
+template <typename E>
+OrderedCollectable<E>::OrderedCollectable(std::shared_ptr<Generator<E>> generator, const Module &concurrent) 
+    : Collectable<E>(generator, concurrent)
+{
+    container = toIndexedSet();
+}
+
+template <typename E>
+OrderedCollectable<E>::OrderedCollectable(const OrderedCollectable &other) 
+    : Collectable<E>(other), container(other.container) {}
+
+template <typename E>
+OrderedCollectable<E>::OrderedCollectable(OrderedCollectable<E> &&other) noexcept 
+    : Collectable<E>(std::move(other)), container(std::move(other.container)) {}
+
+template <typename E>
+OrderedCollectable<E> &OrderedCollectable<E>::operator=(const Collectable<E> &other)
+{
+    if (this != &other)
+    {
+        Collectable<E>::operator=(other);
+        container.clear();
+    }
+    return *this;
+}
+
+template <typename E>
+OrderedCollectable<E> &OrderedCollectable<E>::operator=(Collectable<E> &&other) noexcept
+{
+    if (this != &other)
+    {
+        Collectable<E>::operator=(std::move(other));
+        container.clear();
+    }
+    return *this;
+}
+
 template<typename E>
 typename OrderedCollectable<E>::Container OrderedCollectable<E>::toIndexedSet() const {
     const Function<Container, Container> &arrange = [](const Container &container) -> Container{
@@ -917,21 +1023,6 @@ typename OrderedCollectable<E>::Container OrderedCollectable<E>::toIndexedSet() 
         }
         return arrange(container);
     }
-}
-
-
-template<typename E>
-OrderedCollectable<E>& OrderedCollectable<E>::operator=(const Collectable<E>& other) {
-    Collectable<E>::operator=(other);
-    container = toIndexedSet();
-    return *this;
-}
-
-template<typename E>
-OrderedCollectable<E>& OrderedCollectable<E>::operator=(Collectable<E>&& other) noexcept {
-    Collectable<E>::operator=(std::move(other));
-    container = toIndexedSet();
-    return *this;
 }
 
 template<typename E>
@@ -1405,107 +1496,145 @@ std::vector<E> OrderedCollectable<E>::toVector() const {
 }
 
 //Satistics
-template<typename E, typename D>
-Statistics<E, D>& Statistics<E, D>::operator=(const Collectable<E>& other) {
-    OrderedCollectable<E>::operator=(other);
-    frequencyCache.clear();
+template <typename E, typename D>
+Statistics<E, D>::Statistics() 
+    : OrderedCollectable<E>() {}
+
+template <typename E, typename D>
+Statistics<E, D>::Statistics(const Generator<E> &generator) 
+    : OrderedCollectable<E>(generator) {}
+
+template <typename E, typename D>
+Statistics<E, D>::Statistics(const Generator<E> &generator, const Module &concurrent) 
+    : OrderedCollectable<E>(generator, concurrent) {}
+
+template <typename E, typename D>
+Statistics<E, D>::Statistics(std::shared_ptr<Generator<E>> generator) 
+    : OrderedCollectable<E>(generator) {}
+
+template <typename E, typename D>
+Statistics<E, D>::Statistics(std::shared_ptr<Generator<E>> generator, const Module &concurrent) 
+    : OrderedCollectable<E>(generator, concurrent) {}
+
+template <typename E, typename D>
+Statistics<E, D>::Statistics(const Statistics<E, D> &other) 
+    : OrderedCollectable<E>(other), frequencyCache(other.frequencyCache) {}
+
+template <typename E, typename D>
+Statistics<E, D>::Statistics(Statistics<E, D> &&other) noexcept 
+    : OrderedCollectable<E>(std::move(other)), frequencyCache(std::move(other.frequencyCache)) {}
+
+template <typename E, typename D>
+Statistics<E, D> &Statistics<E, D>::operator=(const Collectable<E> &other)
+{
+    if (this != &other)
+    {
+        OrderedCollectable<E>::operator=(other);
+        frequencyCache.clear();
+    }
     return *this;
 }
 
-template<typename E, typename D>
-Statistics<E, D>& Statistics<E, D>::operator=(Collectable<E>&& other) noexcept {
-    OrderedCollectable<E>::operator=(std::move(other));
-    frequencyCache.clear();
+template <typename E, typename D>
+Statistics<E, D> &Statistics<E, D>::operator=(Collectable<E> &&other) noexcept
+{
+    if (this != &other)
+    {
+        OrderedCollectable<E>::operator=(std::move(other));
+        frequencyCache.clear();
+    }
     return *this;
 }
 
-template<typename E, typename D>
-Statistics<E, D>& Statistics<E, D>::operator=(const std::list<E>& list) {
-    auto generator = std::make_shared<Generator<E>>([list](const BiConsumer<E, Timestamp>& accept, const Predicate<E>& predicate)->void {
-        Timestamp index = 0;
-        for (const auto& element : list) {
-            if (predicate(element)) break;
-            accept(element, index++);
-        }
-    });
-    this->generator = generator;
-    this->container = this->toIndexedSet();
+template <typename E, typename D>
+Statistics<E, D> &Statistics<E, D>::operator=(const std::list<E> &l)
+{
+    this-> container.clear();
     frequencyCache.clear();
+    Timestamp index = 0;
+    for (const auto &element : l)
+    {
+        this-> container.insert(std::make_pair(element, index));
+        index++;
+    }
     return *this;
 }
 
-template<typename E, typename D>
-Statistics<E, D>& Statistics<E, D>::operator=(const std::vector<E>& vector) {
-    auto generator = std::make_shared<Generator<E>>([vector](const BiConsumer<E, Timestamp>& accept, const Predicate<E>& predicate)->void {
-        for (Timestamp index = 0; index < vector.size(); ++index) {
-            if (predicate(vector[index])) break;
-            accept(vector[index], index);
-        }
-    });
-    this->generator = generator;
-    this->container = this->toIndexedSet();
+template <typename E, typename D>
+Statistics<E, D> &Statistics<E, D>::operator=(const std::vector<E> &v)
+{
+    this-> container.clear();
     frequencyCache.clear();
+    Timestamp index = 0;
+    for (const E &element : v)
+    {
+        this-> container.insert(std::make_pair(element, index));
+        index++;
+    }
     return *this;
 }
 
-template<typename E, typename D>
-Statistics<E, D>& Statistics<E, D>::operator=(const std::set<E>& set) {
-    auto generator = std::make_shared<Generator<E>>([set](const BiConsumer<E, Timestamp>& accept, const Predicate<E>& predicate)->void {
-        Timestamp index = 0;
-        for (const auto& element : set) {
-            if (predicate(element)) break;
-            accept(element, index++);
-        }
-    });
-    this->generator = generator;
-    this->container = this->toIndexedSet();
+template <typename E, typename D>
+Statistics<E, D> &Statistics<E, D>::operator=(const std::set<E> &s)
+{
+    this-> container.clear();
     frequencyCache.clear();
+    Timestamp index = 0;
+    for (const E &element : s)
+    {
+        this-> container.insert(std::make_pair(element, index));
+        index++;
+    }
     return *this;
 }
 
-template<typename E, typename D>
-Statistics<E, D>& Statistics<E, D>::operator=(const std::unordered_set<E>& unorderedSet) {
-    auto generator = std::make_shared<Generator<E>>([unorderedSet](const BiConsumer<E, Timestamp>& accept, const Predicate<E>& predicate)->void {
-        Timestamp index = 0;
-        for (const auto& element : unorderedSet) {
-            if (predicate(element)) break;
-            accept(element, index++);
-        }
-    });
-    this->generator = generator;
-    this->container = this->toIndexedSet();
+template <typename E, typename D>
+Statistics<E, D> &Statistics<E, D>::operator=(const std::unordered_set<E> &s)
+{
+    this-> container.clear();
     frequencyCache.clear();
+    Timestamp index = 0;
+    for (const E &element : s)
+    {
+        this-> container.insert(std::make_pair(element, index));
+        index++;
+    }
     return *this;
 }
 
-template<typename E, typename D>
-Statistics<E, D>& Statistics<E, D>::operator=(const std::initializer_list<E>& initializerList) {
-    auto generator = std::make_shared<Generator<E>>([initializerList](const BiConsumer<E, Timestamp>& accept, const Predicate<E>& predicate)->void {
-        Timestamp index = 0;
-        for (const auto& element : initializerList) {
-            if (predicate(element)) break;
-            accept(element, index++);
-        }
-    });
-    this->generator = generator;
-    this->container = this->toIndexedSet();
+template <typename E, typename D>
+Statistics<E, D> &Statistics<E, D>::operator=(const std::initializer_list<E> &l)
+{
+    this-> container.clear();
     frequencyCache.clear();
+    Timestamp index = 0;
+    for (const auto &element : l)
+    {
+        this-> container.insert(std::make_pair(element, index));
+        index++;
+    }
     return *this;
 }
 
-template<typename E, typename D>
-Statistics<E, D>& Statistics<E, D>::operator=(const Statistics<E, D>& other) {
-    if (this != &other) {
+template <typename E, typename D>
+Statistics<E, D> &Statistics<E, D>::operator=(const Statistics<E, D> &other)
+{
+    if (this != &other)
+    {
         OrderedCollectable<E>::operator=(other);
         frequencyCache = other.frequencyCache;
     }
     return *this;
 }
 
-template<typename E, typename D>
-Statistics<E, D>& Statistics<E, D>::operator=(Statistics<E, D>&& other) noexcept {
-    OrderedCollectable<E>::operator=(std::move(other));
-    frequencyCache = std::move(other.frequencyCache);
+template <typename E, typename D>
+Statistics<E, D> &Statistics<E, D>::operator=(Statistics<E, D> &&other) noexcept
+{
+    if (this != &other)
+    {
+        OrderedCollectable<E>::operator=(std::move(other));
+        frequencyCache = std::move(other.frequencyCache);
+    }
     return *this;
 }
 
@@ -1802,29 +1931,75 @@ void Statistics<E, D>::clear() {
 }
 
 //WindowCollectable
-template<typename E>
-WindowCollectable<E>& WindowCollectable<E>::operator=(const OrderedCollectable<E>& other) {
-    OrderedCollectable<E>::operator=(other);
-    return *this;
-}
+template <typename E>
+WindowCollectable<E>::WindowCollectable() 
+    : OrderedCollectable<E>() {}
 
-template<typename E>
-WindowCollectable<E>& WindowCollectable<E>::operator=(OrderedCollectable<E>&& other) noexcept {
-    OrderedCollectable<E>::operator=(std::move(other));
-    return *this;
-}
+template <typename E>
+WindowCollectable<E>::WindowCollectable(const Container &container) 
+    : OrderedCollectable<E>(container) {}
 
-template<typename E>
-WindowCollectable<E>& WindowCollectable<E>::operator=(const WindowCollectable<E>& other) {
-    if (this != &other) {
+template <typename E>
+WindowCollectable<E>::WindowCollectable(const Generator<E> &generator) 
+    : OrderedCollectable<E>(generator) {}
+
+template <typename E>
+WindowCollectable<E>::WindowCollectable(const Generator<E> &generator, const Module &concurrent) 
+    : OrderedCollectable<E>(generator, concurrent) {}
+
+template <typename E>
+WindowCollectable<E>::WindowCollectable(std::shared_ptr<Generator<E>> generator) 
+    : OrderedCollectable<E>(generator) {}
+
+template <typename E>
+WindowCollectable<E>::WindowCollectable(std::shared_ptr<Generator<E>> generator, const Module &concurrent) 
+    : OrderedCollectable<E>(generator, concurrent) {}
+
+template <typename E>
+WindowCollectable<E>::WindowCollectable(const WindowCollectable &other) 
+    : OrderedCollectable<E>(other) {}
+
+template <typename E>
+WindowCollectable<E>::WindowCollectable(WindowCollectable &&other) noexcept 
+    : OrderedCollectable<E>(std::move(other)) {}
+
+template <typename E>
+WindowCollectable<E> &WindowCollectable<E>::operator=(const OrderedCollectable<E> &other)
+{
+    if (this != &other)
+    {
         OrderedCollectable<E>::operator=(other);
     }
     return *this;
 }
 
-template<typename E>
-WindowCollectable<E>& WindowCollectable<E>::operator=(WindowCollectable<E>&& other) noexcept {
-    OrderedCollectable<E>::operator=(std::move(other));
+template <typename E>
+WindowCollectable<E> &WindowCollectable<E>::operator=(OrderedCollectable<E> &&other) noexcept
+{
+    if (this != &other)
+    {
+        OrderedCollectable<E>::operator=(std::move(other));
+    }
+    return *this;
+}
+
+template <typename E>
+WindowCollectable<E> &WindowCollectable<E>::operator=(const WindowCollectable<E> &other)
+{
+    if (this != &other)
+    {
+        OrderedCollectable<E>::operator=(other);
+    }
+    return *this;
+}
+
+template <typename E>
+WindowCollectable<E> &WindowCollectable<E>::operator=(WindowCollectable<E> &&other) noexcept
+{
+    if (this != &other)
+    {
+        OrderedCollectable<E>::operator=(std::move(other));
+    }
     return *this;
 }
 
@@ -2154,18 +2329,17 @@ Module WindowCollectable<E>::tumblingWindowCount(const Module& windowSize) const
 template<typename E>
 Semantic<std::vector<E>> WindowCollectable<E>::windowStream(const Module& windowSize, const Module& step) const {
     std::vector<Window> windows = createTumblingWindows(windowSize);
-    auto generator = std::make_shared<Generator<std::vector<E>>>([windows](const BiConsumer<std::vector<E>, Timestamp>& accept, const Predicate<std::vector<E>>& predicate)->void {
+    return Semantic<std::vector<E>>(std::make_shared<Generator<std::vector<E>>>([windows](const BiConsumer<std::vector<E>, Timestamp>& accept, const Predicate<std::vector<E>>& predicate)->void {
         Timestamp windowIndex = 0;
-        for (const auto& window : windows) {
+        for (const Window& window : windows) {
             std::vector<E> elements;
-            for (const auto& pair : window) {
+            for (const std::pair<Timestamp, E> & pair : window) {
                 elements.push_back(pair.second);
             }
-            if (predicate(elements)) return;
-            accept(elements, windowIndex++);
+            accept(elements, windowIndex);
+            windowIndex++;
         }
-    });
-    return Semantic<std::vector<E>>(generator, this->concurrent);
+    }));
 }
 
 template<typename E>
@@ -2217,9 +2391,9 @@ template<typename E>
 bool WindowCollectable<E>::anyWindow(const Module& windowSize, const Module& step, const Predicate<std::vector<E>>& predicate) const {
     std::vector<Window> windows = createTumblingWindows(windowSize);
     
-    for (const auto& window : windows) {
+    for (const std::pair<Timestamp, Window> & window : windows) {
         std::vector<E> elements;
-        for (const auto& pair : window) {
+        for (const std::pair<Timestamp, E> & pair : window) {
             elements.push_back(pair.second);
         }
         if (predicate(elements)) {
@@ -2330,31 +2504,74 @@ std::map<K, std::vector<std::vector<E>>> WindowCollectable<E>::groupWindows(cons
 }
 
 //UnorderedCollectable
-template<typename E>
-UnorderedCollectable<E>& UnorderedCollectable<E>::operator=(const Collectable<E>& other) {
-	Collectable<E>::operator=(other);
-	return *this;
+template <typename E>
+UnorderedCollectable<E>::UnorderedCollectable() 
+    : Collectable<E>() {}
+
+template <typename E>
+UnorderedCollectable<E>::UnorderedCollectable(const Generator<E> &generator) 
+    : Collectable<E>(generator) {}
+
+template <typename E>
+UnorderedCollectable<E>::UnorderedCollectable(const Generator<E> &generator, const Module &concurrent) 
+    : Collectable<E>(generator, concurrent) {}
+
+template <typename E>
+UnorderedCollectable<E>::UnorderedCollectable(std::shared_ptr<Generator<E>> generator) 
+    : Collectable<E>(generator) {}
+
+template <typename E>
+UnorderedCollectable<E>::UnorderedCollectable(std::shared_ptr<Generator<E>> generator, const Module &concurrent) 
+    : Collectable<E>(generator, concurrent) {}
+
+template <typename E>
+UnorderedCollectable<E>::UnorderedCollectable(const UnorderedCollectable &other) 
+    : Collectable<E>(other) {}
+
+template <typename E>
+UnorderedCollectable<E>::UnorderedCollectable(UnorderedCollectable &&other) noexcept 
+    : Collectable<E>(std::move(other)) {}
+
+template <typename E>
+UnorderedCollectable<E> &UnorderedCollectable<E>::operator=(const Collectable<E> &other)
+{
+    if (this != &other)
+    {
+        Collectable<E>::operator=(other);
+    }
+    return *this;
 }
 
-template<typename E>
-UnorderedCollectable<E>& UnorderedCollectable<E>::operator=(Collectable<E>&& other) noexcept {
-	Collectable<E>::operator=(std::move(other));
-	return *this;
+template <typename E>
+UnorderedCollectable<E> &UnorderedCollectable<E>::operator=(Collectable<E> &&other) noexcept
+{
+    if (this != &other)
+    {
+        Collectable<E>::operator=(std::move(other));
+    }
+    return *this;
 }
 
-template<typename E>
-UnorderedCollectable<E>& UnorderedCollectable<E>::operator=(const UnorderedCollectable<E>& other) {
-	if (this != &other) {
-		Collectable<E>::operator=(other);
-	}
-	return *this;
+template <typename E>
+UnorderedCollectable<E> &UnorderedCollectable<E>::operator=(const UnorderedCollectable<E> &other)
+{
+    if (this != &other)
+    {
+        Collectable<E>::operator=(other);
+    }
+    return *this;
 }
 
-template<typename E>
-UnorderedCollectable<E>& UnorderedCollectable<E>::operator=(UnorderedCollectable<E>&& other) noexcept {
-	Collectable<E>::operator=(std::move(other));
-	return *this;
+template <typename E>
+UnorderedCollectable<E> &UnorderedCollectable<E>::operator=(UnorderedCollectable<E> &&other) noexcept
+{
+    if (this != &other)
+    {
+        Collectable<E>::operator=(std::move(other));
+    }
+    return *this;
 }
+
 
 //Semantic factory function
 template<typename E>
@@ -2542,19 +2759,53 @@ Collector<E, Statistics<E, D>, Statistics<E, D>> toStatistics() {
 }
 
 //Semantic
-template<typename E>
-Semantic<E>& Semantic<E>::operator=(const Semantic<E>& other) {
-    if (this != &other) {
+template <typename E>
+Semantic<E>::Semantic() 
+    : generator(std::make_shared<Generator<E>>([](const Consumer<E> &, const Predicate<E> &) {})), concurrent(1) {}
+
+template <typename E>
+Semantic<E>::Semantic(const Generator<E> &generator) 
+    : generator(std::make_shared<Generator<E>>(generator)), concurrent(1) {}
+
+template <typename E>
+Semantic<E>::Semantic(const Generator<E> &generator, const Module &concurrent) 
+    : generator(std::make_shared<Generator<E>>(generator)), concurrent(concurrent) {}
+
+template <typename E>
+Semantic<E>::Semantic(std::shared_ptr<Generator<E>> generator) 
+    : generator(generator), concurrent(1) {}
+
+template <typename E>
+Semantic<E>::Semantic(std::shared_ptr<Generator<E>> generator, const Module &concurrent) 
+    : generator(generator), concurrent(concurrent) {}
+
+template <typename E>
+Semantic<E>::Semantic(const Semantic &other) 
+    : generator(other.generator), concurrent(other.concurrent) {}
+
+template <typename E>
+Semantic<E>::Semantic(Semantic &&other) noexcept 
+    : generator(std::move(other.generator)), concurrent(other.concurrent) {}
+
+template <typename E>
+Semantic<E> &Semantic<E>::operator=(const Semantic<E> &other)
+{
+    if (this != &other)
+    {
         generator = other.generator;
         concurrent = other.concurrent;
     }
     return *this;
 }
 
-template<typename E>
-Semantic<E>& Semantic<E>::operator=(Semantic<E>&& other) noexcept {
-    generator = std::move(other.generator);
-    concurrent = other.concurrent;
+template <typename E>
+Semantic<E> &Semantic<E>::operator=(Semantic<E> &&other) noexcept
+{
+    if (this != &other)
+    {
+        generator = std::move(other.generator);
+        concurrent = other.concurrent;
+    }
     return *this;
 }
 
@@ -2891,3 +3142,12 @@ Semantic<E> Semantic<E>::translate(const Function<E, Timestamp>& translator) con
 }
 
 };
+
+int main(){
+	std::cout << semantic::from<int>({1,2,3,4,5}).reverse().redirect([](const int& element, const auto& index)->auto{
+		return index + 3;
+	}).toOrdered().anyMatch([](auto e)-> bool{
+		return e == 3;
+	});
+	return 0;
+}

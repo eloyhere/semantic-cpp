@@ -3142,12 +3142,3 @@ Semantic<E> Semantic<E>::translate(const Function<E, Timestamp>& translator) con
 }
 
 };
-
-int main(){
-	std::cout << semantic::from<int>({1,2,3,4,5}).reverse().redirect([](const int& element, const auto& index)->auto{
-		return index + 3;
-	}).toOrdered().anyMatch([](auto e)-> bool{
-		return e == 3;
-	});
-	return 0;
-}

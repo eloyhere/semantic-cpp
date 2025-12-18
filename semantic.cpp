@@ -1,3 +1,4 @@
+
 #include "semantic.h"
 namespace semantic {
 //Global functions
@@ -2740,24 +2741,6 @@ Semantic<E> range(const E& start, const E& end, const E& step) {
     });
 }
 
-template<typename E, typename D>
-Collector<E, Statistics<E, D>, Statistics<E, D>> toStatistics() {
-    return Collector<E, Statistics<E, D>, Statistics<E, D>>(
-        []()->Statistics<E, D> { return Statistics<E, D>(); },
-        [](Statistics<E, D> statistics, const E& element)->Statistics<E, D> { 
-            std::vector<E> vector = {element};
-            statistics = vector;
-            return statistics; 
-        },
-        [](Statistics<E, D> statistics1, Statistics<E, D> statistics2)->Statistics<E, D> { 
-            Statistics<E, D> merged = statistics1;
-            merged = statistics2.toVector();
-            return merged; 
-        },
-        [](Statistics<E, D> statistics)->Statistics<E, D> { return statistics; }
-    );
-}
-
 //Semantic
 template <typename E>
 Semantic<E>::Semantic() 
@@ -3142,3 +3125,12 @@ Semantic<E> Semantic<E>::translate(const Function<E, Timestamp>& translator) con
 }
 
 };
+
+int main(){
+	std::cout << semantic::from<int>({1,2,3,4,5}).reverse().redirect([](const int& element, const auto& index)->auto{
+		return index + 3;
+	}).toOrdered().anyMatch([](auto e)-> bool{
+		return e == 3;
+	});
+	return 0;
+}

@@ -5,7 +5,7 @@
 (GCC libstdc++ maintainer and ISO C++ committee member)  
 ***  
 
-**semantic-cpp** is a header file with a cpp file, high-performance stream processing library for C++17 that combines the fluency of Java Streams, the laziness of JavaScript generators, the order mapping of MySQL indices, and the temporal awareness required for financial, IoT, and event-driven systems.
+**semantic-cpp** is a simple only(a header file with a cpp file), high-performance stream processing library for C++17 that combines the fluency of Java Streams, the laziness of JavaScript generators, the order mapping of MySQL indices, and the temporal awareness required for financial, IoT, and event-driven systems.
 
 Key ideas that make it unique:
 
@@ -25,7 +25,7 @@ Key ideas that make it unique:
 | Built-in statistical operations      | No          | No          | No        | No           | Yes (mean, median, mode, kurtosis, …)          |
 | Parallel by default (opt-in)         | Yes         | No          | Yes       | No           | Yes (global thread pool or custom)             |
 | Continue streaming after terminal op | No          | No          | No        | No           | Yes (post-terminal streams)                    |
-| Header-only, C++17                    | No          | Yes         | Yes       | Yes          | Yes                                            |
+| Simple only, C++17                    | No          | Yes         | Yes       | Yes          | Yes                                            |
 
 If you have ever found yourself writing the same windowing or statistics code for market data, sensor streams, or log analysis – semantic-cpp removes that boilerplate.
 
@@ -195,3 +195,4 @@ Please read CONTRIBUTING.md.
 MIT © Eloy Kim
 
 Enjoy truly semantic streams in C++!
+

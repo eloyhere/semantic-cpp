@@ -1,8 +1,7 @@
 # semantic-cpp – 一种具有时间语义的现代 C++ 流处理库
 
 ***
-**受 Jonathan Wakely 指导**  
-(GCC libstdc++ 维护者和 ISO C++ 委员会成员)
+**受一些反馈指导**  
 ***
 
 **semantic-cpp** 是一个轻量级、高性能的 C++17 流处理库，由单个头文件和对应的实现文件组成。它融合了 Java Stream 的流畅性、JavaScript Generator 的惰性、数据库索引的顺序映射，以及金融、物联网和事件驱动系统所需的时间感知能力。

@@ -1,8 +1,7 @@
 # semantic-cpp – A Modern C++ Stream Library with Temporal Semantics
 
 ***
-**Guided by Jonathan Wakely**  
-(GCC libstdc++ maintainer and ISO C++ committee member)
+**Guided by some feedback**  
 ***
 
 **semantic-cpp** is a lightweight, high-performance stream processing library for C++17, consisting of a single header file paired with a separate implementation file. It blends the fluency of Java Streams, the laziness of JavaScript generators, the ordering capabilities reminiscent of database indices, and the temporal awareness essential for financial applications, IoT data processing, and event-driven systems.
@@ -209,3 +208,4 @@ Please read CONTRIBUTING.md.
 MIT © Eloy Kim
 
 Enjoy truly semantic streams in C++!
+

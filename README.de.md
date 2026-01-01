@@ -1,32 +1,28 @@
 # semantic-cpp – Eine moderne C++-Stream-Bibliothek mit temporaler Semantik
 
-***
-**Geleitet durch einige Rückmeldungen**  
-***
+**semantic-cpp** ist eine leichte und hochperformante Stream-Verarbeitungsbibliothek für modernes C++17. Sie besteht aus einer einzelnen Header-Datei (`semantic.h`) und einer separaten Implementierungsdatei (`semantic.cpp`). Die Bibliothek vereint die Flüssigkeit von Java Streams, die träge Auswertung von JavaScript-Generatoren und Promises, die Ordnungsfunktionen von Datenbankindizes sowie eine eingebaute temporale Semantik, die für Finanzanwendungen, IoT-Datenverarbeitung und ereignisgesteuerte Systeme unverzichtbar ist.
 
-**semantic-cpp** ist eine leichte, hochperformante Stream-Verarbeitungsbibliothek für C++17, bestehend aus einer Header-Datei und einer separaten Implementierungsdatei. Sie verbindet die Flüssigkeit von Java Streams, die Trägheit von JavaScript-Generatoren, die Ordnungslogik von Datenbankindizes und die zeitliche Sensibilität, die für Finanzanwendungen, IoT und ereignisgesteuerte Systeme erforderlich ist.
+## Hauptmerkmale
 
-Einzigartige Kernideen:
-
-- Jedes Element trägt einen **Timestamp** (ein vorzeichenbehafteter `long long`-Index, der negativ sein kann).
-- **Module** ist ein vorzeichenloser `long long` für Zählungen und Parallelitätsstufen.
-- Streams bleiben träge, bis sie mit `.toOrdered()`, `.toUnordered()`, `.toWindow()` oder `.toStatistics()` materialisiert werden.
-- Nach der Materialisierung kann die Kette fortgesetzt werden – die Bibliothek unterstützt bewusst „post-terminale“ Streams.
-- Vollständige Unterstützung für parallele Ausführung, gleitende und rollende Fenster sowie umfangreiche statistische Operationen.
+- Jedes Element ist mit einem **Timestamp** (ein vorzeichenbehaftetes `long long`, das negative Werte unterstützt) und einem **Module** (ein vorzeichenloses `long long` für Zählungen und Parallelität) verknüpft.
+- Streams werden träge ausgewertet, bis sie durch `.toOrdered()`, `.toUnordered()`, `.toWindow()` oder `.toStatistics()` materialisiert werden.
+- Die Materialisierung **beendet** die Pipeline **nicht** – anschließende verkettete Aufrufe sind weiterhin vollständig möglich („Post-Terminal“-Streams).
+- Umfassende Unterstützung für parallele Ausführung, gleitende und tumbling Fenster, fortgeschrittene statistische Operationen sowie asynchrone Aufgaben über eine JavaScript-inspirierte **Promise**-Klasse.
 
 ## Warum semantic-cpp?
 
-| Feature                              | Java Stream | Boost.Range | ranges-v3 | spdlog::sink | semantic-cpp                                   |
-|--------------------------------------|-------------|-------------|-----------|--------------|------------------------------------------------|
-| Trägheit (Lazy Evaluation)           | Ja          | Ja          | Ja        | Nein         | Ja                                             |
-| Temporale Indizes (signed Timestamps) | Nein        | Nein        | Nein      | Nein         | Ja (Kernkonzept)                               |
-| Gleitende/rollende Fenster           | Nein        | Nein        | Nein      | Nein         | Ja (erstklassige Unterstützung)                |
-| Eingebaute Statistikfunktionen       | Nein        | Nein        | Nein      | Nein         | Ja (Mittelwert, Median, Modus, Kurtosis …)     |
-| Parallele Ausführung (opt-in)        | Ja          | Nein        | Ja        | Nein         | Ja (globaler Thread-Pool oder benutzerdefiniert)|
-| Weiterverkettung nach Terminal-Op    | Nein        | Nein        | Nein      | Nein         | Ja (post-terminale Streams)                    |
-| Einzelne Header + Impl.-Datei, C++17 | Nein        | Ja          | Ja        | Ja           | Ja                                             |
+| Merkmal                                  | Java Stream | ranges-v3 | semantic-cpp                              |
+|------------------------------------------|-------------|-----------|-------------------------------------------|
+| Trägheit (Lazy Evaluation)               | Ja          | Ja        | Ja                                        |
+| Temporale Indizes (vorzeichenbehaftete Timestamps) | Nein        | Nein      | Ja (Kernkonzept)                          |
+| Gleitende / Tumbling-Fenster              | Nein        | Nein      | Ja (nativ)                                |
+| Eingebaute statistische Operationen      | Nein        | Nein      | Ja (Mittelwert, Median, Modus, Schiefe, Kurtosis usw.) |
+| Parallele Ausführung (opt-in)            | Ja          | Ja        | Ja (Thread-Pool + Promise-Unterstützung)  |
+| Verkettung nach Terminal-Operation       | Nein        | Nein      | Ja (Post-Terminal-Streams)                |
+| Asynchrone Promises                      | Nein        | Nein      | Ja (JavaScript-Stil)                      |
+| Einzelne Header + Implementierungsdatei, C++17 | Nein        | Ja        | Ja                                        |
 
-Wenn Sie häufig eigene Fenster- oder Statistik-Code für Zeitreihen, Marktdaten, Sensorströme oder Log-Analysen schreiben müssen – semantic-cpp beseitigt diesen Boilerplate.
+Wenn Sie häufig eigenen Code für Fenster, Statistiken oder asynchrone Verarbeitung von Zeitreihendaten, Marktdaten-Feeds, Sensor-Streams oder Logs schreiben, eliminiert semantic-cpp diesen Boilerplate-Code.
 
 ## Schnellstart
 
@@ -37,22 +33,23 @@ Wenn Sie häufig eigene Fenster- oder Statistik-Code für Zeitreihen, Marktdaten
 using namespace semantic;
 
 int main() {
-    // Erzeugt einen Stream mit 100 Zahlen und Timestamps 0..99
-    auto stream = Generative<int>{}.of(std::vector<int>(100, 0))
-        .map([](int, Timestamp t) { return static_cast<int>(t); });
+    // Stream aus Werten erzeugen (Timestamps werden ab 0 sequenziell vergeben)
+    auto stream = of(1, 2, 3, 4, 5, 6, 7, 8, 9, 10);
 
-    stream.filter([](int x) { return x % 2 == 0; })   // nur gerade Zahlen
-          .parallel(8)                               // 8 Threads nutzen
-          .toWindow()                                // materialisieren mit Fensterunterstützung
-          .getSlidingWindows(10, 5)                  // Fenstergröße 10, Schritt 5
-          .toVector();
+    // Gerade Zahlen filtern, parallel ausführen, für Statistiken materialisieren
+    auto stats = stream
+        .filter([](int x) { return x % 2 == 0; })
+        .parallel(8)
+        .toStatistics<int>();
 
-    // Statistik-Beispiel
-    auto stats = Generative<int>{}.of(1,2,3,4,5,6,7,8,9,10).toStatistics();
-    std::cout << stats.mean()   << "\n";   // 5.5
-    std::cout << stats.median() << "\n";   // 5.5
-    std::cout << stats.mode()   << "\n";   // bei Multimodalität der erste gefundene
-    stats.cout();
+    std::cout << "Mittelwert: " << stats.mean() << '\n';      // 5
+    std::cout << "Median:     " << stats.median() << '\n';    // 5
+    std::cout << "Modus:      " << stats.mode() << '\n';      // beliebige gerade Zahl
+
+    // Fenster-Beispiel
+    auto windows = of(0, 1, 2, 3, 4, 5, 6, 7, 8, 9)
+        .toWindow()
+        .getSlidingWindows(5, 2);  // Fenster der Größe 5, Schrittweite 2
 
     return 0;
 }
@@ -60,51 +57,57 @@ int main() {
 
 ## Kernkonzepte
 
-### 1. Generative<E> – Stream-Fabrik
+### 1. Fabrikfunktionen – Streams erzeugen
 
-`Generative<E>` bietet eine komfortable Schnittstelle zur Stream-Erstellung:
+Streams werden über freie Funktionen im Namensraum `semantic` erstellt:
 
 ```cpp
-Generative<int> gen;
-auto s = gen.of(1, 2, 3, 4, 5);
-auto empty = gen.empty();
-auto filled = gen.fill(42, 1'000'000);
-auto ranged = gen.range(0, 100, 5);
+auto s = of(1, 2, 3, 4, 5);                          // variadische Argumente
+auto empty = empty<int>();                          // leerer Stream
+auto filled = fill(42, 1'000'000);                   // wiederholter Wert
+auto supplied = fill([]{ return rand(); }, 1'000'000);
+auto ranged = range(0, 100);                        // 0 .. 99
+auto ranged_step = range(0, 100, 5);                // 0, 5, 10, ...
+auto from_vec = from(std::vector<int>{1, 2, 3});
+auto iterated = iterate([](auto push, auto stop) {
+    for (int i = 0; i < 100; ++i) push(i, i);       // explizite Timestamps
+});
 ```
 
-Alle Fabrikfunktionen liefern einen trägen `Semantic<E>`-Stream.
+Zusätzliche I/O-Hilfsfunktionen: `lines(stream)`, `chunks(stream, size)`, `text(stream)` usw.
 
-### 2. Semantic<E> – Der träge Stream
+### 2. Semantic – Der träge Stream
+
+Der zentrale Typ `Semantic<E>` unterstützt Standardoperationen:
 
 ```cpp
-Semantic<int> s = of<int>(1, 2, 3, 4, 5);
+stream.filter(...).map(...).skip(10).limit(100).peek(...)
 ```
 
-Klassische Operationen stehen zur Verfügung:
+Timestamp-Manipulation:
 
 ```cpp
-s.filter(...).map(...).skip(10).limit(100).parallel().peek(...)
+stream.translate(+1000)          // alle Timestamps verschieben
+    .redirect([](auto elem, Timestamp t) { return t * 10; });
 ```
 
-Elemente tragen Timestamps, die manipuliert werden können:
+Parallelität:
 
 ```cpp
-s.translate(+1000)                                      // alle Timestamps verschieben
- .redirect([](int x, Timestamp t){ return x * 10; })   // benutzerdefinierte Timestamp-Logik
+stream.parallel()                // Standard-Thread-Anzahl
+    .parallel(12);               // Worker-Threads angeben
 ```
 
 ### 3. Materialisierung
 
-Vor dem Aufruf von Sammeloperationen (count(), toVector(), cout() usw.) muss einer der vier Terminal-Konverter aufgerufen werden:
+In sammelbare Form umwandeln:
 
-```cpp
-.toOrdered()      // behält Reihenfolge bei, ermöglicht Sortierung
-.toUnordered()    // schnellste Variante, keine Reihenfolgegarantie
-.toWindow()       // geordnet + vollständige Fenster-API
-.toStatistics<D>  // geordnet + statistische Methoden
-```
+- `.toOrdered()` – Ordnung erhalten, Sortierung möglich
+- `.toUnordered()` – schnellste Variante, ungeordnet
+- `.toWindow()` – geordnet mit vollständiger Fensterunterstützung
+- `.toStatistics<R>(mapper)` – geordnet mit statistischen Methoden
 
-Nach der Materialisierung kann die Kette fortgesetzt werden:
+Verkettung bleibt danach möglich:
 
 ```cpp
 auto result = from(huge_vector)
@@ -115,64 +118,67 @@ auto result = from(huge_vector)
     .toVector();
 ```
 
-### 4. Fensteroperationen
+### 4. Fensterung
 
 ```cpp
-auto windows = stream
-    .toWindow()
-    .getSlidingWindows(30, 10);     // Größe 30, Schritt 10
+auto windows = stream.toWindow().getSlidingWindows(30, 10);
+auto tumbling = stream.toWindow().getTumblingWindows(50);
 ```
 
-Oder einen Stream aus Fenstern erzeugen:
+Fenster-Streams erzeugen:
 
 ```cpp
 stream.toWindow()
-    .windowStream(50, 20)           // gibt std::vector<E> für jedes Fenster aus
+    .windowStream(50, 20)
     .map([](const std::vector<double>& w) { return mean(w); })
-    .toOrdered()
     .cout();
 ```
 
-### 5. Statistik
+### 5. Statistiken
 
 ```cpp
-auto stats = from(prices).toStatistics<double>([](auto p){ return p; });
+auto stats = from(prices)
+    .toStatistics<double>([](auto p) { return p; });
 
-std::cout << "Mittelwert : " << stats.mean()      << "\n";
-std::cout << "Median     : " << stats.median()    << "\n";
-std::cout << "StdAbw.    : " << stats.standardDeviation() << "\n";
-std::cout << "Schiefe    : " << stats.skewness()  << "\n";
-std::cout << "Kurtosis   : " << stats.kurtosis()  << "\n";
+std::cout << "Mittelwert:       " << stats.mean() << '\n';
+std::cout << "Median:          " << stats.median() << '\n';
+std::cout << "Standardabweichung: " << stats.standardDeviation() << '\n';
+std::cout << "Schiefe:         " << stats.skewness() << '\n';
+std::cout << "Kurtosis:        " << stats.kurtosis() << '\n';
 ```
 
-Alle statistischen Funktionen sind stark gecacht (Häufigkeitsmap wird nur einmal berechnet).
+Ergebnisse werden aggressiv gecacht, um die Performance zu steigern.
 
-### 6. Parallelität
+### 6. Asynchrone Ausführung mit Promises
+
+Inspiriert von JavaScript-Promises stellt die Klasse `Promise<T, E>` asynchrone Aufgaben bereit, die an einen `ThreadPool` übergeben werden:
 
 ```cpp
-globalThreadPool   // wird automatisch mit hardware_concurrency Threads erzeugt
-stream.parallel()  // nutzt globalen Pool
-stream.parallel(12) // erzwingt genau 12 Worker-Threads
+ThreadPool pool(8);
+
+auto promise = pool.submit<int>([] {
+    // rechenintensive Aufgabe
+    return 42;
+});
+
+promise.then([](int result) {
+        std::cout << "Ergebnis: " << result << '\n';
+    })
+    .except([](const std::exception& e) {
+        std::cerr << "Fehler: " << e.what() << '\n';
+    })
+    .finally([] {
+        std::cout << "Fertig\n";
+    });
+
+promise.wait();  // bei Bedarf blockieren
 ```
 
-Die Parallelitätsstufe wird korrekt durch die gesamte Kette vererbt.
-
-## Fabrikfunktionen (über Generative)
-
-```cpp
-empty<T>()                              // leerer Stream
-of(1,2,3,"hello")                       // variadische Argumente
-fill(42, 1'000'000)                     // wiederholter Wert
-fill([]{return rand();}, 1'000'000)     // mit Supplier erzeugt
-from(container)                         // vector, list, set, array, initializer_list, queue
-range(0, 100)                           // 0 .. 99
-range(0, 100, 5)                        // 0,5,10,…
-iterate(generator)                      // benutzerdefinierter Generator
-```
+Statische Hilfsfunktionen: `Promise<T>::all(...)`, `Promise<T>::any(...)`, `resolved(value)`, `rejected(error)`.
 
 ## Installation
 
-semantic-cpp besteht aus einer Header- und einer Implementierungsdatei. Kopieren Sie einfach `semantic.h` und `semantic.cpp` in Ihr Projekt oder integrieren Sie es via CMake:
+Kopieren Sie `semantic.h` und `semantic.cpp` in Ihr Projekt oder verwenden Sie CMake:
 
 ```cmake
 add_subdirectory(external/semantic-cpp)
@@ -187,21 +193,19 @@ g++ -std=c++17 -O3 -pthread examples/basic.cpp semantic.cpp -o basic && ./basic
 
 ## Benchmarks (Apple M2 Max, 2024)
 
-| Operation                         | Java Stream | ranges-v3 | semantic-cpp (parallel) |
-|-----------------------------------|-------------|-----------|-------------------------|
-| 100 Mio. Integer → Summe          | 280 ms      | 190 ms    | 72 ms                   |
-| 10 Mio. Double → gleitender Mittelwert | N/A    | N/A       | 94 ms (Fenster 30, Schritt 10) |
-| 50 Mio. Int → toStatistics        | N/A         | N/A       | 165 ms                  |
+| Operation                                | Java Stream | ranges-v3 | semantic-cpp (parallel) |
+|------------------------------------------|-------------|-----------|-------------------------|
+| 100 Mio. Ganzzahlen → Summe              | 280 ms      | 190 ms    | **72 ms**               |
+| 10 Mio. Doubles → gleitender Fenster-Mittelwert | N/A         | N/A       | **94 ms** (Fenster 30, Schritt 10) |
+| 50 Mio. Ganzzahlen → toStatistics        | N/A         | N/A       | **165 ms**              |
 
-## Mitwirken
+## Beiträge
 
 Beiträge sind herzlich willkommen! Bereiche, die Aufmerksamkeit benötigen:
 
-- Weitere Collector (Perzentile, Kovarianz usw.)
-- Bessere Integration mit bestehenden Range-Bibliotheken
-- Optionale SIMD-Beschleunigung für einfache Mapper
-
-Bitte lesen Sie CONTRIBUTING.md.
+- Zusätzliche Collector (Perzentile, Kovarianz usw.)
+- Bessere Integration mit Range-Bibliotheken
+- Optionale SIMD-Beschleunigung
 
 ## Lizenz
 

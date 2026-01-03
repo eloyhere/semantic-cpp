@@ -435,73 +435,9 @@ namespace semantic
 		WindowCollectable<E>& operator=(const WindowCollectable<E>& other);
 		WindowCollectable<E>& operator=(WindowCollectable<E>&& other) noexcept;
 
-		std::vector<std::vector<E>> getSlidingWindows(const Module& windowSize, const Module& step) const;
+		Semantic<Semantic<E>> slide(const Module& windowSize, const Module& step) const;
 
-		std::vector<std::vector<E>> getTumblingWindows(const Module& windowSize) const;
-
-		Semantic<E> slide(const Module& windowSize, const Module& step) const;
-
-		Semantic<E> tumble(const Module& windowSize) const;
-
-		template <typename R>
-		R aggregate(const Module& windowSize, const BiFunction<std::vector<E>, std::vector<E>, R>& aggregator) const;
-
-		template <typename R>
-		R slideAggregate(const Module& windowSize, const Module& step, const BiFunction<std::vector<E>, std::vector<E>, R>& aggregator) const;
-
-		template <typename R>
-		R tumbleAggregate(const Module& windowSize, const BiFunction<std::vector<E>, std::vector<E>, R>& aggregator) const;
-
-		WindowCollectable<E> window(const Module& windowSize) const;
-
-		WindowCollectable<E> window(const Module& windowSize, const Module& step) const;
-
-		template <typename Mapper>
-		auto mapWindows(const Module& windowSize, const Module& step, Mapper&& mapper) const;
-
-		template <typename Mapper>
-		auto mapTumblingWindows(const Module& windowSize, Mapper&& mapper) const;
-
-		std::vector<std::pair<Timestamp, std::vector<E>>> timestampedSlidingWindows(const Module& windowSize, const Module& step) const;
-
-		std::vector<std::pair<Timestamp, std::vector<E>>> timestampedTumblingWindows(const Module& windowSize) const;
-
-		WindowCollectable<E> filterWindows(const Module& windowSize, const Predicate<std::vector<E>>& predicate) const;
-
-		WindowCollectable<E> filterTumblingWindows(const Module& windowSize, const Predicate<std::vector<E>>& predicate) const;
-
-		Module windowCount(const Module& windowSize, const Module& step) const;
-
-		Module tumblingWindowCount(const Module& windowSize) const;
-
-		Semantic<std::vector<E>> windowStream(const Module& windowSize, const Module& step) const;
-
-		Semantic<std::vector<E>> tumblingWindowStream(const Module& windowSize) const;
-
-		std::optional<std::vector<E>> firstWindow(const Module& windowSize, const Module& step) const;
-
-		std::optional<std::vector<E>> firstTumblingWindow(const Module& windowSize) const;
-
-		std::optional<std::vector<E>> lastWindow(const Module& windowSize, const Module& step) const;
-
-		std::optional<std::vector<E>> lastTumblingWindow(const Module& windowSize) const;
-
-		bool anyWindow(const Module& windowSize, const Module& step, const Predicate<std::vector<E>>& predicate) const;
-
-		bool allWindows(const Module& windowSize, const Module& step, const Predicate<std::vector<E>>& predicate) const;
-
-		bool noneWindow(const Module& windowSize, const Module& step, const Predicate<std::vector<E>>& predicate) const;
-
-		WindowCollectable<E> skipWindows(const Module& windowSize, const Module& step, const Module& count) const;
-
-		WindowCollectable<E> limitWindows(const Module& windowSize, const Module& step, const Module& count) const;
-
-		WindowCollectable<E> subWindows(const Module& windowSize, const Module& step, const Module& start, const Module& end) const;
-
-		std::vector<std::vector<std::vector<E>>> partitionWindows(const Module& windowSize, const Module& step, const Module& partitionCount) const;
-
-		template <typename K>
-		std::map<K, std::vector<std::vector<E>>> groupWindows(const Module& windowSize, const Module& step, const Function<std::vector<E>, K>& classifier) const;
+		Semantic<Semantic<E>> tumble(const Module& windowSize) const;
 	};
 
 	template <typename E>

@@ -590,8 +590,8 @@ namespace semantic
 		OrderedCollectable<E> toOrdered() const;
 
 		Statistics<E, E> toStatistics() const;
-		template <typename R>
-		Statistics<E, R> toStatistics(const Function<E, R>& mapper) const;
+		template <typename D>
+		Statistics<E, D> toStatistics() const;
 
 		UnorderedCollectable<E> toUnordered() const;
 

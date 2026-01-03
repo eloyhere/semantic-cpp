@@ -11,18 +11,18 @@
 #include <thread>
 #include <cmath>
 #include <chrono>
+#include <memory>
 #include <random>
 #include <fstream>
 #include <sstream>
 #include <optional>
-#include <memory>
 #include <numeric>
 #include <iostream>
 #include <algorithm>
 #include <functional>
 #include <type_traits>
-#include <initializer_list>
 #include <unordered_set>
+#include <initializer_list>
 #include <condition_variable>
 
 namespace semantic

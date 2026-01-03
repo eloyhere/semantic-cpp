@@ -2860,13 +2860,9 @@ namespace semantic {
     }
 
     template<typename E>
-    template<typename R>
-    Statistics<E, R> Semantic<E>::toStatistics(const Function<E, R>& mapper) const {
-        return Statistics<E, R>([this, mapper](const BiConsumer<E, Timestamp>& accept, const Predicate<E>& predicate)->void {
-            (*this->generator)([&](const E& element, Timestamp index)->void {
-                accept(element, index);
-                }, predicate);
-            }, this->concurrent);
+    template<typename D>
+    Statistics<E, D> Semantic<E>::toStatistics(const Function<E, R>& mapper) const {
+        return Statistics<E, D>(this->generator, this->concurrent);
     }
 
     template<typename E>
@@ -2898,4 +2894,5 @@ namespace semantic {
     }
 
 };
+
 

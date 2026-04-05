@@ -149,7 +149,12 @@ int main() {
 | `useRange(start, end)` | 生成一个数值范围内的整数流。 | `useRange(0, 10)` |
 | `useFrom(container)` | 从标准容器（如 vector, list）创建流。 | `useFrom(std::vector{1,2,3})` |
 | `useOf(args...)` | 从可变参数列表创建流。 | `useOf(1, 2, 3, 4, 5)` |
-| `useText(text, encoding)` | 将字符串按字符或编码点拆分为流。 | `useText("Hello", charset::UTF8)` |
+| `useBlob(text)` | 将字符串按字符拆分为流。 | `useBlob("Hello")` |
+| `useBlob(text, start, end)` | 将字符串按区间字符拆分为流。 | `useBlob("Hello", 0, 3)` |
+| `useBlob(istream)` | 将输入流按字符拆分为流。 | `useBlob(istream)` |
+| `useBlob(istream, start, end)` | 将输入流按区间字符拆分为流。 | `useBlob(istream, 0, 3)` |
+| `useText(text)` | 将整个文本作为为流。 | `useText("Hello")` |
+| `useText(text, delimiter)` | 将文本按区间字符拆分为流。 | `useText("Hello", 'e')` |
 
 ### 中间操作 (Intermediate Operations)
 | 方法 | 描述 | 注意事项 |
@@ -190,6 +195,9 @@ int main() {
 | `allMatch(predicate)` | 计算流中是否全部满足条件，如果不满足则退出。 | 是否全部满足 |
 | `noneMatch(predicate)` | 计算流中是否全部不满足条件，如果满足则退出。 | 是否全部不满足 |
 | `forEach(consumer)` | 遍历流中元素。 | 逐个遍历 |
+| `flat(flatten)` | 展开流中元素。 | 逐个展开后平铺 |
+| `flatMap(flatten)` | 转换展开流中元素。 | 逐个展开后平铺 |
+| `concatenate(other)` | 连接其它容器或者流中元素。 | 连接元素 |
 | `count()` | 计算流中元素的总数。 | `Module` (`unsigned long long`) |
 | `average()` | 计算数值元素的平均值。 | 元素类型的平均值（如`double`）。 |
 | `findAny()` | 随机查找元素。 | 流内部随机元素。 |
@@ -200,8 +208,10 @@ int main() {
 | `reduce(accumulator)` | 将流归约为单个值（如求和）。 | 累加器结果的类型。 |
 | `reduce(identity, accumulator)` | 将流归约为单个值（如求和）。 | 累加器结果的类型。 |
 | `collect(collector)` | 使用自定义收集器进行复杂聚合。 | 收集器定义的返回类型。 |
-| `toList()` / `toVector()` | 收集所有元素到列表/向量。 | `std::vector<元素类型>` |
+| `toList()` / `toVector()` | 收集所有元素到列表/向量。 | `std::vector<E>` |
 | `toSet()` | 收集所有元素到集合（去重）。 | `std::set<元素类型>` |
+| `group(keyExtractor)` | 分组到Map（去重）。 | `std::map<K, std::vector<E>>` |
+| `toMap(keyExtractor)` | 收集到Map（去重）。 | `std::map<K, E>` |
 
 ---
 

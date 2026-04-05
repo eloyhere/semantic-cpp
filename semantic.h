@@ -1670,6 +1670,28 @@ namespace collector {
     }
 
     template<typename E, typename D>
+    auto useAverage() -> Collector<E, std::pair<D, functional::Module>, D> {
+        return useFull<E, std::pair<D, functional::Module>, D>(
+            []()-> std::pair<D, functional::Module> {
+                return std::make_pair(D{}, 0);
+            },
+            [](std::pair<D, functional::Module> accumulator, E element, functional::Timestamp index)-> std::pair<D, functional::Module> {
+                D value = static_cast<D>(element);
+                return std::make_pair(accumulator.first + value, accumulator.second + 1);
+            },
+            [](std::pair<D, functional::Module> a, std::pair<D, functional::Module> b)-> std::pair<D, functional::Module> {
+                return std::make_pair(a.first + b.first, a.second + b.second);
+            },
+            [](std::pair<D, functional::Module> accumulator)-> D {
+                if (accumulator.second == 0) {
+                    return D{};
+                }
+                return accumulator.first / static_cast<D>(accumulator.second);
+            }
+        );
+    }
+
+    template<typename E, typename D>
     auto useAverage(const functional::Function<E, D>& mapper) -> Collector<E, std::pair<D, functional::Module>, D> {
         return useFull<E, std::pair<D, functional::Module>, D>(
             []()-> std::pair<D, functional::Module> {
@@ -1687,6 +1709,72 @@ namespace collector {
                     return D{};
                 }
                 return accumulator.first / static_cast<D>(accumulator.second);
+            }
+        );
+    }
+
+    template<typename E, typename D>
+    auto useRange() -> Collector<E, std::pair<D, D>, D> {
+        return useFull<E, std::pair<D, D>, D>(
+            []()-> std::pair<D, D> {
+                return std::make_pair<D, D>(D{}, D{});
+            },
+            [](std::pair<D, D> accumulator, E element, functional::Timestamp index)-> std::pair<D, functional::Module> {
+                D mapped = static_cast<D>(element);
+                if (accumulator.first == D{}) {
+                    return std::make_pair<D, D>(mapped, accumulator.second);
+                }
+                if (accumulator.second == D{}) {
+                    return std::make_pair<D, D>(accumulator.first, mapped);
+                }
+                if (mapped < accumulator.first) {
+                    return std::make_pair<D, D>(mapped, accumulator.second);
+                }
+                if (mapped > accumulator.second) {
+                    return std::make_pair<D, D>(accumulator.first, mapped);
+                }
+            },
+            [](std::pair<D, D> a, std::pair<D, D> b)-> std::pair<D, D> {
+                return std::make_pair(a.first + b.first, a.second + b.second);
+            },
+            [](std::pair<D, D> accumulator)-> D {
+                if (accumulator.second == 0) {
+                    return D{};
+                }
+                return std::abs(accumulator.first - accumulator.second);
+            }
+        );
+    }
+
+    template<typename E, typename D>
+    auto useRange(const functional::Function<E, D>& mapper) -> Collector<E, std::pair<D, functional::Module>, D> {
+        return useFull<E, std::pair<D, D>, D>(
+            []()-> std::pair<D, D> {
+                return std::make_pair<D, D>(D{}, D{});
+            },
+            [mapper](std::pair<D, D> accumulator, E element, functional::Timestamp index)-> std::pair<D, functional::Module> {
+                D mapped = mapper(element);
+                if (accumulator.first == D{}) {
+                    return std::make_pair<D, D>(mapped, accumulator.second);
+                }
+                if (accumulator.second == D{}) {
+                    return std::make_pair<D, D>(accumulator.first, mapped);
+                }
+                if (mapped < accumulator.first) {
+                    return std::make_pair<D, D>(mapped, accumulator.second);
+                }
+                if (mapped > accumulator.second) {
+                    return std::make_pair<D, D>(accumulator.first, mapped);
+                }
+            },
+            [](std::pair<D, D> a, std::pair<D, D> b)-> std::pair<D, D> {
+                return std::make_pair(a.first + b.first, a.second + b.second);
+            },
+            [](std::pair<D, D> accumulator)-> D {
+                if (accumulator.second == 0) {
+                    return D{};
+                }
+                return std::abs(accumulator.first - accumulator.second);
             }
         );
     }
@@ -2016,6 +2104,41 @@ namespace collectable {
     public:
         Statistics(const functional::Module& concurrent) : OrderedCollectable<E>(concurrent) {}
         Statistics(const functional::Generator<E>& generator, const functional::Module& concurrent) : OrderedCollectable<E>(generator, concurrent) {}
+        Statistics(const Statistics<E, D>& other) : OrderedCollectable<E>(other) {}
+        Statistics(Statistics<E, D>&& other) noexcept : OrderedCollectable<E>(std::move(other)) {}
+
+        auto operator=(const Statistics<E, D>& other) -> Statistics<E, D>& {
+            if (this != &other) {
+                OrderedCollectable<E>::operator=(other);
+            }
+            return *this;
+        }
+        auto operator=(Statistics<E, D>&& other) noexcept -> Statistics<E, D>& {
+            if (this != &other) {
+                OrderedCollectable<E>::operator=(std::move(other));
+            }
+            return *this;
+        }
+
+        auto average() const -> D {
+            collector::Collector<E, std::pair<D, functional::Module>, D> collector = collector::useAverage<E, D>();
+            return collector.collect(this->source(), this->concurrent);
+        }
+
+        auto average(const functional::Function<E, D> &mapper) const -> D {
+            collector::Collector<E, std::pair<D, functional::Module>, D> collector = collector::useAverage<E, D>(mapper);
+            return collector.collect(this->source(), this->concurrent);
+        }
+
+        auto range() const -> D {
+            collector::Collector<E, std::pair<D, D>, D> collector = collector::useRange<E, D>();
+            return collector.collect(this->source(), this->concurrent);
+        }
+
+        auto range(const functional::Function<E, D>& mapper) const -> D {
+            collector::Collector<E, std::pair<D, D>, D> collector = collector::useRange<E, D>(mapper);
+            return collector.collect(this->source(), this->concurrent);
+        }
     };
 
     template<typename E>
@@ -2023,17 +2146,16 @@ namespace collectable {
     public:
         WindowCollectable(const functional::Module& concurrent) : OrderedCollectable<E>(concurrent) {}
         WindowCollectable(const functional::Generator<E>& generator, const functional::Module& concurrent) : OrderedCollectable<E>(generator, concurrent) {}
-        WindowCollectable(const WindowCollectable& other) : OrderedCollectable<E>(other) {}
-        WindowCollectable(WindowCollectable&& other) noexcept : OrderedCollectable<E>(std::move(other)) {}
+        WindowCollectable(const WindowCollectable<E>& other) : OrderedCollectable<E>(other) {}
+        WindowCollectable(WindowCollectable<E>&& other) noexcept : OrderedCollectable<E>(std::move(other)) {}
 
-        auto operator=(const WindowCollectable& other) -> WindowCollectable& {
+        auto operator=(const WindowCollectable<E>& other) -> WindowCollectable<E>& {
             if (this != &other) {
                 OrderedCollectable<E>::operator=(other);
             }
             return *this;
         }
-
-        auto operator=(WindowCollectable&& other) noexcept -> WindowCollectable& {
+        auto operator=(WindowCollectable<E>&& other) noexcept -> WindowCollectable<E>& {
             if (this != &other) {
                 OrderedCollectable<E>::operator=(std::move(other));
             }
@@ -2621,6 +2743,11 @@ namespace semantic {
 
         auto toWindow() const -> collectable::WindowCollectable<E> {
             return collectable::WindowCollectable<E>(this->source(), this->concurrent);
+        }
+
+        template<typename D>
+        auto toStatistics() const -> collectable::Statistics<E, D> {
+            return collectable::Statistics<E, D>(this->source(), this->concurrent);
         }
 
         auto translate(const functional::Timestamp& offset) const -> Semantic<E> {

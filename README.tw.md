@@ -1,214 +1,307 @@
-# semantic-cpp – 一個現代 C++ 流處理庫，具備時間語義
+# Semantic-Cpp 深入解析：面向未來的 C++ 智慧型串流處理框架
 
-**semantic-cpp** 是一個輕量級、高效能的現代 C++17 流處理庫。它僅由單一標頭檔（`semantic.h`）搭配獨立的實作檔（`semantic.cpp`）構成。該庫融合了 Java Stream 的流暢性、JavaScript Generator 與 Promise 的惰性評估、類似資料庫索引的排序能力，以及對金融應用、IoT 資料處理與事件驅動系統至關重要的內建時間意識。
+Semantic-Cpp 是一套完全重新設計的現代 C++ 串流處理函式庫，採用「單一標頭檔、零相依」的架構。其核心檔案 `semantic.h` 整合了整個函式庫的所有功能。本函式庫創造性地融合了多種程式設計典範的精華：
 
-## 主要特色
+-   **Java Stream API 的優雅與流暢**：提供鏈式呼叫與宣告式程式設計體驗。
+-   **JavaScript Generator 的延遲性與彈性**：支援延遲計算與隨需產生資料。
+-   **資料庫索引的高效率與有序性**：內建智慧型排序與索引驅動機制，特別適合處理時間序列與事件資料。
 
-- 每個元素皆關聯一個 **Timestamp**（有號號的 `long long`，支援負值）以及一個 **Module**（無號號的 `long long`，用於計數與並行）。
-- 流在透過 `.toOrdered()`、`.toUnordered()`、`.toWindow()` 或 `.toStatistics()` 實體化之前均為惰性評估。
-- 實體化 **不** 會終止管線 — 之後仍可完整鏈式呼叫（「後終端」流）。
-- 全面支援並行執行、滑動與翻滾視窗、先進統計運算，以及透過 JavaScript 風格的 **Promise** 類別進行非同步任務。
+與傳統的資料處理方式（例如手寫迴圈或複雜的非同步回呼）不同，Semantic-Cpp 旨在提供一種**型別安全、表現力強且高效能**的解決方案。其最核心的設計哲學是**精準的資料流控制**：資料僅在明確需要時才會在「處理管線」中流動，而流動的「順序」與「位置」可透過「索引」進行細緻調控，從而實現資源的最佳利用。
 
-## 為何選擇 semantic-cpp？
+---
 
-| 功能                             | Java Stream | ranges-v3 | semantic-cpp                          |
-|----------------------------------|-------------|-----------|---------------------------------------|
-| 惰性評估                         | 是          | 是        | 是                                    |
-| 時間索引（有號時間戳）           | 否          | 否        | 是（核心概念）                        |
-| 滑動／翻滾視窗                    | 否          | 否        | 是（原生支援）                        |
-| 內建統計運算                     | 否          | 否        | 是（平均、中位數、眾數、偏度、峰度等）|
-| 並行執行（選擇性）               | 是          | 是        | 是（執行緒池 + Promise 支援）         |
-| 終端操作後繼續鏈式呼叫           | 否          | 否        | 是（後終端流）                        |
-| 非同步 Promise                   | 否          | 否        | 是（JavaScript 風格）                 |
-| 單標頭 + 實作檔，C++17            | 否          | 是        | 是                                    |
+## 核心靈魂：索引驅動的資料世界
 
-若您經常為時間序列資料、市場行情、感測器流或日誌撰寫自訂視窗、統計或非同步程式碼，semantic-cpp 可省去這些樣板程式碼。
+Semantic-Cpp 將資料處理抽象為對「元素」及其「邏輯位置（索引）」的操作。理解這一點是掌握本函式庫的關鍵。
 
-## 快速入門
+### 1. 基礎索引轉換
+索引決定了元素在處理鏈中的邏輯順序，您可以對其進行靈活操作：
+-   **`redirect(重定向函式)`**：核心方法。您可以透過自訂函式，完全重寫元素的索引。例如，可以將索引加倍、或根據元素值產生新索引等。
+-   **`reverse()`**：便捷方法，內部透過 `redirect` 實現，將目前所有索引邏輯反轉（例如，正索引變為負索引）。
+-   **`translate(偏移量)`**：為所有索引增加一個固定的偏移量。
 
+### 2. 排序的「絕對優先」規則
+排序操作 (`sorted`) 在函式庫中擁有最高優先權，其行為是確定性的：
+-   **`sorted()` 會覆蓋一切**：無論您先前透過 `redirect`、`reverse` 進行了多麼複雜的索引轉換，一旦呼叫 `sorted()`，所有先前的索引操作都將被**覆蓋**。系統會根據元素的**實際值**，為其重新分配從 0 開始的自然順序索引。
+-   **立即「實體化」為有序集合**：為了避免後續操作中不必要的重複排序開銷，`sorted()` 方法會**立即**回傳一個 `OrderedCollectable` 型別的物件。這表示資料在此刻已經被收集並完成排序。
+
+### 3. 宣告式平行處理
+平行處理變得非常簡單且直觀：
+-   **`parallel(執行緒數)` 僅僅是一項宣告**：呼叫此方法只是表達「我希望後續操作能平行執行」的意圖，並指定期望的執行緒數量，**並不會立即啟動任何執行緒或提交任務**。
+-   **終端操作觸發平行**：真正的平行計算是在呼叫如 `toUnordered()`、`toOrdered()`、`count()` 等**終端操作方法**時才被觸發。此時，函式庫內建的執行緒池會根據宣告的執行緒數，自動將資料分片並提交任務。
+-   **無需手動管理**：您無需關心執行緒建立、任務分發和結果合併的細節，函式庫會為您自動處理。
+
+### 4. 如何選擇最終的資料容器？
+根據您的效能需求與操作類型，可以選擇不同的終端轉換方法：
+
+| 轉換方法 | 底層資料結構 | 效能特徵 | 最佳適用場景 |
+| :--- | :--- | :--- | :--- |
+| **`sorted()`** | `std::map<索引, 元素>` | O(log n) 存取，嚴格保持元素順序。 | 分頁、範圍查詢、時間序列分析、滾動統計。 |
+| **`sorted(comparator)`** | `std::map<索引, 元素>` | O(log n) 存取，按自訂規則排序。 | 自訂排序規則的分頁或範圍查詢。 |
+| **`toOrdered()`** | `std::map<索引, 元素>` | O(log n) 存取，保持**目前索引**的順序。 | 當您想保留 `redirect` 等操作定義的索引順序，並進行有序操作時。 |
+| **`toUnordered()`** | `std::unordered_map<索引, 元素>` | 平均 O(1) 存取，**最高效能**，但不保證順序。 | 快速查詢、去重統計、聚合計算等不關心順序的場景。 |
+| **`toWindow()`** | 基於 `std::map` 的視窗檢視 | O(log n)，支援在有序資料集上定義滑動或滾動視窗。 | 即時串流資料分析、滑動視窗聚合、事件工作階段劃分。 |
+
+> **重要提示**：`WindowCollectable`（由 `toWindow()` 回傳）內部依賴於一個有序的集合（透過 `toOrdered()` 實現），以確保視窗滑動與翻滾操作能基於確定的順序正確執行。
+
+---
+
+## 快速上手指南
+
+### 安裝
+只需將 `semantic.h` 標頭檔放入您的專案，並確保編譯器支援 C++17 或更高標準。
 ```cpp
 #include "semantic.h"
-#include <iostream>
-
+// 可選：使用 semantic 命名空間
 using namespace semantic;
+```
+
+### 基礎範例：體驗索引與排序
+```cpp
+#include <iostream>
+#include "semantic.h"
 
 int main() {
-    // 從值建立流（時間戳從 0 開始自動遞增）
-    auto stream = of(1, 2, 3, 4, 5, 6, 7, 8, 9, 10);
+    auto result = semantic::useRange(0, 10)   // 1. 建立 0 到 9 的整數串流
+        .map([](int x) -> int { return x * x; })    // 2. 將每個元素平方 (0,1,4,9...81)
+        .redirect([](int value, auto index) -> long long {    // 3. 索引重定向：將索引加倍
+            return index * 2;                  // 現在索引是 0,2,4,6...
+        })
+        .reverse()                           // 4. 邏輯反轉索引 (...,6,4,2,0)
+        .sorted()                            // 5. ⚠️ 強制按元素值(1,4,9...)重新排序！
+                                             //    之前的所有索引操作被覆蓋，索引變為0,1,2...
+        .toList();                           // 6. 收集到 std::vector
 
-    // 篩選偶數，並行執行，實體化以進行統計
-    auto stats = stream
-        .filter([](int x) { return x % 2 == 0; })
-        .parallel(8)
-        .toStatistics<int>();
-
-    std::cout << "平均值: " << stats.mean() << '\n';      // 5
-    std::cout << "中位數: " << stats.median() << '\n';  // 5
-    std::cout << "眾數: " << stats.mode() << '\n';      // 任一偶數
-
-    // 視窗範例
-    auto windows = of(0, 1, 2, 3, 4, 5, 6, 7, 8, 9)
-        .toWindow()
-        .getSlidingWindows(5, 2);  // 大小 5，步長 2 的滑動視窗
-
+    // 輸出: 0 1 4 9 16 25 36 49 64 81 （已排序）
+    for (auto& item : result) {
+        std::cout << item << " ";
+    }
     return 0;
 }
 ```
 
-## 核心概念
-
-### 1. 工廠函式 – 建立流
-
-透過 `semantic` 命名空間中的自由函式建立流：
-
+### 平行處理範例
 ```cpp
-auto s = of(1, 2, 3, 4, 5);                          // 可變參數
-auto empty = empty<int>();                          // 空流
-auto filled = fill(42, 1'000'000);                   // 重複值
-auto supplied = fill([]{ return rand(); }, 1'000'000);
-auto ranged = range(0, 100);                        // 0 .. 99
-auto ranged_step = range(0, 100, 5);                // 0, 5, 10, ...
-auto from_vec = from(std::vector<int>{1, 2, 3});
-auto iterated = iterate([](auto push, auto stop) {
-    for (int i = 0; i < 100; ++i) push(i, i);       // 明確時間戳
-});
+#include <iostream>
+#include "semantic.h"
+
+int main() {
+    // 1. 建構一個串流處理管線，並宣告希望使用 4 個執行緒平行執行。
+    auto dataStream = semantic::useRange(1, 1000)
+        .parallel(4)                         // 宣告平行，尚未執行
+        .filter([](int x) -> bool {
+            return x % 2 == 0;               // 過濾出偶數
+        })
+        .filter([](int x, auto index) -> bool {
+            return index < 5LL;              // 再過濾出邏輯索引小於 5 的元素
+        });
+
+    // 2. 終端操作 `count()` 觸發真正的平行計算
+    //    執行緒池啟動，資料被分片，四個執行緒並行計數，結果自動合併。
+    auto result = dataStream
+        .toUnordered()                       // 轉換為無序集合並行處理
+        .count();                            // 統計最終元素數量
+
+    std::cout << "過濾後的元素數量: " << result << std::endl;
+    return 0;
+}
 ```
 
-另有 I/O 輔助函式：`lines(stream)`、`chunks(stream, size)`、`text(stream)` 等。
-
-### 2. Semantic – 惰性流
-
-核心類型 `Semantic<E>` 支援標準操作：
-
+### 時間序列與視窗分析範例
 ```cpp
-stream.filter(...).map(...).skip(10).limit(100).peek(...)
+#include <iostream>
+#include "semantic.h"
+
+int main() {
+    // 模擬一組時間序列資料（例如股價）
+    auto timeSeries = semantic::useFrom(std::vector<double>{1.1, 2.2, 3.3, 4.4, 5.5});
+
+    // 1. 轉換為視窗檢視
+    auto windowStats = timeSeries
+        .toWindow()                     // 轉換為 WindowCollectable
+        .slide(3, 1)                    // 定義大小為 3 的滑動視窗，步長為 1
+                                        // 視窗 1: {1.1, 2.2, 3.3}
+                                        // 視窗 2: {2.2, 3.3, 4.4}
+                                        // 視窗 3: {3.3, 4.4, 5.5}
+        .sub(1, 4)                      // 取索引 1 到 3 的視窗（即視窗 2 和 3）
+        .map([](auto&& window) -> double { // 對每個視窗進行處理
+            // 計算每個視窗的平均值
+            return window
+                .toStatistics<double, double>() // 將視窗轉為 Statistics 以進行數學計算
+                .average();
+        })
+        .toStatistics<double, double>() // 對計算結果（平均值序列）進行有序統計
+        .summate();                     // 對所有視窗平均值求和
+
+    std::cout << "選定滑動視窗的平均值總和: " << windowStats << std::endl;
+    // 輸出: ( (2.2+3.3+4.4)/3 + (3.3+4.4+5.5)/3 ) 的結果
+    return 0;
+}
 ```
 
-時間戳操作：
+---
 
+## 核心 API 速查手冊
+
+### 串流建構器（串流來源）
+| 方法 | 描述 | 範例 |
+| :--- | :--- | :--- |
+| `useRange(start, end)` | 產生數值範圍內的整數串流。 | `useRange(0, 10)` |
+| `useFrom(container)` | 從標準容器（如 vector、list）建立串流。 | `useFrom(std::vector{1,2,3})` |
+| `useOf(args...)` | 從可變參數列表建立串流。 | `useOf(1, 2, 3, 4, 5)` |
+| `useBlob(text)` | 將字串按字元拆分為串流。 | `useBlob("Hello")` |
+| `useBlob(text, start, end)` | 將字串按區間字元拆分為串流。 | `useBlob("Hello", 0, 3)` |
+| `useBlob(istream)` | 將輸入串流按字元拆分為串流。 | `useBlob(istream)` |
+| `useBlob(istream, start, end)` | 將輸入串流按區間字元拆分為串流。 | `useBlob(istream, 0, 3)` |
+| `useText(text)` | 將整個文字作為單一元素串流。 | `useText("Hello")` |
+| `useText(text, delimiter)` | 將文字按區間字元拆分為串流。 | `useText("Hello", 'e')` |
+
+### 中間操作（Intermediate Operations）
+| 方法 | 描述 | 注意事項 |
+| :--- | :--- | :--- |
+| `map(轉換函式)` | 將元素轉換為另一種形式。 | 函式可接收 `(元素)` 或 `(元素, 索引)`。 |
+| `filter(斷言函式)` | 過濾滿足條件的元素。 | 斷言可基於 `(元素)` 或 `(元素, 索引)`。 |
+| `distinct()` | 去除重複的元素。 | 可傳入自訂比較器。 |
+| `limit(n)` | 限制串流中元素的數量為前 `n` 個。 | |
+| `skip(n)` | 跳過串流中的前 `n` 個元素。 | |
+| `sub(start, end)` | 取得索引在 `[start, end)` 範圍內的子串流。 | 類似字串的 `substr`。 |
+
+### 索引操作（Index Operations）
+| 方法 | 描述 | 關鍵特性 |
+| :--- | :--- | :--- |
+| `redirect(重定向函式)` | 核心方法，允許完全控制每個元素的索引。 | 函式簽名為 `(元素, 舊索引) -> 新索引`。 |
+| `reverse()` | 將目前所有元素的索引邏輯反轉。 | 內部透過 `redirect` 實現。 |
+| `translate(偏移量)` | 將所有元素的索引增加一個固定偏移量。 | |
+| **`sorted()`** | **強制排序**。按元素值升序排列，**覆蓋所有已有索引**。 | 立即回傳 `OrderedCollectable`。 |
+| **`sorted(比較器)`** | 使用自訂比較器強制排序。 | 立即回傳 `OrderedCollectable`。 |
+
+### 平行宣告（Parallel Declaration）
+| 方法 | 描述 | 執行時機 |
+| :--- | :--- | :--- |
+| `parallel()` | 宣告使用預設平行策略（通常為 CPU 核心數）。 | 在後續的**終端操作**中觸發。 |
+| `parallel(n)` | 宣告希望使用 `n` 個執行緒進行平行處理。 | 在後續的**終端操作**中觸發。 |
+
+### 終端轉換（Terminal Conversions - 觸發計算）
+| 方法 | 描述 | 內部狀態 |
+| :--- | :--- | :--- |
+| `toOrdered()` | 轉換為有序集合，保留**目前的索引順序**。 | 實體化為 `std::map<Index, Value>`。 |
+| `toUnordered()` | 轉換為無序集合，以獲得最高效能。 | 實體化為 `std::unordered_map<Index, Value>`。 |
+| `toWindow()` | 轉換為視窗集合，用於滑動/滾動分析。 | 內部基於 `toOrdered()`。 |
+
+### 終端動作（Terminal Actions - 產生最終結果）
+| 方法 | 描述 | 回傳型別 |
+| :--- | :--- | :--- |
+| `anyMatch(predicate)` | 計算串流中是否任意有一個滿足條件，如果找到立即退出。 | 是否任意滿足 |
+| `allMatch(predicate)` | 計算串流中是否全部滿足條件，如果不滿足則退出。 | 是否全部滿足 |
+| `noneMatch(predicate)` | 計算串流中是否全部不滿足條件，如果滿足則退出。 | 是否全部不滿足 |
+| `forEach(consumer)` | 遍歷串流中元素。 | 逐個遍歷 |
+| `count()` | 計算串流中元素的總數。 | `Module` (`unsigned long long`) |
+| `average()` | 計算數值元素的平均值。 | 元素型別的平均值（如 `double`）。 |
+| `findAny()` | 隨機查找元素。 | 串流內部隨機元素。 |
+| `findFirst()` | 查找第一個元素。 | 串流內部第一個元素。 |
+| `findLast()` | 查找最後一個元素。 | 串流內部最後一個元素。 |
+| `findAt(可負索引)` | 查找第 n 個元素，如果為負數，則為第 (size+index) 個元素。 | 串流內部某個索引的元素。 |
+| `findMinimum()` / `findMaximum()` | 查找串流中的最小/最大值。 | `std::optional<元素型別>` |
+| `reduce(accumulator)` | 將串流縮減為單一值（如求和）。 | 累加器結果的型別。 |
+| `reduce(identity, accumulator)` | 將串流縮減為單一值（如求和）。 | 累加器結果的型別。 |
+| `collect(collector)` | 使用自訂收集器進行複雜聚合。 | 收集器定義的回傳型別。 |
+| `toList()` / `toVector()` | 收集所有元素到列表/向量。 | `std::vector<E>` |
+| `toSet()` | 收集所有元素到集合（去重）。 | `std::set<元素型別>` |
+| `group(keyExtractor)` | 分組到 Map（去重）。 | `std::map<K, std::vector<E>>` |
+| `toMap(keyExtractor)` | 收集到 Map（去重）。 | `std::map<K, E>` |
+
+---
+
+## 進階主題與最佳實務
+
+### 架構精髓：延遲求值與精準回呼控制
+每個串流操作背後都是一個接受兩個回呼函式的「產生器」：
+-   **`accept(元素, 索引)`**：當下游操作準備好處理資料時，會呼叫此回呼來「請求」一個元素。
+-   **`interrupt(元素, 索引)`**：在處理每個元素前呼叫，如果回傳 `true`，則整個處理鏈會**立即終止**。
+這種機制確保了資料是「按需拉取」的，並且可以隨時提前結束，避免不必要的計算。
+
+### 效能最佳化建議
+1.  **選擇正確的容器**：
+    -   做等值查找、去重、不排序的聚合 → 優先使用 `toUnordered()`。
+    -   需要範圍查詢、排序、分頁 → 使用 `toOrdered()` 或 `sorted()`。
+    -   做即時視窗分析 → 使用 `toWindow()`。
+2.  **善用平行**：
+    -   資料量較大（例如 >1000 筆）或處理邏輯（`map`、`filter`）較耗時時，使用 `parallel()` 通常能獲得效益。
+    -   避免在平行串流中進行阻塞式的 I/O 操作。
+3.  **最佳化操作順序**：
+    -   **盡早過濾 (`filter`)**：在應用昂貴的 `map` 轉換之前，先透過 `filter` 減少資料量。
+    -   **明智排序**：排序開銷大。如果後續操作（如 `distinct`）不依賴順序，可先進行這些操作再排序。
+
+### 自訂收集器
+當內建的終端操作無法滿足需求時，您可以建構自訂收集器，實現複雜的縮減邏輯。
 ```cpp
-stream.translate(+1000)          // 位移所有時間戳
-    .redirect([](auto elem, Timestamp t) { return t * 10; });
+// 建立一個將數字連接成特定格式字串的收集器
+auto myCollector = semantic::collector::useFull<int, std::string, std::string>(
+     []() -> std::string { return ""; }, // Supplier：提供初始累加值
+    [](std::string acc, int val, auto idx) -> std::string { // 累加器
+        if (!acc.empty()) acc += "|";
+        return acc + "Num(" + std::to_string(val) + ")";
+    },
+    [](std::string a, std::string b) -> std::string { // Combiner（用於平行）
+        if (a.empty()) return b;
+        if (b.empty()) return a;
+        return a + "|" + b;
+    },
+    [](std::string acc) -> std::string { // Finisher：對最終結果做最後處理
+        return "[" + acc + "]";
+    }
+);
+
+auto result = semantic::useRange(1, 5)
+    .toOrdered() // 觸發計算
+    .collect(myCollector); // 使用自訂收集器
+
+std::cout << result << std::endl; // 輸出: [Num(1)|Num(2)|Num(3)|Num(4)]
 ```
 
-並行：
-
+### 文字處理範例
 ```cpp
-stream.parallel()                // 使用預設執行緒數
-    .parallel(12);               // 指定工作者執行緒數
-```
-
-### 3. 實體化
-
-轉換為可收集形式：
-
-- `.toOrdered()` – 保留順序，啟用排序
-- `.toUnordered()` – 最快，無順序
-- `.toWindow()` – 有序，完整視窗支援
-- `.toStatistics<R>(mapper)` – 有序，統計方法
-
-之後仍可鏈式呼叫：
-
-```cpp
-auto result = from(huge_vector)
-    .parallel()
-    .filter(...)
-    .toWindow()
-    .getSlidingWindows(100, 50)
-    .toVector();
-```
-
-### 4. 視窗處理
-
-```cpp
-auto windows = stream.toWindow().getSlidingWindows(30, 10);
-auto tumbling = stream.toWindow().getTumblingWindows(50);
-```
-
-發出視窗流：
-
-```cpp
-stream.toWindow()
-    .windowStream(50, 20)
-    .map([](const std::vector<double>& w) { return mean(w); })
-    .cout();
-```
-
-### 5. 統計
-
-```cpp
-auto stats = from(prices)
-    .toStatistics<double>([](auto p) { return p; });
-
-std::cout << "平均值:    " << stats.mean() << '\n';
-std::cout << "中位數:    " << stats.median() << '\n';
-std::cout << "標準差:    " << stats.standardDeviation() << '\n';
-std::cout << "偏度:      " << stats.skewness() << '\n';
-std::cout << "峰度:      " << stats.kurtosis() << '\n';
-```
-
-結果會積極快取以提升效能。
-
-### 6. 使用 Promise 進行非同步執行
-
-受 JavaScript Promise 啟發，該庫提供 `Promise<T, E>` 類別，用於提交至 `ThreadPool` 的非同步任務：
-
-```cpp
-ThreadPool pool(8);
-
-auto promise = pool.submit<int>([] {
-    // 繁重計算
-    return 42;
-});
-
-promise.then([](int result) {
-        std::cout << "結果: " << result << '\n';
+auto text = semantic::useText("Hello 世界！")
+    .map([](const std::string& text) -> std::string {
+        return "<" + text + ">";
     })
-    .except([](const std::exception& e) {
-        std::cerr << "錯誤: " << e.what() << '\n';
-    })
-    .finally([] {
-        std::cout << "完成\n";
-    });
+    .toOrdered()
+    .join(" "); // 用空格連接所有字元
 
-promise.wait();  // 若需阻塞則等待完成
+std::cout << text << std::endl;
+// 輸出: <H><e><l><l><o>< ><世><界><！>
 ```
 
-靜態輔助：`Promise<T>::all(...)`、`Promise<T>::any(...)`、`resolved(value)`、`rejected(error)`。
+---
 
-## 安裝
+### 與 C++ 標準函式庫及其他競品的對比
 
-將 `semantic.h` 與 `semantic.cpp` 複製至您的專案，或使用 CMake：
+為了幫助您更好地理解 Semantic-Cpp 的設計定位與使用場景，以下將其與 C++ 社群中幾個主流的資料處理方案進行對比。
 
-```cmake
-add_subdirectory(external/semantic-cpp)
-target_link_libraries(your_target PRIVATE semantic::semantic)
-```
+| 特性 / 函式庫 | **Semantic-Cpp** | **C++20/23 `std::ranges` + `std::views`** | **Range-v3 函式庫** | **傳統手寫迴圈** |
+| :--- | :--- | :--- | :--- | :--- |
+| **核心典範** | **宣告式、索引驅動**的串流處理。將資料抽象為「元素+邏輯索引」的管線，強調**順序控制**。 | **宣告式、視圖驅動**的函數式組合。提供適配器（`views::transform`、`views::filter`）來組合延遲計算。 | **宣告式、範圍驅動**的函數式組合。是 `std::ranges` 的藍圖與前身，功能更豐富。 | **命令式、程序化**程式設計。直接操作疊代器與容器。 |
+| **核心設計哲學** | 透過**索引**精準控制資料在管線中的邏輯位置與流動順序，實現資源最優利用。 | 提供可組合、延遲求值的**視圖適配器**，以建構高效的泛型演算法。 | 提供一套完整、可組合的**範圍演算法與視圖**，是現代 C++ 函數式程式設計的基石。 | 完全由開發者控制計算流程與狀態。 |
+| **平行支援** | **宣告式平行**。透過 `.parallel(n)` 宣告意圖，由終端操作自動觸發執行緒池平行計算，無需手動管理。 | C++17/20 提供了平行演算法（`std::for_each(std::execution::par, ...)`），但需與視圖組合使用，**非宣告式**。 | 不直接提供平行演算法，但可與 TBB、HPX 等外部平行函式庫結合。 | 需手動實現，如使用 `std::thread`、`std::async` 或平行演算法，複雜度高。 |
+| **排序與索引** | **`sorted()` 具有最高優先權**，會覆蓋所有先前的索引轉換。提供 `redirect`、`reverse` 等細緻索引操作，是核心特性。 | 提供排序演算法（`std::ranges::sort`），但它是**就地的、破壞性的**操作，會中斷視圖鏈。不提供自訂「索引」概念。 | 與 `std::ranges` 類似，排序是破壞性演算法。不提供「索引」抽象。 | 開發者需手動實現排序邏輯，並管理排序前後的資料關係。 |
+| **視窗/滑動分析** | **原生支援**。透過 `.toWindow()` 與 `.slide()`、`.tumble()` 等方法直接建構滑動/滾動視窗，是高級分析的一等公民。 | 不原生支援。需要組合多個視圖（如 C++23 的 `views::slide` 或 `views::adjacent`）並手動處理，程式碼較複雜。 | 提供 `ranges::views::slide`（C++20 前）等元件，但視窗的高級聚合與分析仍需自行組合。 | 需手寫多層巢狀迴圈與狀態管理，程式碼冗長且易錯。 |
+| **資料結構** | 明確映射到 `std::map`（有序）、`std::unordered_map`（無序）、`std::vector` 等。終端操作決定最終資料結構。 | 演算法作用於範圍，不強制指定最終容器。透過 `std::ranges::to`（C++23）或手寫程式碼將視圖結果存入容器。 | 類似 `std::ranges`，透過 `ranges::to<Container>` 將結果存入容器。 | 完全由開發者選擇與管理。 |
+| **易用性與表現力** | **高**。鏈式呼叫風格流暢，API 設計模仿 Java Stream，學習成本低。專注於「做什麼」而非「怎麼做」。 | **中等**。組合視圖非常強大，但語法（管道符 `\|`、投影 `std::identity`）對新手有一定門檻，編譯錯誤訊息可能複雜。 | **中高**。提供了最豐富的視圖與演算法，但學習曲線最陡峭。 | **低**。表達複雜的處理邏輯時，程式碼量龐大，意圖不明確，容易引入 Bug。 |
+| **效能特徵** | 在索引控制、視窗計算等場景下，透過預先定義的資料結構可提供最佳化。宣告式平行簡化了並行程式設計。 | **極致效能**。視圖的延遲組合與編譯期最佳化可產生與手寫迴圈媲美甚至更優的程式碼（如消除中間暫存）。 | 同 `std::ranges`，效能是其核心目標之一。 | **理論峰值高**。經驗豐富的開發者可以進行最極致的微調，但實作與維護成本極高。 |
+| **典型適用場景** | 1. **時序/事件串流處理**（如日誌、感測器資料）。<br>2. **需要複雜順序控制**的資料轉換。<br>3. **宣告式平行計算**。<br>4. **即時滑動視窗分析**。 | 1. **通用、高效能的容器資料轉換與過濾**。<br>2. 建構可重用的**泛型元件**。<br>3. 與現有 STL 演算法與容器生態緊密結合。 | 1. 需要 C++20 之前版本的**現代範圍函式庫功能**。<br>2. 研究與實驗**最前沿的範圍提案特性**。 | 1. 效能**臨界**，且邏輯極其簡單的場景。<br>2. 現有函式庫無法滿足的特殊底層需求。 |
+| **相依性與整合** | **零相依、單一標頭檔**。整合極其簡單。 | C++20/23 標準函式庫的一部分，無需額外相依。 | 需作為第三方函式庫整合，功能最全但增加專案相依。 | 無。 |
 
-## 編譯範例
+**總結建議：**
+- **選擇 Semantic-Cpp**：如果您的專案**強烈依賴「資料順序/索引」的精細控制**，需要進行**複雜的滑動視窗分析**，或者希望以**最小的認知負擔獲得宣告式平行**能力，Semantic-Cpp 提供了高度抽象且針對性強的解決方案。
+- **選擇 `std::ranges`**：如果您的專案已使用 C++20/23，且需求是**通用的、高效能的資料轉換與查詢**，希望與 STL 生態無縫整合，並願意接受一定的學習曲線，`std::ranges` 是最標準、未來相容性最好的選擇。
+- **選擇 Range-v3**：如果您的專案因編譯器限制無法使用 C++20，但又需要類似 `std::ranges` 的強大功能。
+- **選擇手寫迴圈**：僅在邏輯極其簡單，或對效能有極致到奈秒級的要求，且其他函式庫的抽象確實成為瓶頸時考慮。
 
-```bash
-g++ -std=c++17 -O3 -pthread examples/basic.cpp semantic.cpp -o basic && ./basic
-```
+---
 
-## 效能基準（Apple M2 Max，2024）
+## 授權與支援
+- **授權**：本專案基於 MIT 開放原始碼。
+- **問題與回饋**：如果您遇到任何錯誤或有新功能建議，歡迎在 https://github.com/eloyhere/semantic-cpp/issues 頁面提交。
+- **討論與交流**：您也可以在 https://github.com/eloyhere/semantic-cpp/discussions 發起討論。
 
-| 操作                               | Java Stream | ranges-v3 | semantic-cpp（並行） |
-|------------------------------------|-------------|-----------|----------------------|
-| 1 億整數 → 總和                    | 280 ms      | 190 ms    | **72 ms**            |
-| 1 千萬雙精度 → 滑動視窗平均        | N/A         | N/A       | **94 ms**（視窗 30，步長 10） |
-| 5 千萬整數 → toStatistics          | N/A         | N/A       | **165 ms**           |
-
-## 貢獻
-
-誠摯歡迎貢獻！目前需要關注的領域：
-
-- 額外收集器（百分位數、共變異數等）
-- 與範圍庫更好的整合
-- 可選的 SIMD 加速
-
-## 許可證
-
-MIT © Eloy Kim
-
-盡情享受真正的語義流處理於 C++！
+**Semantic-Cpp** —— 用現代 C++ 建構高效、清晰的資料處理管線。 🚀

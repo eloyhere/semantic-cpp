@@ -2259,6 +2259,26 @@ namespace semantic {
             }
             return *this;
         }
+
+        auto concatenate(Semantic<E> other) const -> Semantic<E> {
+            return Semantic<E>([other](functional::BiConsumer<E, functional::Timestamp> accept, functional::BiPredicate<E, functional::Timestamp> interrupt) -> void {
+                functional::Module count = 0LL;
+                generator([&accept, &count](E element, functional::Timestamp index) -> void {
+                    accept(element, index);
+                    count++;
+                   }, [&count, &interrupt](E element, functional::Timestamp index) -> bool {
+                        return interrupt(element, count);
+                });
+                other.source()([&accept, &count](E element, functional::Timestamp index) -> void {
+                    accept(element, index);
+                    count++;
+                }, [&count, &interrupt](E element, functional::Timestamp index) -> bool {
+                    return interrupt(element, count);
+                });
+                
+            }, this->concurrent);
+        }
+
         auto concatenate(std::vector<E> vector) const -> Semantic<E> {
             return Semantic<E>([vector = std::move(vector), generator = *(this-> generator)](functional::BiConsumer<E, functional::Timestamp> accept, functional::BiPredicate<E, functional::Timestamp> interrupt) -> void {
                 functional::Module count = 0LL;

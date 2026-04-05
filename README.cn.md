@@ -64,7 +64,7 @@ using namespace semantic;
 int main() {
     auto result = semantic::useRange(0, 10)   // 1. 创建 0 到 9 的整数流
         .map([](int x) -> int { return x * x; })    // 2. 将每个元素平方 (0,1,4,9...81)
-        .redirect([](int value, auto index) {    // 3. 索引重定向：将索引翻倍
+        .redirect([](int value, auto index) -> long long {    // 3. 索引重定向：将索引翻倍
             return index * 2;                  // 现在索引是 0,2,4,6...
         })
         .reverse()                           // 4. 逻辑反转索引 (...,6,4,2,0)

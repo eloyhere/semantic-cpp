@@ -63,9 +63,9 @@ using namespace semantic;
 
 int main() {
     auto result = semantic::useRange(0, 10)   // 1. 创建 0 到 9 的整数流
-        .map(int x { return x * x; })    // 2. 将每个元素平方 (0,1,4,9...81)
-        .redirect(int val, auto idx {    // 3. 索引重定向：将索引翻倍
-            return idx * 2;                  // 现在索引是 0,2,4,6...
+        .map([](int x) -> int { return x * x; })    // 2. 将每个元素平方 (0,1,4,9...81)
+        .redirect([](int value, auto index) {    // 3. 索引重定向：将索引翻倍
+            return index * 2;                  // 现在索引是 0,2,4,6...
         })
         .reverse()                           // 4. 逻辑反转索引 (...,6,4,2,0)
         .sorted()                            // 5. ⚠️ 强制按元素值(1,4,9...)重新排序！
@@ -89,10 +89,10 @@ int main() {
     // 1. 构建一个流处理管道，并声明希望使用4个线程并行执行。
     auto dataStream = semantic::useRange(1, 1000)
         .parallel(4)                         // 声明并行，尚未执行
-        .filter(int x -> bool {
+        .filter([](int x) -> bool {
             return x % 2 == 0;               // 过滤出偶数
         })
-        .filter(int x, auto index -> bool {
+        .filter([](int x, auto index) -> bool {
             return index < 5LL;              // 再过滤出逻辑索引小于5的元素
         });
 
@@ -186,11 +186,20 @@ int main() {
 ### 终端操作 (Terminal Actions - 产生最终结果)
 | 方法 | 描述 | 返回类型 |
 | :--- | :--- | :--- |
+| `anyMatch(predicate)` | 计算流中是否任意有一个满足条件，如果找到立即退出。 | 是否任意满足 |
+| `allMatch(predicate)` | 计算流中是否全部满足条件，如果不满足则退出。 | 是否全部满足 |
+| `noneMatch(predicate)` | 计算流中是否全部不满足条件，如果满足则退出。 | 是否全部不满足 |
+| `forEach(consumer)` | 遍历流中元素。 | 逐个遍历 |
 | `count()` | 计算流中元素的总数。 | `Module` (`unsigned long long`) |
 | `average()` | 计算数值元素的平均值。 | 元素类型的平均值（如`double`）。 |
-| `min()` / `max()` | 查找流中的最小/最大值。 | `std::optional<元素类型>` |
-| `reduce(初始值, 累加器)` | 将流归约为单个值（如求和）。 | 累加器结果的类型。 |
-| `collect(收集器)` | 使用自定义收集器进行复杂聚合。 | 收集器定义的返回类型。 |
+| `findAny()` | 随机查找元素。 | 流内部随机元素。 |
+| `findFirst()` | 查找第一个元素。 | 流内部第一个元素。 |
+| `findLast()` | 查找最后一个元素。 | 流内部最后一个元素。 |
+| `findAt(可负索引)` | 查找第n个元素，如果为负数，则为第(size+index)个元素。 | 流内部某个索引的元素。 |
+| `findMinimum()` / `findMaximum()` | 查找流中的最小/最大值。 | `std::optional<元素类型>` |
+| `reduce(accumulator)` | 将流归约为单个值（如求和）。 | 累加器结果的类型。 |
+| `reduce(identity, accumulator)` | 将流归约为单个值（如求和）。 | 累加器结果的类型。 |
+| `collect(collector)` | 使用自定义收集器进行复杂聚合。 | 收集器定义的返回类型。 |
 | `toList()` / `toVector()` | 收集所有元素到列表/向量。 | `std::vector<元素类型>` |
 | `toSet()` | 收集所有元素到集合（去重）。 | `std::set<元素类型>` |
 

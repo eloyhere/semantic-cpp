@@ -195,9 +195,6 @@ int main() {
 | `allMatch(predicate)` | 计算流中是否全部满足条件，如果不满足则退出。 | 是否全部满足 |
 | `noneMatch(predicate)` | 计算流中是否全部不满足条件，如果满足则退出。 | 是否全部不满足 |
 | `forEach(consumer)` | 遍历流中元素。 | 逐个遍历 |
-| `flat(flatten)` | 展开流中元素。 | 逐个展开后平铺 |
-| `flatMap(flatten)` | 转换展开流中元素。 | 逐个展开后平铺 |
-| `concatenate(other)` | 连接其它容器或者流中元素。 | 连接元素 |
 | `count()` | 计算流中元素的总数。 | `Module` (`unsigned long long`) |
 | `average()` | 计算数值元素的平均值。 | 元素类型的平均值（如`double`）。 |
 | `findAny()` | 随机查找元素。 | 流内部随机元素。 |

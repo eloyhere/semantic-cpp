@@ -119,7 +119,8 @@ namespace functional {
                 std::uniform_real_distribution<D> distribution(minimum, maximum);
                 return distribution(generator);
             }
-        }catch (const std::exception& exception) {
+        }
+        catch (const std::exception& exception) {
             std::cerr << exception.what() << '\n';
             return 0;
         }
@@ -131,7 +132,8 @@ namespace functional {
             static std::mt19937 generator(device());
             std::bernoulli_distribution distribution(0.5);
             return distribution(generator);
-        }catch (const std::exception& exception) {
+        }
+        catch (const std::exception& exception) {
             std::cerr << exception.what() << '\n';
         }
         return 0;
@@ -187,17 +189,19 @@ namespace pool {
                                 task = std::move(this->tasks.front());
                                 this->tasks.pop();
                             }
-                        }catch (const std::exception &exception) {
+                        }
+                        catch (const std::exception& exception) {
                             throw exception;
                         }
                     }
                     try {
                         task();
-                    }catch (const std::exception& exception) {
+                    }
+                    catch (const std::exception& exception) {
                         throw exception;
                     }
                 }
-            });
+                });
         }
 
         void decrease() {
@@ -206,7 +210,8 @@ namespace pool {
                     try {
                         std::lock_guard<std::mutex> lock(this->mutex);
                         this->tasks.emplace([] {});
-                    }catch (const std::exception& exception) {
+                    }
+                    catch (const std::exception& exception) {
                         std::cerr << exception.what() << '\n';
                     }
                 }
@@ -216,7 +221,8 @@ namespace pool {
                         this->workers.back().join();
                     }
                     this->workers.pop_back();
-                }catch (const std::exception& exception) {
+                }
+                catch (const std::exception& exception) {
                     std::cerr << exception.what() << '\n';
                 }
             }
@@ -226,7 +232,8 @@ namespace pool {
             if (!this->active.exchange(true)) {
                 try {
                     this->condition.notify_all();
-                }catch (const std::exception& exception) {
+                }
+                catch (const std::exception& exception) {
                     std::cerr << exception.what() << '\n';
                 }
             }
@@ -239,8 +246,9 @@ namespace pool {
                         std::unique_lock<std::mutex> lock(this->mutex);
                         this->condition.wait(lock, [this] {
                             return this->tasks.empty();
-                        });
-                    }catch (const std::exception& exception) {
+                            });
+                    }
+                    catch (const std::exception& exception) {
                         std::cerr << exception.what() << '\n';
                     }
                 }
@@ -251,7 +259,8 @@ namespace pool {
                             worker.join();
                         }
                     }
-                }catch (const std::exception& exception) {
+                }
+                catch (const std::exception& exception) {
                     std::cerr << exception.what() << '\n';
                 }
             }
@@ -267,7 +276,7 @@ namespace pool {
                 std::lock_guard<std::mutex> lock(this->mutex);
                 this->tasks.emplace([packaged_task]() {
                     (*packaged_task)();
-                });
+                    });
             }
             this->condition.notify_one();
             return result;
@@ -284,7 +293,7 @@ namespace pool {
                 std::lock_guard<std::mutex> lock(this->mutex);
                 this->tasks.emplace([packaged_task]() {
                     (*packaged_task)();
-                });
+                    });
             }
             this->condition.notify_one();
             return result;
@@ -341,11 +350,12 @@ namespace collector {
                     A identity = (*(this->identity))();
                     generator([&identity, this](E element, functional::Timestamp index)-> void {
                         identity = (*(this->accumulator))(identity, element, index);
-                    }, [&identity, this](E element, functional::Timestamp index)-> bool {
-                        return (*(this->interrupt))(element, index, identity);
-                    });
-                    return (*(this->finisher))(identity);
-                }catch (const std::exception& exception) {
+                        }, [&identity, this](E element, functional::Timestamp index)-> bool {
+                            return (*(this->interrupt))(element, index, identity);
+                            });
+                        return (*(this->finisher))(identity);
+                }
+                catch (const std::exception& exception) {
                     throw exception;
                 }
             }
@@ -363,10 +373,11 @@ namespace collector {
                                 return (*(this->interrupt))(element, index, identity);
                                 });
                             return identity;
-                    }catch (const std::exception& exception) {
+                    }
+                    catch (const std::exception& exception) {
                         throw exception;
                     }
-                }));
+                    }));
             }
             A identity = (*(this->identity))();
             for (std::future<A>& future : futures) {
@@ -388,7 +399,8 @@ namespace collector {
                         index++;
                     }
                     return (*(this->finisher))(identity);
-                }catch (const std::exception& exception) {
+                }
+                catch (const std::exception& exception) {
                     std::cerr << exception.what() << '\n';
                 }
             }
@@ -408,7 +420,7 @@ namespace collector {
                         index++;
                     }
                     return identity;
-                }));
+                    }));
             }
             A identity = (*(this->identity))();
             for (std::future<A>& future : futures) {
@@ -430,7 +442,8 @@ namespace collector {
                         index++;
                     }
                     return (*(this->finisher))(identity);
-                }catch (const std::exception& exception) {
+                }
+                catch (const std::exception& exception) {
                     throw exception;
                 }
             }
@@ -451,10 +464,11 @@ namespace collector {
                             index++;
                         }
                         return identity;
-                    }catch (const std::exception& exception) {
+                    }
+                    catch (const std::exception& exception) {
                         throw exception;
                     }
-                }));
+                    }));
             }
             A identity = (*(this->identity))();
             for (std::future<A>& future : futures) {
@@ -463,7 +477,7 @@ namespace collector {
             return (*(this->finisher))(identity);
         }
 
-        auto collect(const std::unordered_set<E>& container, const functional::Module& concurrent) const -> R{
+        auto collect(const std::unordered_set<E>& container, const functional::Module& concurrent) const -> R {
             if (concurrent < 2) {
                 try {
                     A identity = (*(this->identity))();
@@ -476,7 +490,8 @@ namespace collector {
                         index++;
                     }
                     return (*(this->finisher))(identity);
-                }catch (const std::exception& exception) {
+                }
+                catch (const std::exception& exception) {
                     throw exception;
                 }
             }
@@ -497,10 +512,11 @@ namespace collector {
                             index++;
                         }
                         return identity;
-                    }catch (const std::exception& exception) {
+                    }
+                    catch (const std::exception& exception) {
                         throw exception;
                     }
-                }));
+                    }));
             }
             A identity = (*(this->identity))();
             for (std::future<A>& future : futures) {
@@ -509,7 +525,7 @@ namespace collector {
             return (*(this->finisher))(identity);
         }
 
-        auto collect(const std::list<E>& container, const functional::Module& concurrent) const -> R{
+        auto collect(const std::list<E>& container, const functional::Module& concurrent) const -> R {
             if (concurrent < 2) {
                 try {
                     A identity = (*(this->identity))();
@@ -552,7 +568,7 @@ namespace collector {
             return (*(this->finisher))(identity);
         }
 
-        auto collect(const std::initializer_list<E>& container, const functional::Module& concurrent) const -> R{
+        auto collect(const std::initializer_list<E>& container, const functional::Module& concurrent) const -> R {
             if (concurrent < 2) {
                 try {
                     A identity = (*(this->identity))();
@@ -601,7 +617,7 @@ namespace collector {
     auto useFull(const Identity<A>& identity, const Accumulator<A, E>& accumulator, const Combiner<A>& combiner, const Finisher<A, R>& finisher) -> Collector<E, A, R> {
         const Interrupt<E, A>& interrupt = [](const E element, const functional::Timestamp& index, const A& accumulator)-> bool {
             return false;
-        };
+            };
         return  Collector<E, A, R>(identity, interrupt, accumulator, combiner, finisher);
     }
 
@@ -611,7 +627,7 @@ namespace collector {
     }
 
     template<typename E, typename Predicate>
-    auto useAllMatch(Predicate &&predicate) -> Collector<E, bool, bool> {
+    auto useAllMatch(Predicate&& predicate) -> Collector<E, bool, bool> {
         return useShortable<E, bool, bool>(
             []()->bool {
                 return true;
@@ -650,7 +666,7 @@ namespace collector {
                 if constexpr (std::is_invocable_r_v<bool, Predicate, E, functional::Timestamp>) {
                     return accumulator || std::invoke(predicate, element, index);
                 }
-                else if (std::is_invocable_r_v<bool, Predicate, E>) {
+                else if constexpr (std::is_invocable_r_v<bool, Predicate, E>) {
                     return accumulator || std::invoke(predicate, element);
                 }
                 return false;
@@ -677,7 +693,7 @@ namespace collector {
                 if constexpr (std::is_invocable_r_v<bool, Predicate, E, functional::Timestamp>) {
                     return accumulator && !std::invoke(predicate, element, index);
                 }
-                else if (std::is_invocable_r_v<bool, Predicate, E>) {
+                else if constexpr (std::is_invocable_r_v<bool, Predicate, E>) {
                     return accumulator && !std::invoke(predicate, element);
                 }
                 return false;
@@ -702,7 +718,7 @@ namespace collector {
                     std::invoke(consumer, element, index);
                     return accumulator + 1;
                 }
-                else if (std::is_invocable_r_v<void, Consumer, E>) {
+                else if constexpr (std::is_invocable_r_v<void, Consumer, E>) {
                     std::invoke(consumer, element);
                     return accumulator + 1;
                 }
@@ -749,21 +765,60 @@ namespace collector {
     template<typename E>
     auto useError() -> Collector<E, std::string, std::string> {
         return useFull<E, std::string, std::string>(
-            []()->std::string {
+            []()-> std::string {
                 return "";
             },
             [](std::string accumulator, E element, functional::Timestamp index)-> std::string {
-                if (accumulator.length() > 1) {
-                    return accumulator + "," + std::to_string(element);
+                if constexpr (std::is_same_v<E, std::string>) {
+                    if (accumulator.length() > 0) {
+                        return accumulator + "," + element;
+                    }
+                    return element;
                 }
-                return std::to_string(element);
+                else {
+                    if (accumulator.length() > 0) {
+                        return accumulator + "," + std::to_string(element);
+                    }
+                    return std::to_string(element);
+                }
             },
             [](std::string a, std::string b)-> std::string {
                 return a + "," + b;
             },
             [](std::string accumulator)-> std::string {
                 std::string result = "[" + accumulator + "]";
-                std::cerr << result << std::endl;
+                std::cerr << result << '\n';
+                return result;
+            }
+        );
+    }
+
+    template<typename E>
+    auto useError(const std::string& delimiter) -> Collector<E, std::string, std::string> {
+        return useFull<E, std::string, std::string>(
+            []()-> std::string {
+                return "";
+            },
+            [delimiter](std::string accumulator, E element, functional::Timestamp index)-> std::string {
+                if constexpr (std::is_same_v<E, std::string>) {
+                    if (accumulator.length() > 0) {
+                        return accumulator + delimiter + element;
+                    }
+                    return element;
+                }
+                else {
+                    if (accumulator.length() > 0) {
+                        return accumulator + delimiter + std::to_string(element);
+                    }
+                    return std::to_string(element);
+                }
+            },
+            [](std::string a, std::string b)-> std::string {
+                return a + "," + b;
+            },
+            [](std::string accumulator)-> std::string {
+                std::string result = "[" + accumulator + "]";
+                std::cerr << result << '\n';
                 return result;
             }
         );
@@ -776,55 +831,25 @@ namespace collector {
                 return "";
             },
             [delimiter](std::string accumulator, E element, functional::Timestamp index)-> std::string {
-                if (accumulator.size() > prefix.size()) {
-                    return accumulator + delimiter + std::to_string(element);
+                if constexpr (std::is_same_v<E, std::string>) {
+                    if (accumulator.length() > 1) {
+                        return accumulator + delimiter + element;
+                    }
+                    return element;
                 }
-                return std::to_string(element);
+                else {
+                    if (accumulator.length() > 1) {
+                        return accumulator + delimiter + std::to_string(element);
+                    }
+                    return std::to_string(element);
+                }
             },
             [delimiter](std::string a, std::string b)-> std::string {
                 return a + delimiter + b;
             },
             [prefix, suffix](std::string accumulator)-> std::string {
                 std::string result = accumulator + suffix;
-                std::cerr << result << std::endl;
-                return result;
-            }
-        );
-    }
-
-    template<typename E, typename Concatenate>
-    auto useError(const std::string& prefix, Concatenate && concatenate, const std::string suffix, const functional::BiFunction<std::string, std::string, std::string>& combiner) -> Collector<E, std::string, std::string> {
-        return useFull<E, std::string, std::string>(
-            []()->std::string {
-                return "";
-            },
-            [concatenate](std::string accumulator, E element, functional::Timestamp index)-> std::string {
-                if constexpr (std::is_invocable_r_v<std::string, Concatenate, std::string, E, functional::Timestamp>) {
-                    if (accumulator.size() > 0) {
-                        return accumulator + std::invoke(accumulator, concatenate, element, index);
-                    }
-                    return std::invoke(accumulator, concatenate, element, index);
-                }
-                else if (std::is_invocable_r_v<std::string, Concatenate, E, functional::Timestamp>) {
-                    if (accumulator.size() > 0) {
-                        return accumulator + std::invoke(concatenate, element, index);
-                    }
-                    return std::invoke(concatenate, element, index);
-                }
-                else if (std::is_invocable_r_v<std::string, Concatenate, E>) {
-                    if (accumulator.size() > 0) {
-                        return accumulator + std::invoke(concatenate, element);
-                    }
-                    return std::invoke(concatenate, element);
-                }
-                return accumulator;
-            },
-            [combiner](std::string a, std::string b)-> std::string {
-                return combiner(a, b);
-            },
-            [prefix, suffix](std::string accumulator)-> std::string {
-                std::string result = accumulator + suffix;
-                std::cerr << result << std::endl;
+                std::cerr << result << '\n';
                 return result;
             }
         );
@@ -861,56 +886,63 @@ namespace collector {
     }
 
     template<typename E>
-    auto useFindAt(const functional::Timestamp& index) -> Collector<E, std::vector<E>, std::optional<E>> {
-        if (index < 0) {
-            return useFull<E, std::vector<E>, std::optional<E>>(
-                []()->std::vector<E> {
-                    return std::vector<E>();
-                },
-                [](std::vector<E> accumulator, E element, functional::Timestamp index)-> std::vector<E> {
-                    accumulator.push_back(element);
-                    return accumulator;
-                },
-                [](std::vector<E> a, std::vector<E> b)->std::vector<E> {
-                    for (const E& element : b) {
-                        a.push_back(element);
-                    }
-                    return a;
-                },
-                [index](std::vector<E> accumulator)-> std::optional<E> {
-                    if (accumulator.empty()) {
-                        return std::nullopt;
-                    }
-                    functional::Timestamp target = accumulator.size() - (std::abs(index) % accumulator.size());
-                    return std::optional<E>(accumulator[target]);
-                }
-            );
+    auto useFindAt(const functional::Timestamp& index) -> Collector<E, std::optional<E>, std::optional<E>> {
+        if (index < 0LL) {
+            throw "use \"useFindNegativeAt\" for negative index.";
         }
-        return useShortable<E, std::vector<E>, std::optional<E>>(
-            []()->std::vector<E> {
-                return std::vector<E>();
+        const functional::Timestamp target = index;
+        return useShortable < E, std::optional<E>, std::optional<E>>(
+            []()-> std::optional<E> {
+                return std::nullopt;
             },
-            [](E element, functional::Timestamp index, std::vector<E> accumulator)-> bool {
-                return accumulator.size() - 1 == index;
+            [](E element, functional::Timestamp index, std::optional<E> accumulator)-> bool {
+                return accumulator.has_value();
+            },
+            [](std::optional<E> accumulator, E element, functional::Timestamp index)-> std::optional<E> {
+                if (target == index) {
+                    return std::optional<E>(element);
+                }
+                return accumulator;
+            },
+            [](std::optional<E> a, std::optional<E> b)-> std::optional<E> {
+                if (a.has_value()) {
+                    return a;
+                }
+                if (b.has_value()) {
+                    return b;
+                }
+                return std::nullopt;
+            },
+            [](std::optional<E> accumulator)-> std::optional<E> {
+                return accumulator;
+            });
+    }
+
+    template<typename E>
+    auto useFindNegativeAt(const functional::Timestamp& index) -> Collector<E, std::vector<E>, std::optional<E>> {
+        if (index > -1LL) {
+            throw "use \"useFindAt\" for none-negative index.";
+        }
+        return useFull<E, std::vector<E>, std::optional<E>>(
+            []()-> std::vector<E> {
+                return std::vector<E>();
             },
             [](std::vector<E> accumulator, E element, functional::Timestamp index)-> std::vector<E> {
                 accumulator.push_back(element);
                 return accumulator;
             },
-            [](std::vector<E> a, std::vector<E> b)->std::vector<E> {
-                for (const E& element : b) {
-                    a.push_back(element);
+            [](std::vector<E> a, std::vector<E> b)-> std::vector<E> {
+                if (a.has_value()) {
+                    return a;
                 }
-                return a;
+                if (b.has_value()) {
+                    return b;
+                }
+                return std::nullopt;
             },
-            [index](std::vector<E> accumulator)-> std::optional<E> {
-                if (accumulator.empty()) {
-                    return std::nullopt;
-                }
-                functional::Timestamp target = ((index % accumulator.size()) + accumulator.size()) % accumulator.size();
-                return std::optional<E>(accumulator[target]);
-            }
-        );
+            [](std::optional<E> accumulator)-> std::optional<E> {
+                return accumulator;
+            });
     }
 
     template<typename E>
@@ -1116,21 +1148,35 @@ namespace collector {
             });
     }
 
-    template<typename E, typename K>
-    auto useGroup(const functional::BiFunction<E, functional::Timestamp, K>& keyExtractor) -> Collector<E, std::unordered_map<K, std::vector<E>>, std::unordered_map<K, std::vector<E>>> {
+    template<typename E, typename K, typename KeyExtractor>
+    auto useGroup(KeyExtractor &&keyExtractor) -> Collector<E, std::unordered_map<K, std::vector<E>>, std::unordered_map<K, std::vector<E>>> {
         return useFull<E, std::unordered_map<K, std::vector<E>>, std::unordered_map<K, std::vector<E>>>(
             []()->std::unordered_map<K, std::vector<E>> {
                 return std::unordered_map<K, std::vector<E>>();
             },
             [keyExtractor](std::unordered_map<K, std::vector<E>> accumulator, E element, functional::Timestamp index)-> std::unordered_map<K, std::vector<E>> {
-                K key = keyExtractor(element, index);
-                if (accumulator.contains(key)) {
-                    accumulator[key].push_back(element);
+                if constexpr (std::is_invocable_r_v<K, KeyExtractor, E, functional::Timestamp>) {
+                    K key = std::invoke(keyExtractor, element, index);
+                    if (accumulator.contains(key)) {
+                        accumulator[key].push_back(element);
+                        return accumulator;
+                    }
+                    std::vector<E> group;
+                    group.push_back(element);
+                    accumulator.insert(std::pair<K, std::vector<E>>(key, group));
                     return accumulator;
                 }
-                std::vector<E> group;
-                group.push_back(element);
-                accumulator.insert(std::pair<K, std::vector<E>>(key, group));
+                else if constexpr (std::is_invocable_r_v<K, KeyExtractor, E>) {
+                    K key = std::invoke(keyExtractor, element);
+                    if (accumulator.contains(key)) {
+                        accumulator[key].push_back(element);
+                        return accumulator;
+                    }
+                    std::vector<E> group;
+                    group.push_back(element);
+                    accumulator.insert(std::pair<K, std::vector<E>>(key, group));
+                    return accumulator;
+                }
                 return accumulator;
             },
             [](std::unordered_map<K, std::vector<E>> a, std::unordered_map<K, std::vector<E>> b)-> std::unordered_map<K, std::vector<E>> {
@@ -1153,22 +1199,37 @@ namespace collector {
         );
     }
 
-    template<typename E, typename K, typename V>
-    auto useGroupBy(const functional::BiFunction<E, functional::Timestamp, K>& keyExtractor, const functional::BiFunction<E, functional::Timestamp, V>& valueExtractor) -> Collector<E, std::unordered_map<K, std::vector<V>>, std::unordered_map<K, std::vector<V>>> {
+    template<typename E, typename K, typename V, typename KeyExtractor, typename ValueExtractor>
+    auto useGroupBy(KeyExtractor &&keyExtractor, ValueExtractor &&valueExtractor) -> Collector<E, std::unordered_map<K, std::vector<V>>, std::unordered_map<K, std::vector<V>>> {
         return useFull<E, std::unordered_map<K, E>, std::unordered_map<K, std::vector<E>>>(
             []()->std::unordered_map<K, E> {
                 return std::unordered_map<K, E>();
             },
             [keyExtractor, valueExtractor](std::unordered_map<K, std::vector<V>> accumulator, E element, functional::Timestamp index)-> std::unordered_map<K, std::vector<V>> {
-                K key = keyExtractor(element, index);
-                V value = valueExtractor(element, index);
-                if (accumulator.contains(key)) {
-                    accumulator[key].push_back(value);
+                if constexpr (std::is_invocable_r_v<K, KeyExtractor, E, functional::Timestamp> && std::is_invocable_r_v<V, ValueExtractor, E, functional::Timestamp>) {
+                    K key = std::invoke(keyExtractor, element, index);
+                    V value = std::invoke(valueExtractor, element, index);
+                    if (accumulator.contains(key)) {
+                        accumulator[key].push_back(value);
+                        return accumulator;
+                    }
+                    std::vector<E> group;
+                    group.push_back(value);
+                    accumulator.insert(std::pair<K, std::vector<E>>(key, group));
                     return accumulator;
                 }
-                std::vector<E> group();
-                group.push_back(value);
-                accumulator[key] = group;
+                else if constexpr (std::is_invocable_r_v<K, KeyExtractor, E> && std::is_invocable_r_v<V, ValueExtractor, E>) {
+                    K key = std::invoke(keyExtractor, element, index);
+                    V value = std::invoke(valueExtractor, element, index);
+                    if (accumulator.contains(key)) {
+                        accumulator[key].push_back(value);
+                        return accumulator;
+                    }
+                    std::vector<E> group;
+                    group.push_back(value);
+                    accumulator.insert(std::pair<K, std::vector<E>>(key, group));
+                    return accumulator;
+                }
                 return accumulator;
             },
             [](std::unordered_map<K, std::vector<V>> a, std::unordered_map<K, std::vector<V>> b)-> std::unordered_map<K, std::vector<V>> {
@@ -1199,14 +1260,43 @@ namespace collector {
             },
             [](std::string accumulator, E element, functional::Timestamp index)-> std::string {
                 if constexpr (std::is_same_v<E, std::string>) {
-                    if (accumulator.length() > 1) {
+                    if (accumulator.length() > 0) {
                         return accumulator + "," + element;
                     }
                     return element;
                 }
                 else {
-                    if (accumulator.length() > 1) {
+                    if (accumulator.length() > 0) {
                         return accumulator + "," + std::to_string(element);
+                    }
+                    return std::to_string(element);
+                }
+            },
+            [](std::string a, std::string b)-> std::string {
+                return a + "," + b;
+            },
+            [](std::string accumulator)-> std::string {
+                return "[" + accumulator + "]";
+            }
+        );
+    }
+
+    template<typename E>
+    auto useJoin(const std::string& delimiter) -> Collector<E, std::string, std::string> {
+        return useFull<E, std::string, std::string>(
+            []()-> std::string {
+                return "";
+            },
+            [delimiter](std::string accumulator, E element, functional::Timestamp index)-> std::string {
+                if constexpr (std::is_same_v<E, std::string>) {
+                    if (accumulator.length() > 0) {
+                        return accumulator + delimiter + element;
+                    }
+                    return element;
+                }
+                else {
+                    if (accumulator.length() > 0) {
+                        return accumulator + delimiter + std::to_string(element);
                     }
                     return std::to_string(element);
                 }
@@ -1228,13 +1318,13 @@ namespace collector {
             },
             [delimiter](std::string accumulator, E element, functional::Timestamp index)-> std::string {
                 if constexpr (std::is_same_v<E, std::string>) {
-                    if (accumulator.length() > 1) {
+                    if (accumulator.length() > 0) {
                         return accumulator + delimiter + element;
                     }
                     return element;
                 }
                 else {
-                    if (accumulator.length() > 1) {
+                    if (accumulator.length() > 0) {
                         return accumulator + delimiter + std::to_string(element);
                     }
                     return std::to_string(element);
@@ -1250,43 +1340,20 @@ namespace collector {
     }
 
     template<typename E>
-    auto useJoin(const std::string& prefix, const Accumulator<std::string, E>& serializer, const std::string suffix, const functional::BiFunction<std::string, std::string, std::string>& combiner) -> Collector<E, std::string, std::string> {
-        return useFull<E, std::string, std::string>(
-            []()->std::string {
-                return "";
-            },
-            [serializer](std::string accumulator, E element, functional::Timestamp index)-> std::string {
-                if (accumulator.length() > 0) {
-                    return accumulator + serializer(accumulator, element, index);
-                }
-                return serializer(accumulator, element, index);
-            },
-            [combiner](std::string a, std::string b)-> std::string {
-                return combiner(a, b);
-            },
-            [prefix, suffix](std::string accumulator)-> std::string {
-                std::string result = accumulator + suffix;
-                std::cerr << result << std::endl;
-                return result;
-            }
-        );
-    }
-
-    template<typename E>
     auto useOut() -> Collector<E, std::string, std::string> {
         return useFull<E, std::string, std::string>(
-            []()->std::string {
+            []()-> std::string {
                 return "";
             },
             [](std::string accumulator, E element, functional::Timestamp index)-> std::string {
                 if constexpr (std::is_same_v<E, std::string>) {
-                    if (accumulator.length() > 1) {
+                    if (accumulator.length() > 0) {
                         return accumulator + "," + element;
                     }
                     return element;
                 }
                 else {
-                    if (accumulator.length() > 1) {
+                    if (accumulator.length() > 0) {
                         return accumulator + "," + std::to_string(element);
                     }
                     return std::to_string(element);
@@ -1297,7 +1364,38 @@ namespace collector {
             },
             [](std::string accumulator)-> std::string {
                 std::string result = "[" + accumulator + "]";
-                std::cerr << result << std::endl;
+                std::cout << result << '\n';
+                return result;
+            }
+        );
+    }
+
+    template<typename E>
+    auto useOut(const std::string& delimiter) -> Collector<E, std::string, std::string> {
+        return useFull<E, std::string, std::string>(
+            []()-> std::string {
+                return "";
+            },
+            [delimiter](std::string accumulator, E element, functional::Timestamp index)-> std::string {
+                if constexpr (std::is_same_v<E, std::string>) {
+                    if (accumulator.length() > 0) {
+                        return accumulator + delimiter + element;
+                    }
+                    return element;
+                }
+                else {
+                    if (accumulator.length() > 0) {
+                        return accumulator + delimiter + std::to_string(element);
+                    }
+                    return std::to_string(element);
+                }
+            },
+            [](std::string a, std::string b)-> std::string {
+                return a + "," + b;
+            },
+            [](std::string accumulator)-> std::string {
+                std::string result = "[" + accumulator + "]";
+                std::cout << result << '\n';
                 return result;
             }
         );
@@ -1328,30 +1426,7 @@ namespace collector {
             },
             [prefix, suffix](std::string accumulator)-> std::string {
                 std::string result = accumulator + suffix;
-                std::cerr << result << std::endl;
-                return result;
-            }
-        );
-    }
-
-    template<typename E>
-    auto useOut(const std::string& prefix, const Accumulator<std::string, E>& serializer, const std::string suffix, const functional::BiFunction<std::string, std::string, std::string>& combiner) -> Collector<E, std::string, std::string> {
-        return useFull<E, std::string, std::string>(
-            []()->std::string {
-                return "";
-            },
-            [serializer](std::string accumulator, E element, functional::Timestamp index)-> std::string {
-                if (accumulator.length() > 0) {
-                    return accumulator + serializer(accumulator, element, index);
-                }
-                return serializer(accumulator, element, index);
-            },
-            [combiner](std::string a, std::string b)-> std::string {
-                return combiner(a, b);
-            },
-            [prefix, suffix](std::string accumulator)-> std::string {
-                std::string result = accumulator + suffix;
-                std::cerr << result << std::endl;
+                std::cout << result << '\n';
                 return result;
             }
         );
@@ -1360,7 +1435,7 @@ namespace collector {
     template<typename E>
     auto usePartition(const functional::Module& size) -> Collector<E, std::vector<std::vector<E>>, std::vector<std::vector<E>>> {
         return useFull<E, std::vector<std::vector<E>>, std::vector<std::vector<E>>>(
-            [size]()-> std::vector<std::vector<E>> {
+            []()-> std::vector<std::vector<E>> {
                 return std::vector<std::vector<E>>();
             },
             [size](std::vector<std::vector<E>> accumulator, E element, functional::Timestamp index)-> std::vector<std::vector<E>> {
@@ -1411,15 +1486,23 @@ namespace collector {
         );
     }
 
-    template<typename E>
-    auto usePartitionBy(const functional::BiFunction<E, functional::Timestamp, functional::Timestamp>& keyExtractor) {
-        return useFull<E, std::map<functional::Timestamp, std::vector<E>>, std::vector<std::vector<E>>> -> Collector<E, std::map<functional::Timestamp, std::vector<E>>, std::vector<std::vector<E>>>(
+    template<typename E, typename KeyExtractor>
+    auto usePartitionBy(KeyExtractor &&keyExtractor) -> Collector<E, std::map<functional::Timestamp, std::vector<E>>, std::vector<std::vector<E>>> {
+        return useFull<E, std::map<functional::Timestamp, std::vector<E>>, std::vector<std::vector<E>>>(
             []()-> std::map<functional::Timestamp, std::vector<E>> {
                 return std::map<functional::Timestamp, std::vector<E>>();
             },
             [keyExtractor](std::map<functional::Timestamp, std::vector<E>> accumulator, E element, functional::Timestamp index)-> std::map<functional::Timestamp, std::vector<E>> {
-                functional::Timestamp key = keyExtractor(element, index);
-                accumulator[key].push_back(element);
+                if constexpr (std::is_invocable_r_v<functional::Timestamp, KeyExtractor, E, functional::Timestamp>) {
+                    functional::Timestamp key =  std::invoke(keyExtractor, element, index);
+                    accumulator[key].push_back(element);
+                    return accumulator;
+                }
+                else if constexpr (std::is_invocable_r_v<functional::Timestamp, KeyExtractor, E>) {
+                    functional::Timestamp key = std::invoke(keyExtractor, element);
+                    accumulator[key].push_back(element);
+                    return accumulator;
+                }
                 return accumulator;
             },
             [](std::map<functional::Timestamp, std::vector<E>> a, std::map<functional::Timestamp, std::vector<E>> b)-> std::map<functional::Timestamp, std::vector<E>> {
@@ -1441,9 +1524,49 @@ namespace collector {
         );
     }
 
+    template<typename E, typename V, typename KeyExtractor, typename ValueExtractor>
+    auto usePartitionBy(KeyExtractor&& keyExtractor, ValueExtractor valueExtractor) -> Collector<E, std::map<functional::Timestamp, std::vector<V>>, std::vector<std::vector<V>>>{
+        return useFull<E, std::map<functional::Timestamp, std::vector<V>>, std::vector<std::vector<V>>>(
+            []()-> std::map<functional::Timestamp, std::vector<V>> {
+                return std::map<functional::Timestamp, std::vector<V>>();
+            },
+            [keyExtractor, valueExtractor](std::map<functional::Timestamp, std::vector<V>> accumulator, E element, functional::Timestamp index)-> std::map<functional::Timestamp, std::vector<V>> {
+                if constexpr (std::is_invocable_r_v<functional::Timestamp, KeyExtractor, E, functional::Timestamp> && std::is_invocable_r_v<V, ValueExtractor, E, functional::Timestamp>) {
+                    functional::Timestamp key = std::invoke(keyExtractor, element, index);
+                    V value = std::invoke(valueExtractor, element, index);
+                    accumulator[key].push_back(value);
+                    return accumulator;
+                }
+                else if constexpr (std::is_invocable_r_v<functional::Timestamp, KeyExtractor, E> && std::is_invocable_r_v<V, ValueExtractor, E, functional::Timestamp>) {
+                    functional::Timestamp key = std::invoke(keyExtractor, element);
+                    V value = std::invoke(valueExtractor, element);
+                    accumulator[key].push_back(value);
+                    return accumulator;
+                }
+                return accumulator;
+            },
+            [](std::map<functional::Timestamp, std::vector<V>> a, std::map<functional::Timestamp, std::vector<V>> b)-> std::map<functional::Timestamp, std::vector<V>> {
+                for (auto& [key, vec] : b) {
+                    for (V element : vec) {
+                        a[key].push_back(std::move(element));
+                    }
+                }
+                return a;
+            },
+            [](std::map<functional::Timestamp, std::vector<V>> accumulator)-> std::vector<std::vector<V>> {
+                std::vector<std::vector<V>> result;
+                result.reserve(accumulator.size());
+                for (auto& [key, vector] : accumulator) {
+                    result.push_back(std::move(vector));
+                }
+                return result;
+            }
+        );
+    }
+
     template<typename E>
-    auto useReduce(const functional::BiFunction<E, E, E>& reducer) {
-        return useFull<E, std::optional<E>, std::optional<E>> -> Collector<E, std::optional<E>, std::optional<E>>(
+    auto useReduce(const functional::BiFunction<E, E, E>& reducer)  -> Collector<E, std::optional<E>, std::optional<E>>{
+        return useFull<E, std::optional<E>, std::optional<E>>->Collector<E, std::optional<E>, std::optional<E>>(
             []()-> std::optional<E> {
                 return std::nullopt;
             },
@@ -1500,15 +1623,23 @@ namespace collector {
         );
     }
 
-    template<typename E, typename K>
-    auto useToMap(const functional::BiFunction<E, functional::Timestamp, K>& keyExtractor) -> Collector<E, std::map<K, E>, std::map<K, E>> {
+    template<typename E, typename K, typename KeyExtractor>
+    auto useToMap(KeyExtractor&& keyExtractor) -> Collector<E, std::map<K, E>, std::map<K, E>> {
         return useFull<E, std::map<K, E>, std::map<K, E>>(
             []()-> std::map<K, E> {
                 return std::map<K, E>();
             },
             [keyExtractor](std::map<K, E> accumulator, E element, functional::Timestamp index)-> std::map<K, E> {
-                K key = keyExtractor(element, index);
-                accumulator[key] = element;
+                if constexpr (std::is_invocable_r_v<K, KeyExtractor, E, functional::Timestamp>) {
+                    K key = std::invoke(keyExtractor, element, index);
+                    accumulator[key] = element;
+                    return accumulator;
+                }
+                else if constexpr (std::is_invocable_r_v<K, KeyExtractor, E>) {
+                    K key = std::invoke(keyExtractor, element);
+                    accumulator[key] = element;
+                    return accumulator;
+                }
                 return accumulator;
             },
             [](std::map<K, E> a, std::map<K, E> b)-> std::map<K, E> {
@@ -1523,16 +1654,25 @@ namespace collector {
         );
     }
 
-    template<typename E, typename K, typename V>
-    auto useToMap(const functional::BiFunction<E, functional::Timestamp, K>& keyExtractor, const functional::BiFunction<E, functional::Timestamp, V>& valueExtractor) -> Collector<E, std::map<K, V>, std::map<K, V>> {
+    template<typename E, typename K, typename V, typename KeyExtractor, typename ValueExtractor>
+    auto useToMap(KeyExtractor&& keyExtractor, ValueExtractor&& valueExtractor) -> Collector<E, std::map<K, V>, std::map<K, V>> {
         return useFull<E, std::map<K, V>, std::map<K, V>>(
             []()-> std::map<K, V> {
                 return std::map<K, V>();
             },
             [keyExtractor, valueExtractor](std::map<K, V> accumulator, E element, functional::Timestamp index)-> std::map<K, V> {
-                K key = keyExtractor(element, index);
-                V value = valueExtractor(element, index);
-                accumulator[key] = value;
+                if constexpr (std::is_invocable_r_v<K, KeyExtractor, E, functional::Timestamp> && std::is_invocable_r_v<V, ValueExtractor, E, functional::Timestamp>) {
+                    K key = std::invoke(keyExtractor, element, index);
+                    V value = std::invoke(valueExtractor, element, index);
+                    accumulator[key] = value;
+                    return accumulator;
+                }
+                else if constexpr (std::is_invocable_r_v<K, KeyExtractor, E> && std::is_invocable_r_v<V, ValueExtractor, E>) {
+                    K key = std::invoke(keyExtractor, element);
+                    V value = std::invoke(valueExtractor, element);
+                    accumulator[key] = value;
+                    return accumulator;
+                }
                 return accumulator;
             },
             [](std::map<K, V> a, std::map<K, V> b)-> std::map<K, V> {
@@ -1803,7 +1943,7 @@ namespace collector {
 
     template<typename E, typename D>
     auto useFrequency(const functional::Function<E, D>& mapper) {
-        return useFull<E, std::map<D, functional::Module>, std::map<D, functional::Module>> -> Collector<E, std::map<D, functional::Module>, std::map<D, functional::Module>>(
+        return useFull<E, std::map<D, functional::Module>, std::map<D, functional::Module>>->Collector<E, std::map<D, functional::Module>, std::map<D, functional::Module>>(
             []()-> std::map<D, functional::Module> {
                 return std::map<D, functional::Module>();
             },
@@ -1834,13 +1974,15 @@ namespace collectable {
     public:
         Collectable(const functional::Module& concurrent) : concurrent(concurrent) {}
 
-        auto anyMatch(const functional::BiPredicate<E, functional::Timestamp>& predicate) const -> bool {
-            collector::Collector<E, bool, bool> collector = collector::useAnyMatch<E>(predicate);
+        template <typename Predicate>
+        auto anyMatch(Predicate &&predicate) const -> bool {
+            collector::Collector<E, bool, bool> collector = collector::useAnyMatch<E, Predicate>(std::forward<Predicate>(predicate));
             return collector.collect(this->source(), this->concurrent);
         }
 
-        auto allMatch(const functional::BiPredicate<E, functional::Timestamp>& predicate) const -> bool{
-            collector::Collector<E, bool, bool> collector = collector::useAllMatch<E>(predicate);
+        template <typename Predicate>
+        auto allMatch(Predicate&& predicate) const -> bool {
+            collector::Collector<E, bool, bool> collector = collector::useAllMatch<E, Predicate>(std::forward<Predicate>(predicate));
             return collector.collect(this->source(), this->concurrent);
         }
 
@@ -1863,21 +2005,21 @@ namespace collectable {
 
         auto error() const -> void {
             collector::Collector<E, std::string, std::string> collector = collector::useError<E>();
-            return collector.collect(this->source(), this->concurrent);
+            collector.collect(this->source(), this->concurrent);
+        }
+
+        auto error(const std::string &delimiter) const -> void {
+            collector::Collector<E, std::string, std::string> collector = collector::useError<E>(delimiter);
+            collector.collect(this->source(), this->concurrent);
         }
 
         auto error(const std::string& prefix, const std::string& delimiter, const std::string& suffix) const -> void {
             collector::Collector<E, std::string, std::string> collector = collector::useError(prefix, delimiter, suffix);
-            return collector.collect(this->source(), this->concurrent);
+            collector.collect(this->source(), this->concurrent);
         }
 
-        auto error(const std::string& prefix, const functional::BiFunction<std::string, E, std::string>& serializer, const std::string& suffix, const functional::BiFunction<std::string, std::string, std::string>& combiner) const -> void {
-            collector::Collector<E, std::string, std::string> collector = collector::useError(prefix, serializer, suffix, combiner);
-            return collector.collect(this->source(), this->concurrent);
-        }
-
-        auto empty() const  -> bool {
-            collector::Collector<E, functional::Module, functional::Module> collector = collector::useCount();
+        auto empty() const -> bool {
+            collector::Collector<E, functional::Module, functional::Module> collector = collector::useCount<E>();
             return collector.collect(this->source(), this->concurrent) == 0;
         }
 
@@ -1887,7 +2029,7 @@ namespace collectable {
         }
 
         auto findAt(const functional::Timestamp& index) const -> std::optional<E> {
-            collector::Collector<E, std::optional<E>, std::optional<E>> collector = collector::useFindAt(index);
+            collector::Collector<E, std::optional<E>, std::optional<E>> collector = collector::useFindAt<E>(index);
             return collector.collect(this->source(), this->concurrent);
         }
 
@@ -1906,35 +2048,36 @@ namespace collectable {
             return collector.collect(this->source(), this->concurrent);
         }
 
-        auto findMaximum(const functional::Comparator<E> &comparator) const -> std::optional<E> {
+        auto findMaximum(const functional::Comparator<E>& comparator) const -> std::optional<E> {
             collector::Collector<E, std::optional<E>, std::optional<E>> collector = collector::useFindMaximum<E>(comparator);
             return collector.collect(this->source(), this->concurrent);
         }
 
         auto findMinimum() const -> std::optional<E> {
-            collector::Collector<E, std::optional<E>, std::optional<E>> collector = collector::useFindMinimum();
+            collector::Collector<E, std::optional<E>, std::optional<E>> collector = collector::useFindMinimum<E>();
             return collector.collect(this->source(), this->concurrent);
         }
 
-        auto findMinimum(const functional::Comparator<E> &comparator) const -> std::optional<E> {
+        auto findMinimum(const functional::Comparator<E>& comparator) const -> std::optional<E> {
             collector::Collector<E, std::optional<E>, std::optional<E>> collector = collector::useFindMinimum(comparator);
             return collector.collect(this->source(), this->concurrent);
         }
 
-        auto forEach(const functional::BiConsumer<E, functional::Timestamp>& action) const -> void {
-            collector::Collector<E, functional::Module, functional::Module> collector = collector::useForEach(action);
+        template <typename Consumer>
+        auto forEach(Consumer &&consumer) const -> void {
+            collector::Collector<E, functional::Module, functional::Module> collector = collector::useForEach<E, Consumer>(std::forward<Consumer>(consumer));
+            collector.collect(this->source(), this->concurrent);
+        }
+
+        template<typename K, typename KeyExtractor>
+        auto group(KeyExtractor&& keyExtractor) const -> std::unordered_map<K, std::vector<E>> {
+            collector::Collector<E, std::unordered_map<K, std::vector<E>>, std::unordered_map<K, std::vector<E>>> collector = collector::useGroup<E, K, KeyExtractor>(std::forward<KeyExtractor>(keyExtractor));
             return collector.collect(this->source(), this->concurrent);
         }
 
-        template<typename K>
-        auto group(const functional::BiFunction<E, functional::Timestamp, K>& keyExtractor) const -> std::unordered_map<K, std::vector<E>> {
-            collector::Collector<E, std::unordered_map<K, std::vector<E>>, std::unordered_map<K, std::vector<E>>> collector = collector::useGroup(keyExtractor);
-            return collector.collect(this->source(), this->concurrent);
-        }
-
-        template<typename K, typename V>
+        template<typename K, typename V, typename KeyExtractor, typename ValueExtractor>
         auto groupBy(const functional::BiFunction<E, functional::Timestamp, K>& keyExtractor, const functional::BiFunction<E, functional::Timestamp, V>& valueExtractor) const -> std::unordered_map<K, std::vector<V>> {
-            collector::Collector<E, std::unordered_map<K, std::vector<V>>, std::unordered_map<K, std::vector<V>>> collector = collector::useGroupBy(keyExtractor, valueExtractor);
+            collector::Collector<E, std::unordered_map<K, std::vector<V>>, std::unordered_map<K, std::vector<V>>> collector = collector::useGroupBy<E, K, V, KeyExtractor, ValueExtractor>(std::forward<KeyExtractor>(keyExtractor), std::forward<KeyExtractor>(valueExtractor));
             return collector.collect(this->source(), this->concurrent);
         }
 
@@ -1943,17 +2086,17 @@ namespace collectable {
             return collector.collect(this->source(), this->concurrent);
         }
 
+        auto join(const std::string& delimiter) const -> std::string {
+            collector::Collector<E, std::string, std::string> collector = collector::useJoin(delimiter);
+            return collector.collect(this->source(), this->concurrent);
+        }
+
         auto join(const std::string& prefix, const std::string& delimiter, const std::string& suffix) const -> std::string {
             collector::Collector<E, std::string, std::string> collector = collector::useJoin(prefix, delimiter, suffix);
             return collector.collect(this->source(), this->concurrent);
         }
 
-        auto join(const std::string& prefix, const functional::BiFunction<std::string, E, std::string>& serializer, const std::string suffix, const functional::BiFunction<std::string, std::string, std::string>& combiner) const -> std::string {
-            collector::Collector<E, std::string, std::string> collector = collector::useJoin(prefix, serializer, suffix, combiner);
-            return collector.collect(this->source(), this->concurrent);
-        }
-
-        auto noneMatch(const functional::BiPredicate<E, functional::Timestamp>& predicate) const -> bool{
+        auto noneMatch(const functional::BiPredicate<E, functional::Timestamp>& predicate) const -> bool {
             collector::Collector<E, bool, bool> collector = collector::useNoneMatch(predicate);
             return collector.collect(this->source(), this->concurrent);
         }
@@ -1963,7 +2106,12 @@ namespace collectable {
             return collector.collect(this->source(), this->concurrent);
         }
 
-        auto out(const std::string& prefix, const std::string& delimiter, const std::string& suffix) const -> std::string {
+        auto out(const std::string &delimiter) const -> std::string {
+            collector::Collector<E, std::string, std::string> collector = collector::useOut(delimiter);
+            return collector.collect(this->source(), this->concurrent);
+        }
+
+        auto out(const std::string &prefix, const std::string &delimiter, const std::string& suffix) const -> std::string {
             collector::Collector<E, std::string, std::string> collector = collector::useOut(prefix, delimiter, suffix);
             return collector.collect(this->source(), this->concurrent);
         }
@@ -1978,8 +2126,15 @@ namespace collectable {
             return collector.collect(this->source(), this->concurrent);
         }
 
-        auto partitionBy(const functional::Module& size) const -> std::vector<std::vector<E>> {
-            collector::Collector<E, std::map<functional::Timestamp, std::vector<E>>, std::vector<std::vector<E>>> collector = collector::usePartitionBy<E>(size);
+        template<typename KeyExtractor>
+        auto partitionBy(KeyExtractor&& keyExtractor) const -> std::vector<std::vector<E>> {
+            collector::Collector<E, std::map<functional::Timestamp, std::vector<E>>, std::vector<std::vector<E>>> collector = collector::usePartitionBy<E, KeyExtractor>(std::forward<KeyExtractor>(keyExtractor));
+            return collector.collect(this->source(), this->concurrent);
+        }
+
+        template<typename V, typename KeyExtractor, typename ValueExtractor>
+        auto partitionBy(KeyExtractor&& keyExtractor, ValueExtractor&& valueExtractor) const -> std::vector<std::vector<V>> {
+            collector::Collector<E, std::map<functional::Timestamp, std::vector<V>>, std::vector<std::vector<V>>> collector = collector::usePartitionBy<E, V, KeyExtractor, ValueExtractor>(std::forward<KeyExtractor>(keyExtractor), std::forward<ValueExtractor>(valueExtractor));
             return collector.collect(this->source(), this->concurrent);
         }
 
@@ -2006,15 +2161,15 @@ namespace collectable {
             return collector.collect(this->source(), this->concurrent);
         }
 
-        template<typename K>
-        auto toMap(const functional::BiFunction<E, functional::Timestamp, K>& keyExtractor) const -> std::map<K, E> {
-            collector::Collector<E, std::map<K, E>, std::map<K, E>> collector = collector::useToMap(keyExtractor);
+        template<typename K, typename KeyExtractor>
+        auto toMap(KeyExtractor && keyExtractor) const -> std::map<K, E> {
+            collector::Collector<E, std::map<K, E>, std::map<K, E>> collector = collector::useToMap<E, K, KeyExtractor>(std::forward<KeyExtractor>(keyExtractor));
             return collector.collect(this->source(), this->concurrent);
         }
 
-        template<typename K, typename V>
-        auto toMap(const functional::BiFunction<E, functional::Timestamp, K>& keyExtractor, const functional::BiFunction<E, functional::Timestamp, V>& valueExtractor) const -> std::map<K, V> {
-            collector::Collector<E, std::map<K, E>, std::map<K, E>> collector = collector::useToMap(keyExtractor, valueExtractor);
+        template<typename K, typename V, typename KeyExtractor, typename ValueExtractor>
+        auto toMap(KeyExtractor&& keyExtractor, ValueExtractor&& valueExtractor) const -> std::map<K, V> {
+            collector::Collector<E, std::map<K, E>, std::map<K, E>> collector = collector::useToMap<E, K, V, KeyExtractor, ValueExtractor>(std::forward<KeyExtractor>(keyExtractor), std::forward<KeyExtractor>(valueExtractor));
             return collector.collect(this->source(), this->concurrent);
         }
 
@@ -2039,52 +2194,52 @@ namespace collectable {
             std::set<std::pair<functional::Timestamp, E>> buffer;
             generator([&buffer](E element, functional::Timestamp index)->void {
                 buffer.insert(std::make_pair(index, element));
-            }, [](E element, functional::Timestamp index)-> bool {
-                return false;
-            });
-            for (std::pair<functional::Timestamp, E> pair : buffer) {
-                functional::Timestamp index = pair.first < 0 ? (buffer.size() - (std::abs(pair.first) % buffer.size())) : (pair.first % buffer.size());
-                this->buffer.insert(std::make_pair(index, pair.second));
-            }
+                }, [](E element, functional::Timestamp index)-> bool {
+                    return false;
+                    });
+                for (std::pair<functional::Timestamp, E> pair : buffer) {
+                    functional::Timestamp index = pair.first < 0 ? (buffer.size() - (std::abs(pair.first) % buffer.size())) : (pair.first % buffer.size());
+                    this->buffer.insert(std::make_pair(index, pair.second));
+                }
         }
 
         OrderedCollectable(const functional::Generator<E>& generator, const functional::Module& concurrent) : Collectable<E>(concurrent) {
             std::set<std::pair<functional::Timestamp, E>> buffer;
-                generator([&buffer](E element, functional::Timestamp index)->void {
+            generator([&buffer](E element, functional::Timestamp index)->void {
                 buffer.insert(std::make_pair(index, element));
-            }, [](E element, functional::Timestamp index)-> bool {
+                }, [](E element, functional::Timestamp index)-> bool {
                     return false;
-            });
-            for (std::pair<functional::Timestamp, E> pair : buffer) {
-                functional::Timestamp index = pair.first < 0 ? (buffer.size() - (std::abs(pair.first) % buffer.size())) : (pair.first % buffer.size());
-                this->buffer.insert(std::make_pair(index, pair.second));
-            }
+                    });
+                for (std::pair<functional::Timestamp, E> pair : buffer) {
+                    functional::Timestamp index = pair.first < 0 ? (buffer.size() - (std::abs(pair.first) % buffer.size())) : (pair.first % buffer.size());
+                    this->buffer.insert(std::make_pair(index, pair.second));
+                }
         }
 
         OrderedCollectable(const functional::Generator<E>& generator, const functional::Comparator<E>& comparator) : Collectable<E>(1) {
             std::set<std::pair<functional::Timestamp, E>> buffer(comparator);
             generator([&buffer](E element, functional::Timestamp index)->void {
                 buffer.insert(std::make_pair(index, element));
-            }, [](E element, functional::Timestamp index)-> bool {
-                return false;
-            });
-            for (std::pair<functional::Timestamp, E> pair : buffer) {
-                functional::Timestamp index = pair.first < 0 ? (buffer.size() - (std::abs(pair.first) % buffer.size())) : (pair.first % buffer.size());
-                this->buffer.insert(std::make_pair(index, pair.second));
-            }
+                }, [](E element, functional::Timestamp index)-> bool {
+                    return false;
+                    });
+                for (std::pair<functional::Timestamp, E> pair : buffer) {
+                    functional::Timestamp index = pair.first < 0 ? (buffer.size() - (std::abs(pair.first) % buffer.size())) : (pair.first % buffer.size());
+                    this->buffer.insert(std::make_pair(index, pair.second));
+                }
         }
 
-        OrderedCollectable(const functional::Generator<E>& generator, const functional::Comparator<E> &comparator, const functional::Module& concurrent) : Collectable<E>(concurrent) {
+        OrderedCollectable(const functional::Generator<E>& generator, const functional::Comparator<E>& comparator, const functional::Module& concurrent) : Collectable<E>(concurrent) {
             std::set<std::pair<functional::Timestamp, E>> buffer(comparator);
-                generator([&buffer](E element, functional::Timestamp index)->void {
+            generator([&buffer](E element, functional::Timestamp index)->void {
                 buffer.insert(std::make_pair(index, element));
-            }, [](E element, functional::Timestamp index)-> bool {
-                return false;
-            });
-            for (std::pair<functional::Timestamp, E> pair : buffer) {
-                functional::Timestamp index = pair.first < 0 ? (buffer.size() - (std::abs(pair.first) % buffer.size())) : (pair.first % buffer.size());
-                this->buffer.insert(std::make_pair(index, pair.second));
-            }
+                }, [](E element, functional::Timestamp index)-> bool {
+                    return false;
+                    });
+                for (std::pair<functional::Timestamp, E> pair : buffer) {
+                    functional::Timestamp index = pair.first < 0 ? (buffer.size() - (std::abs(pair.first) % buffer.size())) : (pair.first % buffer.size());
+                    this->buffer.insert(std::make_pair(index, pair.second));
+                }
         }
 
         virtual auto source() const -> functional::Generator<E> override {
@@ -2095,7 +2250,7 @@ namespace collectable {
                     }
                     accept(pair.second, pair.first);
                 }
-            };
+                };
         }
     };
 
@@ -2125,7 +2280,7 @@ namespace collectable {
             return collector.collect(this->source(), this->concurrent);
         }
 
-        auto average(const functional::Function<E, D> &mapper) const -> D {
+        auto average(const functional::Function<E, D>& mapper) const -> D {
             collector::Collector<E, std::pair<D, functional::Module>, D> collector = collector::useAverage<E, D>(mapper);
             return collector.collect(this->source(), this->concurrent);
         }
@@ -2164,23 +2319,23 @@ namespace collectable {
 
         auto slide(const functional::Module& size, const functional::Timestamp& step) -> semantic::Semantic<semantic::Semantic<E>> const {
             return semantic::Semantic<semantic::Semantic<E>>([buffer = this->buffer, size, step](auto accept, auto interrupt) -> void {
-                    functional::Module total = static_cast<functional::Timestamp>(buffer.size());
-                    functional::Module index = 0LL;
-                    bool stop = false;
-                    for (functional::Module start = 0; start < total && !stop; start += step) {
-                        functional::Module end = std::min(start + size, total);
-                        if (start < end) { 
-                            std::vector<E> window;
-                            for (functional::Module i = start; i < end; i++) {
-                                window.push_back(buffer.at(i));
-                            }
-                            auto semantic = semantic::useFrom(window);
-                            if (interrupt(semantic, index)) {
-                                break;
-                            }
-                            accept(semantic, index++);
+                functional::Module total = static_cast<functional::Timestamp>(buffer.size());
+                functional::Module index = 0LL;
+                bool stop = false;
+                for (functional::Module start = 0; start < total && !stop; start += step) {
+                    functional::Module end = std::min(start + size, total);
+                    if (start < end) {
+                        std::vector<E> window;
+                        for (functional::Module i = start; i < end; i++) {
+                            window.push_back(buffer.at(i));
                         }
+                        auto semantic = semantic::useFrom(window);
+                        if (interrupt(semantic, index)) {
+                            break;
+                        }
+                        accept(semantic, index++);
                     }
+                }
                 }, this->concurrent);
         }
 
@@ -2197,17 +2352,17 @@ namespace collectable {
         UnorderedCollectable(const functional::Generator<E>& generator) : Collectable<E>(1) {
             generator([this](E element, functional::Timestamp index)->void {
                 this->buffer.insert(std::make_pair(index, element));
-            }, [](E element, functional::Timestamp index)-> bool {
-                return false;
-            });
+                }, [](E element, functional::Timestamp index)-> bool {
+                    return false;
+                    });
         }
 
         UnorderedCollectable(const functional::Generator<E>& generator, const functional::Module& concurrent) : Collectable<E>(concurrent) {
             generator([this](E element, functional::Timestamp index)->void {
                 this->buffer.insert(std::make_pair(index, element));
-            }, [](E element, functional::Timestamp index)-> bool {
-                return false;
-            });
+                }, [](E element, functional::Timestamp index)-> bool {
+                    return false;
+                    });
         }
 
         OrderedCollectable<E>& operator=(const OrderedCollectable<E>& other) {
@@ -2234,7 +2389,7 @@ namespace collectable {
                     }
                     accept(pair.second, pair.first);
                 }
-            };
+                };
         }
     };
 };
@@ -2250,7 +2405,7 @@ namespace semantic {
         using Element = E;
         Semantic(Semantic<E>&& other) noexcept = default;
         Semantic(const functional::Generator<E>& generator) : generator(std::make_unique<functional::Generator<E>>(generator)), concurrent(1) {}
-        Semantic(const Semantic& other): generator(std::make_unique<functional::Generator<E>>(*other.generator)),concurrent(other.concurrent) {}
+        Semantic(const Semantic& other) : generator(std::make_unique<functional::Generator<E>>(*other.generator)), concurrent(other.concurrent) {}
         Semantic(const functional::Generator<E>& generator, const functional::Module& concurrent) : generator(std::make_unique<functional::Generator<E>>(generator)), concurrent(concurrent) {}
         Semantic& operator=(const Semantic& other) {
             if (this != &other) {
@@ -2266,17 +2421,17 @@ namespace semantic {
                 generator([&accept, &count](E element, functional::Timestamp index) -> void {
                     accept(element, index);
                     count++;
-                   }, [&count, &interrupt](E element, functional::Timestamp index) -> bool {
+                    }, [&count, &interrupt](E element, functional::Timestamp index) -> bool {
                         return interrupt(element, count);
-                });
-                other.source()([&accept, &count](E element, functional::Timestamp index) -> void {
-                    accept(element, index);
-                    count++;
-                }, [&count, &interrupt](E element, functional::Timestamp index) -> bool {
-                    return interrupt(element, count);
-                });
-                
-            }, this->concurrent);
+                        });
+                    other.source()([&accept, &count](E element, functional::Timestamp index) -> void {
+                        accept(element, index);
+                        count++;
+                        }, [&count, &interrupt](E element, functional::Timestamp index) -> bool {
+                            return interrupt(element, count);
+                            });
+
+                }, this->concurrent);
         }
 
         auto concatenate(std::vector<E> vector) const -> Semantic<E> {
@@ -2514,10 +2669,10 @@ namespace semantic {
                     else {
                         static_assert(std::is_invocable_r_v<bool, Predicate, E, functional::Timestamp> || std::is_invocable_r_v<bool, Predicate, E>, "Predicate must be callable as either (E, functional::Timestamp) -> bool or (E) -> bool");
                     }
-                }, [&interrupt, count](E element, functional::Timestamp index) -> bool {
+                    }, [&interrupt, count](E element, functional::Timestamp index) -> bool {
                         return interrupt(element, count);
-                });
-            }, this->concurrent);
+                        });
+                }, this->concurrent);
         }
 
         template<typename Flatten>
@@ -2771,10 +2926,23 @@ namespace semantic {
         }
 
         auto translate(const functional::Timestamp& offset) const -> Semantic<E> {
-            return Semantic<E>([generator = *(this->generator), offset](functional::BiConsumer<E, functional::Timestamp> accept, functional::BiPredicate<E, functional::Timestamp> interrupt) -> void {
+            return Semantic<E>([generator = *(this->generator)](functional::BiConsumer<E, functional::Timestamp> accept, functional::BiPredicate<E, functional::Timestamp> interrupt) -> void {
                 bool stop = false;
                 generator([&accept, &interrupt, &stop, offset](E element, functional::Timestamp index) -> void {
                     functional::Timestamp redirected = index + offset;
+                    stop = stop || interrupt(element, redirected);
+                    accept(element, redirected);
+                    }, [&stop](E element, functional::Timestamp index) -> bool {
+                        return stop;
+                        });
+                }, this->concurrent);
+        }
+
+        auto translate(const functional::BiFunction<E, functional::Timestamp, functional::Timestamp>& translator) const -> Semantic<E> {
+            return Semantic<E>([generator = *(this->generator)](functional::BiConsumer<E, functional::Timestamp> accept, functional::BiPredicate<E, functional::Timestamp> interrupt) -> void {
+                bool stop = false;
+                generator([&accept, &interrupt, &stop, translator](E element, functional::Timestamp index) -> void {
+                    functional::Timestamp redirected = translator(element, index);
                     stop = stop || interrupt(element, redirected);
                     accept(element, redirected);
                     }, [&stop](E element, functional::Timestamp index) -> bool {
@@ -2804,20 +2972,20 @@ namespace semantic {
                     semantic.source()([&accept, &count](E element, functional::Timestamp index) -> void {
                         accept(element, count);
                         count++;
-                    }, [&interrupt, &stop, &count](E element, functional::Timestamp index) -> bool {
-                        if (!stop && interrupt(element, count)) {
-                            stop = true;
-                        }
+                        }, [&interrupt, &stop, &count](E element, functional::Timestamp index) -> bool {
+                            if (!stop && interrupt(element, count)) {
+                                stop = true;
+                            }
+                            return stop;
+                            });
+                    }, [&interrupt, &stop, &count](Semantic<E> element, functional::Timestamp index) -> bool {
                         return stop;
-                    });
-                }, [&interrupt, &stop, &count](Semantic<E> element, functional::Timestamp index) -> bool {
-                    return stop;
-                });
-            }, this->concurrent);
+                        });
+                }, this->concurrent);
         }
 
         template <typename Flatten>
-        auto flat(Flatten &&flatten) const -> Semantic<E> {
+        auto flat(Flatten&& flatten) const -> Semantic<E> {
             return Semantic<E>([generator = this-> source(), flatten = std::forward<Flatten>(flatten)](functional::BiConsumer<E, functional::Timestamp> accept, functional::BiPredicate<E, functional::Timestamp> interrupt) -> void {
                 functional::Timestamp count = 0LL;
                 bool stop = false;
@@ -2827,28 +2995,28 @@ namespace semantic {
                         inner.source()([&accept, &count](E element, functional::Timestamp index) -> void {
                             accept(element, count);
                             count++;
-                        }, [&interrupt, &stop, &count](E element, functional::Timestamp index) -> bool {
-                            stop = stop || interrupt(element, count);
-                            return stop;
-                        });
+                            }, [&interrupt, &stop, &count](E element, functional::Timestamp index) -> bool {
+                                stop = stop || interrupt(element, count);
+                                return stop;
+                                });
                     }
                     else if constexpr (std::is_invocable_r_v<Semantic<E>, Flatten, Semantic<E>>) {
                         Semantic<E> inner = std::invoke(flatten, semantic);
                         inner.source()([&accept, &count, flatten](E element, functional::Timestamp index) -> void {
                             accept(element, count);
                             count++;
-                        }, [&interrupt, &stop, &count](E element, functional::Timestamp index) -> bool {
-                            stop = stop || interrupt(element, count);
-                            return stop;
-                        });
+                            }, [&interrupt, &stop, &count](E element, functional::Timestamp index) -> bool {
+                                stop = stop || interrupt(element, count);
+                                return stop;
+                                });
                     }
                     else {
                         static_assert(std::is_invocable_r_v<Semantic<E>, Flatten, Semantic<E>, functional::Timestamp> || std::is_invocable_r_v<Semantic<E>, Flatten, Semantic<E>>, "Flatten must be callable as either (E, functional::Timestamp) -> Semantic<E> or (E) -> Semantic<E>");
                     }
-                }, [&stop](Semantic<E> semantic, functional::Timestamp index)-> bool {
-                    return stop;
-                });
-            }, this->concurrent);
+                    }, [&stop](Semantic<E> semantic, functional::Timestamp index)-> bool {
+                        return stop;
+                        });
+                }, this->concurrent);
         }
 
         template <typename R, typename Flatten>
@@ -2862,38 +3030,38 @@ namespace semantic {
                         inner.source()([&accept, &count](R element, functional::Timestamp index) -> void {
                             accept(element, count);
                             count++;
-                        }, [&interrupt, &stop, &count](R element, functional::Timestamp index) -> bool {
-                            stop = stop || interrupt(element, count);
-                            return stop;
-                        });
+                            }, [&interrupt, &stop, &count](R element, functional::Timestamp index) -> bool {
+                                stop = stop || interrupt(element, count);
+                                return stop;
+                                });
                     }
                     else if constexpr (std::is_invocable_r_v<Semantic<R>, Flatten, Semantic<E>>) {
                         Semantic<R> inner = std::invoke(flatten, semantic);
                         inner.source()([&accept, &count, flatten](R element, functional::Timestamp index) -> void {
                             accept(element, count);
                             count++;
-                        }, [&interrupt, &stop, &count](R element, functional::Timestamp index) -> bool {
-                            stop = stop || interrupt(element, count);
-                            return stop;
-                        });
+                            }, [&interrupt, &stop, &count](R element, functional::Timestamp index) -> bool {
+                                stop = stop || interrupt(element, count);
+                                return stop;
+                                });
                     }
                     else {
                         static_assert(std::is_invocable_r_v<Semantic<R>, Flatten, Semantic<E>, functional::Timestamp> || std::is_invocable_r_v<Semantic<R>, Flatten, Semantic<E>>, "Flatten must be callable as either (E, functional::Timestamp) -> Semantic<E> or (E) -> Semantic<E>");
                     }
-                }, [&stop](Semantic<E> semantic, functional::Timestamp index)-> bool {
-                    return stop;
-                });
-            }, this->concurrent);
+                    }, [&stop](Semantic<E> semantic, functional::Timestamp index)-> bool {
+                        return stop;
+                        });
+                }, this->concurrent);
         }
 
         auto source() const -> functional::Generator<Semantic<E>> {
             return [generator = *(this-> generator)](functional::BiConsumer<Semantic<E>, functional::Timestamp> accept, functional::BiPredicate<Semantic<E>, functional::Timestamp> interrupt) -> void {
                 generator([&accept](Semantic<E> element, functional::Timestamp index) -> void {
                     accept(element, index);
-                }, [&interrupt](Semantic<E> element, functional::Timestamp index) -> bool {
+                    }, [&interrupt](Semantic<E> element, functional::Timestamp index) -> bool {
                         return interrupt(element, index);
-                });
-            };
+                        });
+                };
         }
     };
 
@@ -2906,11 +3074,26 @@ namespace semantic {
                 }
                 accept(index, index);
             }
-        });
+            });
     }
 
     template <typename Container>
     auto useFrom(Container container) -> Semantic<typename Container::value_type> {
+        using E = typename Container::value_type;
+        return Semantic<E>([elements = std::forward<Container>(container)](functional::BiConsumer<E, functional::Timestamp> accept, functional::BiPredicate<E, functional::Timestamp> interrupt) -> void {
+            functional::Timestamp index = 0LL;
+            for (const E& element : elements) {
+                if (interrupt(element, index)) {
+                    break;
+                }
+                accept(element, index);
+                index++;
+            }
+            }, 1LL);
+    }
+
+    template<typename E>
+    auto useFrom(std::initializer_list<E> initializer_list) -> Semantic<E> {
         using E = typename Container::value_type;
         return Semantic<E>([elements = std::forward<Container>(container)](functional::BiConsumer<E, functional::Timestamp> accept, functional::BiPredicate<E, functional::Timestamp> interrupt) -> void {
             functional::Timestamp index = 0LL;
@@ -2926,15 +3109,15 @@ namespace semantic {
 
     template<typename E>
     auto useOf(std::initializer_list<E> elements) -> Semantic<E> {
-        return Semantic<E>([elements = std::move(elements)](functional::BiConsumer<E, functional::Timestamp> accept,functional::BiPredicate<E, functional::Timestamp> interrupt) -> void {functional::Timestamp index = 0LL;
-            for (const E& element : elements) {
-                if (interrupt(element, index)) {
-                    break;
-                }
-                accept(element, index);
-                index++;
+        return Semantic<E>([elements = std::move(elements)](functional::BiConsumer<E, functional::Timestamp> accept, functional::BiPredicate<E, functional::Timestamp> interrupt) -> void {functional::Timestamp index = 0LL;
+        for (const E& element : elements) {
+            if (interrupt(element, index)) {
+                break;
             }
-        }, 1LL);
+            accept(element, index);
+            index++;
+        }
+            }, 1LL);
     }
 
     auto useBlob(const std::string& text) -> Semantic<char> {
@@ -2947,24 +3130,24 @@ namespace semantic {
                 accept(byte, index);
                 index++;
             }
-        }, 1LL);
+            }, 1LL);
     }
 
     auto useBlob(const std::string& text, functional::Module start, const functional::Module end) -> Semantic<char> {
-        return Semantic<char>([text, start, end](functional::BiConsumer<char, functional::Timestamp> accept,functional::BiPredicate<char, functional::Timestamp> interrupt) -> void {
-                functional::Module limitedStart = std::max(start, static_cast<functional::Module>(0LL));
-                functional::Module limitedEnd = std::min(end, static_cast<functional::Module>(text.size()));
-                if (start < end) {
-                    functional::Timestamp index = 0LL;
-                    for (const auto& byte : text) {
-                        if (interrupt(byte, index)) {
-                            break;
-                        }
-                        accept(byte, index);
-                        index++;
+        return Semantic<char>([text, start, end](functional::BiConsumer<char, functional::Timestamp> accept, functional::BiPredicate<char, functional::Timestamp> interrupt) -> void {
+            functional::Module limitedStart = std::max(start, static_cast<functional::Module>(0LL));
+            functional::Module limitedEnd = std::min(end, static_cast<functional::Module>(text.size()));
+            if (start < end) {
+                functional::Timestamp index = 0LL;
+                for (const auto& byte : text) {
+                    if (interrupt(byte, index)) {
+                        break;
                     }
+                    accept(byte, index);
+                    index++;
                 }
-        }, 1LL);
+            }
+            }, 1LL);
     }
 
     auto useBlob(std::istream& stream) -> Semantic<std::string> {
@@ -2978,7 +3161,7 @@ namespace semantic {
                 accept(line, index);
                 index++;
             }
-        }, 1LL);
+            }, 1LL);
     }
 
     auto useText(const std::string& text) -> Semantic<std::string> {
@@ -2986,7 +3169,7 @@ namespace semantic {
             if (!interrupt(text, 0LL)) {
                 accept(text, 0LL);
             }
-        }, 1LL);
+            }, 1LL);
     }
 
     auto useText(const std::string& text, const char& delimiter) -> Semantic<std::string> {
@@ -3008,6 +3191,6 @@ namespace semantic {
                 }
                 accept(target, index);
             }
-        }, 1LL);
+            }, 1LL);
     }
 };

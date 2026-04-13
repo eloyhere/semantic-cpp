@@ -3093,8 +3093,8 @@ namespace semantic {
     }
 
     template<typename E>
-    auto useFrom(std::initializer_list<E> initializer_list) -> Semantic<E> {
-        return Semantic<E>([elements = std::move(container)](functional::BiConsumer<E, functional::Timestamp> accept, functional::BiPredicate<E, functional::Timestamp> interrupt) -> void {
+    auto useFrom(std::initializer_list<E> list) -> Semantic<E> {
+        return Semantic<E>([elements = std::move(list)](functional::BiConsumer<E, functional::Timestamp> accept, functional::BiPredicate<E, functional::Timestamp> interrupt) -> void {
             functional::Timestamp index = 0LL;
             for (const E& element : elements) {
                 if (interrupt(element, index)) {

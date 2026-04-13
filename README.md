@@ -181,9 +181,9 @@ int main() {
 ### Terminal Conversions (Trigger Computation)
 | Method | Description | Internal State |
 | :--- | :--- | :--- |
-| `toOrdered()` | Convert to an ordered collection, preserving the **current index order**. | Materialised as `std::map<Index, Value>`. |
-| `toUnordered()` | Convert to an unordered collection for maximum performance. | Materialised as `std::unordered_map<Index, Value>`. |
-| `toWindow()` | Convert to a window collection for sliding/rolling analysis. | Internally based on `toOrdered()`. |
+| `toOrdered()` | Convert to an ordered collectable, preserving the **current index order**. | Materialised as `std::map<Index, Value>`. |
+| `toUnordered()` | Convert to an unordered collectable for maximum performance. | Materialised as `std::unordered_map<Index, Value>`. |
+| `toWindow()` | Convert to a window collectable for sliding/rolling analysis. | Internally based on `toOrdered()`. |
 
 ### Terminal Actions (Produce Final Result)
 | Method | Description | Return Type |
@@ -193,11 +193,12 @@ int main() {
 | `noneMatch(predicate)` | Check whether no elements satisfy the condition; exits as soon as one succeeds. | Boolean |
 | `forEach(consumer)` | Iterate over all elements in the stream. | Void |
 | `count()` | Count the total number of elements in the stream. | `Module` (`unsigned long long`) |
-| `average()` | Compute the average of numeric elements. | Average of the element type (e.g. `double`). |
+| `average()` | Compute the average of numeric elements. | Average of the element type (e.g. `double`).  Only for Statistics|
 | `findAny()` | Find any element at random. | A random element from the stream. |
 | `findFirst()` | Find the first element. | The first element in the stream. |
 | `findLast()` | Find the last element. | The last element in the stream. |
-| `findAt(possibly negative index)` | Find the nth element; if negative, it is the (size + index)th element. | The element at the specified index. |
+| `findAt(none negative index)` | Find the nth element; | The element at the specified index. |
+| `findNegativeAt(negative index)` | Find the the (size + index)th element. | The element at the specified index. |
 | `findMinimum()` / `findMaximum()` | Find the minimum/maximum value in the stream. | `std::optional<ElementType>` |
 | `reduce(accumulator)` | Reduce the stream to a single value (e.g. sum). | Type of the accumulator result. |
 | `reduce(identity, accumulator)` | Reduce the stream to a single value (e.g. sum). | Type of the accumulator result. |

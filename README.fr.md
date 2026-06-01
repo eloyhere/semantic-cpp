@@ -1,307 +1,588 @@
-# Semantic-Cpp en Profondeur : Un Framework de Traitement de Flux Intelligent en C++ Orienté vers l’Avenir
+# 🚀 Semantic-Cpp : Un cadre de traitement de flux intelligents prêt pour l’avenir
 
-Semantic-Cpp est une bibliothèque moderne de traitement de flux en C++ entièrement repensée qui adopte une architecture « un seul fichier d’en-tête, zéro dépendance ». Son fichier principal `semantic.h` intègre l’ensemble des fonctionnalités de la bibliothèque. La bibliothèque fusionne de manière créative le meilleur de plusieurs paradigmes de programmation :
+Semantic-Cpp est une bibliothèque de traitement de flux C++ entièrement repensée selon une approche moderne. Elle adopte une architecture modulaire **« multi-fichiers d’en-tête, zéro dépendance externe »**. Chaque fichier d’en-tête possède une responsabilité claire, indépendante et testable, formant ensemble un écosystème complet pour le traitement de flux. Cette bibliothèque fusionne de manière créative le meilleur de plusieurs paradigmes de programmation :
 
--   **L’élégance et la fluidité de l’API Java Stream** : elle offre des appels chaînés et une expérience de programmation déclarative.
--   **La paresse et la flexibilité des générateurs JavaScript** : elle prend en charge l’évaluation différée et la génération de données à la demande.
--   **L’efficacité et l’ordonnancement des index de bases de données** : avec des mécanismes intégrés de tri intelligent et pilotés par index, particulièrement adaptés aux données de séries temporelles et aux événements.
+- 🎯 L’élégance et la fluidité de l’**API Stream de Java** : appels chaînés, programmation déclarative pour un code aussi fluide qu’un poème.
+- ⚡ La paresse et la flexibilité des **Générateurs JavaScript** : exécution différée, génération à la demande et efficacité mémoire.
+- 🗄️ L’efficacité et l’ordonnancement des **index de bases de données** : tri intelligent, pilotage par index, idéal pour les données de séries temporelles.
 
-Contrairement aux approches traditionnelles de traitement de données (telles que les boucles écrites à la main ou les callbacks asynchrones complexes), Semantic-Cpp vise à fournir une solution **sûre au niveau des types, hautement expressive et haute performance**. Sa philosophie de conception centrale est le **contrôle précis du flux de données** : les données ne circulent dans le « pipeline de traitement » que lorsqu’elles sont explicitement requises, et l’« ordre » ainsi que la « position » de ce flux peuvent être finement ajustés via des « index », permettant ainsi une utilisation optimale des ressources.
-
----
-
-## L’Âme Centrale : Un Monde de Données Piloté par les Index
-
-Semantic-Cpp abstrait le traitement de données en opérations sur les « éléments » et leurs « positions logiques (index) ». Comprendre ce concept est la clé pour maîtriser la bibliothèque.
-
-### 1. Transformations Basiques d’Index
-Les index déterminent l’ordre logique des éléments dans la chaîne de traitement et peuvent être manipulés de façon flexible :
--   **`redirect(fonction de redirection)`** : la méthode centrale. Vous pouvez réécrire complètement l’index d’un élément à l’aide d’une fonction personnalisée — par exemple, doubler l’index ou en générer un nouveau basé sur la valeur de l’élément.
--   **`reverse()`** : une méthode pratique, implémentée en interne via `redirect`, qui inverse logiquement les index actuels (par exemple, les index positifs deviennent négatifs).
--   **`translate(décalage)`** : ajoute un décalage fixe à tous les index.
-
-### 2. Les Règles « Impératives » du Tri
-L’opération de tri (`sorted`) possède la priorité la plus élevée dans la bibliothèque et son comportement est déterministe :
--   **`sorted()` remplace tout** : peu importe la complexité des transformations d’index précédentes via `redirect` ou `reverse`, l’appel à `sorted()` **remplacera** toutes les opérations d’index antérieures. Le système réassignera des index d’ordre naturel commençant à 0 en fonction des **valeurs réelles** des éléments.
--   **Matérialisation immédiate dans une collection ordonnée** : afin d’éviter des tris répétés inutiles par la suite, la méthode `sorted()` renvoie **immédiatement** un objet de type `OrderedCollectable`. Cela signifie que les données ont déjà été collectées et triées à ce stade.
-
-### 3. Traitement Parallèle Déclaratif
-Le traitement parallèle devient remarquablement simple et intuitif :
--   **`parallel(nombre de threads)` n’est qu’une déclaration** : l’appel de cette méthode exprime simplement l’intention « je souhaite que les opérations suivantes s’exécutent en parallèle » et spécifie le nombre de threads souhaité ; **elle ne lance aucun thread ni ne soumet de tâche immédiatement**.
--   **Les opérations terminales déclenchent le parallélisme** : le calcul parallèle réel n’est déclenché que lors de l’appel d’une **opération terminale** telle que `toUnordered()`, `toOrdered()`, `count()`, etc. À ce moment-là, le pool de threads intégré de la bibliothèque répartit automatiquement les données et soumet les tâches selon le nombre de threads déclaré.
--   **Aucune gestion manuelle requise** : vous n’avez pas à vous soucier de la création de threads, de la distribution des tâches ni de la fusion des résultats ; la bibliothèque gère tout automatiquement.
-
-### 4. Comment Choisir le Conteneur de Données Final ?
-Selon vos exigences de performance et le type d’opération, vous pouvez sélectionner différentes méthodes de conversion terminale :
-
-| Méthode de Conversion | Structure de Données Sous-Jacente | Caractéristiques de Performance | Meilleurs Cas d’Utilisation |
-| :--- | :--- | :--- | :--- |
-| **`sorted()`** | `std::map<Index, Element>` | Accès O(log n), préserve strictement l’ordre des éléments. | Pagination, requêtes par plage, analyse de séries temporelles, statistiques roulantes. |
-| **`sorted(comparator)`** | `std::map<Index, Element>` | Accès O(log n), trié selon des règles personnalisées. | Pagination ou requêtes par plage avec tri personnalisé. |
-| **`toOrdered()`** | `std::map<Index, Element>` | Accès O(log n), préserve l’ordre de **l’index actuel**. | Lorsque vous souhaitez conserver l’ordre d’index défini par des opérations telles que `redirect` et effectuer des opérations ordonnées. |
-| **`toUnordered()`** | `std::unordered_map<Index, Element>` | Accès moyen O(1), **performance maximale**, mais l’ordre n’est pas garanti. | Recherches rapides, statistiques de déduplication, calculs d’agrégation — scénarios où l’ordre n’importe pas. |
-| **`toWindow()`** | Vue de fenêtre basée sur map | O(log n), prend en charge les fenêtres glissantes ou roulantes sur des ensembles ordonnés. | Analyse de flux en temps réel, agrégation par fenêtres glissantes, partitionnement de sessions d’événements. |
-
-> **Note Importante** : `WindowCollectable` (renvoyé par `toWindow()`) repose en interne sur une collection ordonnée (implémentée via `toOrdered()`) afin de garantir que les opérations de glissement et de roulement des fenêtres s’exécutent correctement sur un ordre déterministe.
+Contrairement aux approches traditionnelles (boucles manuelles, callbacks asynchrones), Semantic-Cpp propose une solution **sûre en typage, expressive et haute performance**. Sa philosophie centrale est le **contrôle précis du flux de données** : les données ne circulent que lorsque cela est nécessaire, leur ordre et leur position étant régis finement par des **« index »** afin d’optimiser l’utilisation des ressources.
 
 ---
 
-## Guide de Démarrage Rapide
+## 📐 Architecture du projet : conception modulaire à sept couches
+
+Semantic-Cpp est composé de **sept fichiers d’en-tête principaux**, organisés de manière progressive, chacun ayant une responsabilité unique et indépendante :
+
+```
+┌─────────────────────────────────────────────────┐
+│                 semantics.h                     │
+│    (Fabriques de flux : plages numériques,      │
+│     conteneurs, texte, Unicode)                 │
+├─────────────────────────────────────────────────┤
+│                  semantic.h                     │
+│   (Opérations intermédiaires de flux, système   │
+│    Collectable, spécialisations de conteneurs)  │
+├─────────────────────────────────────────────────┤
+│                 collectors.h                    │
+│  (Fabriques de collecteurs : correspondance,    │
+│   recherche, agrégation, statistiques, DFT/FFT…)│
+├─────────────────────────────────────────────────┤
+│                 collector.h                     │
+│     (Cadre de collecteurs : modèle à cinq étapes│
+│      , prise en charge de la concurrence et du  │
+│      parallélisme)                              │
+├─────────────────────────────────────────────────┤
+│                charsequence.h                   │
+│  (Séquences de caractères Unicode, conversion   │
+│   multi-encodage, Builder, Buffer)              │
+├─────────────────────────────────────────────────┤
+│                   pool.h                        │
+│   (Pool de threads global : soumission de tâches│
+│    , arrêt d’urgence, propagation d’exceptions) │
+├─────────────────────────────────────────────────┤
+│                 function.h                      │
+│  (Alias de types : Generator, Supplier, Consumer│
+│   , etc.)                                       │
+└─────────────────────────────────────────────────┘
+```
+
+### Graphe des dépendances
+
+```
+function.h          ← aucune dépendance, pierre angulaire des types
+pool.h              ← dépend de function.h
+charsequence.h      ← module indépendant, traitement Unicode
+collector.h         ← dépend de function.h, pool.h
+collectors.h        ← dépend de collector.h, charsequence.h
+semantic.h          ← dépend de collector.h, collectors.h, charsequence.h
+semantics.h         ← dépend de semantic.h
+```
+
+Chaque fichier d’en-tête peut être compilé et testé indépendamment ou inclus selon les besoins.  
+Par exemple, si vous avez seulement besoin des fonctionnalités de collecte, il suffit d’inclure `collector.h` et `collectors.h`.
+
+---
+
+## 🏗️ Couche 1 : function.h — Fondement des types
+
+`function.h` définit le système de types de toute la bibliothèque, base commune de tous les modules :
+
+```cpp
+namespace function {
+    using Timestamp = long long;           // type d’index
+    using Module = unsigned long long;     // type de module / compteur
+    
+    template <typename T>
+    using Generator = std::function<void(
+        std::function<void(T, Timestamp)>,      // accept
+        std::function<bool(T, Timestamp)>       // interrupt
+    )>;
+}
+```
+
+`Generator` est l’abstraction centrale de tout le système de flux : il accepte deux callbacks — `accept` (pour recevoir les données) et `interrupt` (pour arrêter le traitement) — incarnant le modèle de **« tirage paresseux » (lazy pull)**.
+
+---
+
+## ⚡ Couche 2 : pool.h — Fondement de la concurrence
+
+`pool.h` fournit le pool de threads global `pool::pool`, qui sert de moteur de concurrence au cadre :
+
+| Fonctionnalité | Description |
+|---------------|-------------|
+| 🎯 Parallélisme déclaratif | `parallel(n)` ne fait que déclarer l’intention ; activé automatiquement lors des opérations terminales |
+| 🛡️ Arrêt d’urgence | Intègre `emergencyShutdown()` et un gestionnaire `std::set_terminate` |
+| 🔄 Propagation des exceptions | `submit()` renvoie `std::future`, assurant une propagation sûre des exceptions |
+
+---
+
+## 🔤 Couche 3 : charsequence.h — Séquences de caractères Unicode
+
+`charsequence.h` est un module complet pour la gestion d’Unicode, offrant création, conversion et manipulation de séquences de caractères :
+
+| Capacité | Description |
+|----------|-------------|
+| 🌐 Prise en charge multi-encodage | UTF‑8, UTF‑16 (LE/BE), UTF‑32 (LE/BE), ASCII, Latin1 |
+| 🔍 Itérateur de points de code | `PointIterator` prend en charge le parcours bidirectionnel des points de code Unicode |
+| 🏗️ Modèle Builder | La classe `Builder` permet des concaténations efficaces au niveau octet |
+| 📦 Tampon | La classe `Buffer` fournit un tampon circulaire sûr pour les threads |
+| 🔑 Hachage et comparaison | Tous les types principaux disposent de spécialisations `std::hash` et `std::less` |
+
+### Types principaux
+
+| Type | Description |
+|------|-------------|
+| `Meta` | Enveloppe de métadonnées stockant des valeurs entières non signées |
+| `Point` | Point de code Unicode avec détection des paires de substitution et validation |
+| `Charsequence` | Séquence de caractères immuable prenant en charge la division, le remplacement, la recherche, la casse, etc. |
+| `Builder` | Constructeur d’octets mutable avec `prepend`, `insert`, `append` et divers types de données |
+| `Buffer` | Tampon circulaire sûr pour les threads avec gestion de lecture/écriture, prefetch et capacité |
+
+---
+
+## 🔧 Couche 4 : collector.h — Cadre de collecteurs
+
+`collector.h` implémente le modèle Collector, constituant le moteur central derrière les opérations terminales.
+
+### Modèle à cinq étapes
+
+```
+Identity → Accumulator → Combiner → Finisher
+              ↑
+           Interrupt (court-circuit optionnel)
+```
+
+### Alias de types
+
+| Type | Définition | Rôle |
+|------|-----------|------|
+| `Identity<A>` | `Supplier<A>` | Fournit la valeur initiale |
+| `Accumulator<A,E>` | `TriFunction<A,E,Timestamp,A>` | Accumule les éléments |
+| `Combiner<A>` | `BiFunction<A,A,A>` | Combine les résultats parallèles |
+| `Finisher<A,R>` | `Function<A,R>` | Transformation finale |
+| `Interrupt<E,A>` | `TriPredicate<E,Timestamp,A>` | Évaluation du court-circuit |
+
+### Prise en charge de la concurrence
+
+`Collector::collect()` gère automatiquement :
+
+- 📦 Partitionnement des données (réparties entre les threads par modulo d’index)
+- 🔗 Fusion des résultats (via `Combiner`)
+- ⚠️ Propagation des exceptions (via `std::exception_ptr` et `std::atomic<bool>`)
+
+---
+
+## 🏭 Couche 5 : collectors.h — Fabrique de collecteurs
+
+`collectors.h` propose une riche collection de fonctions fabriques de collecteurs prêtes à l’emploi.
+
+### 📊 Opérations de correspondance
+
+| Méthode | Description | Type de retour |
+|--------|-------------|----------------|
+| `useAllMatch(predicate)` | Tous les éléments satisfont la condition | `bool` |
+| `useAnyMatch(predicate)` | Au moins un élément satisfait la condition | `bool` |
+| `useNoneMatch(predicate)` | Aucun élément ne satisfait la condition | `bool` |
+
+### 🔍 Opérations de recherche
+
+| Méthode | Description | Type de retour |
+|--------|-------------|----------------|
+| `useFindFirst()` | Trouver le premier élément | `std::optional<E>` |
+| `useFindLast()` | Trouver le dernier élément | `std::optional<E>` |
+| `useFindAny()` | Trouver un élément aléatoire | `std::optional<E>` |
+| `useFindAt(index)` | Trouver l’élément à l’index spécifié (indices négatifs pris en charge) | `std::optional<E>` |
+| `useFindMaximum()` | Trouver le maximum (comparateur personnalisé pris en charge) | `std::optional<E>` |
+| `useFindMinimum()` | Trouver le minimum (comparateur personnalisé pris en charge) | `std::optional<E>` |
+
+### 📈 Opérations d’agrégation
+
+| Méthode | Description | Type de retour |
+|--------|-------------|----------------|
+| `useCount()` | Compter le nombre total d’éléments | `Module` |
+| `useSummate<E,D>()` | Somme | `D` |
+| `useSummate<E,D>(mapper)` | Somme mappée | `D` |
+| `useAverage<E,D>()` | Moyenne | `D` |
+| `useAverage<E,D>(mapper)` | Moyenne mappée | `D` |
+| `useRange<E,D>()` | Étendue numérique (max − min) | `D` |
+| `useRange<E,D>(mapper)` | Étendue mappée | `D` |
+| `useMinimum<E,D>()` | Valeur minimale | `std::optional<D>` |
+| `useMaximum<E,D>()` | Valeur maximale | `std::optional<D>` |
+
+### 📊 Opérations statistiques
+
+| Méthode | Description | Type de retour |
+|--------|-------------|----------------|
+| `useVariance<E,D>()` | Variance de population | `D` |
+| `useStandardDeviation<E,D>()` | Écart-type de population | `D` |
+| `useSkewness<E,D>()` | Asymétrie | `D` |
+| `useKurtosis<E,D>()` | Aplatissement (kurtosis) | `D` |
+| `useMedian<E,D>()` | Médiane | `std::optional<D>` |
+| `useMode<E>()` | Mode (basé sur le domaine fréquentiel) | `std::optional<E>` |
+| `usePercentile<E,D>(p)` | Percentile p | `std::optional<D>` |
+| `useFrequency<E>()` | Caractéristiques fréquentielles (codage de phase d’index) | `std::map<E, complex>` |
+| `useDistribution<E>()` | Caractéristiques de distribution spatiale (codage de position) | `std::map<E, complex>` |
+
+### 🔗 Opérations de réduction
+
+| Méthode | Description | Type de retour |
+|--------|-------------|----------------|
+| `useReduce(reducer)` | Réduction sans valeur initiale | `std::optional<E>` |
+| `useReduce(identity, reducer)` | Réduction avec valeur initiale | `E` |
+| `useReduce(id, red, comb, fin)` | Réduction entièrement personnalisée | `R` |
+
+### 📦 Opérations de collecte dans des conteneurs
+
+| Méthode | Description | Type de retour |
+|--------|-------------|----------------|
+| `useToVector()` | Collecter dans `std::vector` | `std::vector<E>` |
+| `useToList()` | Collecter dans `std::list` | `std::list<E>` |
+| `useToDeque()` | Collecter dans `std::deque` | `std::deque<E>` |
+| `useToForwardList()` | Collecter dans `std::forward_list` | `std::forward_list<E>` |
+| `useToArray<N>()` | Collecter dans `std::array` de taille fixe | `std::array<E, N>` |
+| `useToSet()` | Collecter dans `std::set` (dédupliqué et trié) | `std::set<E>` |
+| `useToMultiset()` | Collecter dans `std::multiset` | `std::multiset<E>` |
+| `useToUnorderedSet()` | Collecter dans `std::unordered_set` | `std::unordered_set<E>` |
+| `useToUnorderedMultiset()` | Collecter dans `std::unordered_multiset` | `std::unordered_multiset<E>` |
+| `useToMap(keyExtractor)` | Collecter dans `std::map` | `std::map<K, E>` |
+| `useToMap(keyExtractor, valueExtractor)` | Collecter dans `std::map` (valeur personnalisée) | `std::map<K, V>` |
+| `useToMultimap(keyExtractor)` | Collecter dans `std::multimap` | `std::multimap<K, E>` |
+| `useToMultimap(keyExtractor, valueExtractor)` | Collecter dans `std::multimap` (valeur personnalisée) | `std::multimap<K, V>` |
+| `useToUnorderedMap(keyExtractor, valueExtractor)` | Collecter dans `std::unordered_map` | `std::unordered_map<K, V>` |
+| `useToUnorderedMultimap(keyExtractor)` | Collecter dans `std::unordered_multimap` | `std::unordered_multimap<K, E>` |
+| `useToUnorderedMultimap(keyExtractor, valueExtractor)` | Collecter dans `std::unordered_multimap` | `std::unordered_multimap<K, V>` |
+| `useToStack()` | Collecter dans `std::stack` | `std::stack<E>` |
+| `useToQueue()` | Collecter dans `std::queue` | `std::queue<E>` |
+| `useToPriorityQueue()` | Collecter dans `std::priority_queue` | `std::priority_queue<E>` |
+
+### 🔀 Opérations de groupement et de partition
+
+| Méthode | Description | Type de retour |
+|--------|-------------|----------------|
+| `useGroup(keyExtractor)` | Grouper par clé | `std::unordered_map<K, vector<E>>` |
+| `usePartition(size)` | Partitionner en blocs de taille fixe | `std::vector<vector<E>>` |
+| `usePartitionBy(keyExtractor)` | Partitionner par clé personnalisée | `std::vector<vector<E>>` |
+
+### 🎨 Opérations de sortie de chaînes
+
+| Méthode | Description | Type de retour |
+|--------|-------------|----------------|
+| `useJoin()` | Joindre en chaîne (virgule par défaut, crochets) | `Charsequence` |
+| `useJoin(delimiter)` | Joindre avec un délimiteur personnalisé | `Charsequence` |
+| `useJoin(prefix, delimiter, suffix)` | Jointure formatée entièrement personnalisée | `Charsequence` |
+| `useOut()` | Sortie formatée vers stdout | `Charsequence` |
+| `useOut(delimiter)` | Sortie avec délimiteur personnalisé vers stdout | `Charsequence` |
+| `useOut(prefix, delimiter, suffix)` | Sortie formatée entièrement personnalisée vers stdout | `Charsequence` |
+| `useError()` | Sortie formatée vers stderr | `Charsequence` |
+| `useError(delimiter)` | Sortie avec délimiteur personnalisé vers stderr | `Charsequence` |
+| `useError(prefix, delimiter, suffix)` | Sortie formatée entièrement personnalisée vers stderr | `Charsequence` |
+
+### 🧮 Outils mathématiques
+
+| Méthode | Description | Type de retour |
+|--------|-------------|----------------|
+| `useDFT()` | Transformée de Fourier discrète | `vector<complex<double>>` |
+| `useIDFT()` | Transformée de Fourier discrète inverse | `vector<complex<double>>` |
+| `useFFT()` | Transformée de Fourier rapide (Cooley–Tukey) | `vector<complex<double>>` |
+| `useIFFT()` | Transformée de Fourier rapide inverse | `vector<complex<double>>` |
+| `useGradient(gradFunc, lr, iter, th)` | Descente de gradient (gradient analytique) | `vector<double>` |
+| `useGradient(costFunc, lr, iter, th, h)` | Descente de gradient (gradient numérique) | `vector<double>` |
+
+---
+
+## 🌊 Couche 6 : semantic.h — Opérations intermédiaires de flux et système de collecte
+
+`semantic.h` est le cœur du cadre et contient les espaces de noms `collectable` et `semantic`.
+
+### Espace de noms collectable
+
+Fournit la hiérarchie d’héritage des objets collectables :
+
+| Classe | Description | Stockage sous-jacent |
+|-------|-------------|----------------------|
+| `Collectable<E>` | Classe de base abstraite avec méthode virtuelle pure `source()` | — |
+| `OrderedCollectable<E>` | Collecte ordonnée avec tri personnalisé | `std::map<Timestamp, E>` |
+| `UnorderedCollectable<E>` | Collecte non ordonnée, recherche O(1) | `std::unordered_map<Timestamp, E>` |
+| `Statistics<E, D>` | Collecte statistique (hérite de `OrderedCollectable`) | Plus de 20 méthodes statistiques |
+| `WindowCollectable<E>` | Collecte par fenêtres (hérite de `OrderedCollectable`) | Prend en charge `slide` / `tumble` |
+
+#### Méthodes de la classe de base Collectable
+
+Fournit toutes les méthodes de collecte terminale `toXxx()` (plus de 20 types de conteneurs), ainsi que :
+
+`count()`, `findFirst()`, `findAny()`, `anyMatch()`, `allMatch()`, `noneMatch()`, `reduce()`, `join()`, `out()`, `error()`, `group()`, `partition()`, `partitionBy()`, etc.
+
+#### Méthodes de la classe Statistics
+
+| Méthode | Type de retour | Description |
+|--------|---------------|-------------|
+| `summate()` / `summate(mapper)` | `D` | Somme |
+| `average()` / `average(mapper)` | `D` | Moyenne |
+| `minimum()` / `minimum(mapper)` | `std::optional<D>` | Minimum |
+| `maximum()` / `maximum(mapper)` | `std::optional<D>` | Maximum |
+| `range()` / `range(mapper)` | `D` | Étendue (max − min) |
+| `variance()` / `variance(mapper)` | `D` | Variance de population |
+| `standardDeviation()` / `standardDeviation(mapper)` | `D` | Écart-type de population |
+| `frequency()` / `frequency(mapper)` | `std::map<*, complex>` | Caractéristiques fréquentielles (codage de phase d’index) |
+| `distribute()` / `distribute(mapper)` | `std::map<*, complex>` | Caractéristiques de distribution spatiale (codage de position) |
+| `median()` / `median(mapper)` | `std::optional<D>` | Médiane |
+| `mode()` | `std::optional<E>` | Mode |
+| `percentile(p)` / `percentile(p, mapper)` | `std::optional<D>` | Percentile p |
+| `firstQuartile()` / `firstQuartile(mapper)` | `std::optional<D>` | Premier quartile (Q1) |
+| `thirdQuartile()` / `thirdQuartile(mapper)` | `std::optional<D>` | Troisième quartile (Q3) |
+| `interquartileRange()` / `interquartileRange(mapper)` | `std::optional<D>` | Intervalle interquartile (Q3 − Q1) |
+| `skewness()` / `skewness(mapper)` | `D` | Asymétrie |
+| `kurtosis()` / `kurtosis(mapper)` | `D` | Aplatissement (kurtosis) |
+| `dft()` | `vector<complex<double>>` | Transformée de Fourier discrète |
+| `idft()` | `vector<complex<double>>` | Transformée de Fourier discrète inverse |
+| `fft()` | `vector<complex<double>>` | Transformée de Fourier rapide |
+| `ifft()` | `vector<complex<double>>` | Transformée de Fourier rapide inverse |
+| `gradient(gradFunc, lr, iter, th)` | `vector<double>` | Descente de gradient (gradient analytique) |
+| `gradient(costFunc, lr, iter, th, h)` | `vector<double>` | Descente de gradient (gradient numérique) |
+
+### Espace de noms semantic
+
+Fournit la classe modèle `Semantic<E>` et son système complet de spécialisation.
+
+#### Résumé des méthodes principales du modèle
+
+| Catégorie | Méthode | Description |
+|---------|---------|-------------|
+| 🎨 Transformation d’éléments | `map` | Mappage un-à-un |
+| | `flatMap` | Mappage un-à-plusieurs avec aplatissement |
+| | `flat` | Aplatir les flux imbriqués |
+| 🔍 Filtrage d’éléments | `filter` | Filtrage conditionnel |
+| | `takeWhile` | Prendre tant que la condition est vraie |
+| | `dropWhile` | Ignorer tant que la condition est vraie |
+| | `distinct` | Supprimer les doublons (comparateur personnalisé pris en charge) |
+| 📏 Contrôle de quantité | `limit` | Limiter le nombre d’éléments |
+| | `skip` | Sauter les n premiers éléments |
+| | `sub` | Extraire une sous-plage |
+| 📐 Opérations d’index | `redirect` | Remapper les index |
+| | `reverse` | Inverser les index |
+| | `translate` | Décaler les index (fixe ou dynamique) |
+| 👀 Observation | `peek` | Observer les éléments sans les modifier |
+| ⚡ Déclaration de parallélisme | `parallel` | Déclarer le degré de parallélisme |
+| 🔗 Concaténation | `concatenate` | Concaténer un autre flux ou conteneur |
+| 📤 Conversion terminale | `toUnordered` | Convertir en collecteur non ordonné |
+| | `toOrdered` | Convertir en collecteur ordonné |
+| | `toWindow` | Convertir en collecteur à fenêtres |
+| | `toStatistics` | Convertir en collecteur statistique |
+
+#### Prise en charge complète de la spécialisation des conteneurs
+
+| Spécialisation | Description |
+|---------------|-------------|
+| `Semantic<std::vector<E>>` | Flux de vecteurs avec tri, suppression de doublons, etc. |
+| `Semantic<std::list<E>>` | Flux de listes avec tri, suppression de doublons, etc. |
+
+---
+
+## 🏭 Couche 7 : semantics.h — Fabrique de construction de flux
+
+`semantics.h` fournit toutes les fonctions fabriques de construction de flux.
+
+### 📐 Génération de plages numériques
+
+| Méthode | Description |
+|--------|-------------|
+| `useRange(start, end)` | Générer un flux numérique sur `[start, end)` |
+| `useRange(start, end, step)` | Générer un flux numérique avec un pas |
+| `useRangeClosed(start, end)` | Générer un flux numérique sur `[start, end]` |
+| `useRangeClosed(start, end, step)` | Générer un flux numérique avec un pas sur un intervalle fermé |
+
+### ♾️ Génération de flux infinis
+
+| Méthode | Description |
+|--------|-------------|
+| `useInfinite(seed, generator)` | Itération infinie à partir d’une graine |
+| `useGenerate(supplier)` | Appels infinis d’un fournisseur |
+| `useGenerate(supplier, limit)` | Appels limités d’un fournisseur |
+| `useIterate(seed, generator)` | Itération infinie à partir d’une graine |
+| `useIterate(seed, generator, limit)` | Itération limitée |
+| `useRandom()` | Flux infini d’entiers aléatoires |
+| `useRandom(min, max)` | Flux infini d’aléas dans une plage |
+| `useRandom(min, max, count)` | Aléas dans une plage avec un compte fixe |
+
+### 📦 Construction de conteneurs et d’éléments
+
+| Méthode | Description |
+|--------|-------------|
+| `useEmpty()` | Créer un flux vide |
+| `useOf(element)` | Flux à un seul élément |
+| `useOf(e1, e2)` | Flux à deux éléments |
+| `useOf(e1, e2, e3)` | Flux à trois éléments |
+| `useOf({...})` | Flux depuis une liste d’initialisation |
+| `useFrom(container)` | Flux depuis n’importe quel conteneur standard |
+| `useFrom({...})` | Flux depuis une liste d’initialisation |
+| `useRepeat(element, count)` | Répéter un élément n fois |
+
+### 📝 Traitement de texte
+
+| Méthode | Description |
+|--------|-------------|
+| `useBlob(text)` | Diviser une chaîne en flux `char` par octets |
+| `useBlob(text, start, end)` | Diviser une sous-chaîne en flux `char` par octets |
+| `useBlob(istream)` | Lire les lignes depuis un flux d’entrée |
+| `useBlob(istream, delimiter)` | Lire un flux d’entrée avec un délimiteur |
+| `useText(text)` | Traiter une chaîne comme un flux de texte complet |
+| `useText(text, delimiter)` | Diviser du texte par un délimiteur |
+| `useText(istream)` | Lire tout le contenu d’un flux d’entrée |
+| `useText(istream, delimiter)` | Lire un flux d’entrée avec un délimiteur |
+
+### 🌐 Traitement Unicode
+
+| Méthode | Description |
+|--------|-------------|
+| `useSequence(charsequence)` | Créer un flux de points de code depuis une séquence de caractères |
+| `useSequence(charsequence, start, end)` | Créer un flux de points de code depuis une sous-séquence |
+| `useSequence(text, encoding)` | Créer un flux de points de code depuis un texte avec encodage |
+| `useSequence(istream, encoding)` | Créer un flux de points de code depuis un flux d’entrée avec encodage |
+| `useCharsequence(charsequence)` | Traiter une séquence de caractères comme un flux complet |
+| `useCharsequence(charsequence, delimiter)` | Diviser une séquence de caractères par un délimiteur |
+| `useCharsequence(istream, encoding)` | Lire une séquence de caractères complète depuis un flux d’entrée |
+| `useCharsequence(istream, delimiter, encoding)` | Lire une séquence de caractères depuis un flux d’entrée avec un délimiteur |
+
+---
+
+## 🧠 Concept central : un monde de données piloté par index
+
+Semantic-Cpp abstrait le traitement des données comme des opérations sur des **« éléments »** et leurs **« positions logiques (index) »**. Comprendre ceci est la clé pour maîtriser la bibliothèque.
+
+### 1. 📐 Transformations de base des index
+
+| Méthode | Description |
+|--------|-------------|
+| `redirect(fn)` | Méthode centrale : réaffecter complètement les index via une fonction personnalisée |
+| `reverse()` | Inverser toute la logique d’index (implémenté en interne via `redirect`) |
+| `translate(offset)` | Décalage fixe |
+| `translate(translator)` | Fonction de décalage dynamique calculée par élément et index |
+
+### 2. 📊 La règle « autoritaire » du tri
+
+> ⚠️ **`sort()` écrase tout** : après l’appel, toutes les opérations d’index précédentes sont ignorées ; les éléments reçoivent de nouveaux index d’ordre naturel basés sur leur valeur.
+
+- `sort()` → Matérialisé immédiatement dans `OrderedCollectable`, trié naturellement par valeur d’élément
+- `sort(comparator)` → Trié avec un comparateur personnalisé
+
+### 3. ⚡ Traitement parallèle déclaratif
+
+- `parallel(n)` ne fait que déclarer l’intention ; les threads ne démarrent pas immédiatement
+- Les opérations terminales (`toUnordered()`, `count()`, etc.) déclenchent réellement le parallélisme
+- Le pool de threads gère automatiquement la distribution des tâches et la fusion des résultats
+
+### 4. 🎯 Comment choisir le bon conteneur final
+
+| Méthode de conversion | Structure sous-jacente | Caractéristiques de performance | Cas d’usage optimal |
+|----------------------|-----------------------|--------------------------------|----------------------|
+| `sort()` | `OrderedCollectable` | Matérialisé et trié par valeur | Tri par valeur, pagination, séries temporelles |
+| `toOrdered()` | `OrderedCollectable` | Conserve l’ordre d’index actuel | Conservation d’un ordre d’index personnalisé |
+| `toUnordered()` | `UnorderedCollectable` | Moyenne O(1), performance maximale | Recherche rapide, dédoublonnage, agrégation |
+| `toWindow()` | `WindowCollectable` | Basé sur des collections ordonnées | Analyse par fenêtres glissantes / défilantes |
+| `toStatistics()` | `Statistics` | Plus de 20 méthodes statistiques | Analyse statistique complète |
+
+---
+
+## 🚀 Guide de démarrage rapide
 
 ### Installation
-Placez simplement le fichier d’en-tête `semantic.h` dans votre projet et assurez-vous que votre compilateur prend en charge C++17 ou supérieur.
-```cpp
-#include "semantic.h"
-// Optionnel : utiliser l’espace de noms semantic
-using namespace semantic;
+
+Placez tous les fichiers d’en-tête dans le répertoire de votre projet et assurez-vous que votre compilateur prend en charge **C++17 ou supérieur** :
+
+```
+include/
+├── function.h
+├── pool.h
+├── charsequence.h
+├── collector.h
+├── collectors.h
+├── semantic.h
+└── semantics.h
 ```
 
-### Exemple Basique : Découvrir les Index et le Tri
 ```cpp
-#include <iostream>
-#include "semantic.h"
-
-int main() {
-    auto result = semantic::useRange(0, 10)   // 1. Crée un flux d’entiers de 0 à 9
-        .map([](int x) -> int { return x * x; })    // 2. Élève au carré chaque élément (0,1,4,9...81)
-        .redirect([](int value, auto index) -> long long {    // 3. Redirection d’index : doubler l’index
-            return index * 2;                  // Les index sont maintenant 0,2,4,6...
-        })
-        .reverse()                           // 4. Inversion logique des index (...,6,4,2,0)
-        .sorted()                            // 5. ⚠️ Force un nouveau tri par valeur d’élément (1,4,9...) !
-                                             //    Toutes les opérations d’index précédentes sont remplacées ; les index deviennent 0,1,2...
-        .toList();                           // 6. Collecte dans std::vector
-
-    // Sortie : 0 1 4 9 16 25 36 49 64 81 (trié)
-    for (auto& item : result) {
-        std::cout << item << " ";
-    }
-    return 0;
-}
-```
-
-### Exemple de Traitement Parallèle
-```cpp
-#include <iostream>
-#include "semantic.h"
-
-int main() {
-    // 1. Construit un pipeline de traitement de flux et déclare le souhait d’utiliser 4 threads pour une exécution parallèle.
-    auto dataStream = semantic::useRange(1, 1000)
-        .parallel(4)                         // Déclare le parallélisme ; pas encore exécuté
-        .filter([](int x) -> bool {
-            return x % 2 == 0;               // Filtre les nombres pairs
-        })
-        .filter([](int x, auto index) -> bool {
-            return index < 5LL;              // Filtre en plus les éléments dont l’index logique est inférieur à 5
-        });
-
-    // 2. L’opération terminale `count()` déclenche le calcul parallèle réel
-    //    Le pool de threads démarre, les données sont réparties, quatre threads comptent en parallèle et les résultats sont fusionnés automatiquement.
-    auto result = dataStream
-        .toUnordered()                       // Convertit en collection non ordonnée pour le traitement parallèle
-        .count();                            // Compte le nombre final d’éléments
-
-    std::cout << "Nombre d’éléments après filtrage : " << result << std::endl;
-    return 0;
-}
-```
-
-### Exemple d’Analyse de Séries Temporelles et de Fenêtres
-```cpp
-#include <iostream>
-#include "semantic.h"
-
-int main() {
-    // Simule un jeu de données de séries temporelles (p. ex. cours d’actions)
-    auto timeSeries = semantic::useFrom(std::vector<double>{1.1, 2.2, 3.3, 4.4, 5.5});
-
-    // 1. Convertit en vue de fenêtre
-    auto windowStats = timeSeries
-        .toWindow()                     // Convertit en WindowCollectable
-        .slide(3, 1)                    // Définit une fenêtre glissante de taille 3 avec pas de 1
-                                        // Fenêtre 1 : {1.1, 2.2, 3.3}
-                                        // Fenêtre 2 : {2.2, 3.3, 4.4}
-                                        // Fenêtre 3 : {3.3, 4.4, 5.5}
-        .sub(1, 4)                      // Prend les fenêtres dont les index sont de 1 à 3 (c.-à-d. fenêtres 2 et 3)
-        .map([](auto&& window) -> double { // Traite chaque fenêtre
-            // Calcule la moyenne de chaque fenêtre
-            return window
-                .toStatistics<double, double>() // Convertit la fenêtre en Statistics pour les calculs mathématiques
-                .average();
-        })
-        .toStatistics<double, double>() // Effectue des statistiques ordonnées sur la séquence des moyennes
-        .summate();                     // Somme les moyennes de toutes les fenêtres sélectionnées
-
-    std::cout << "Somme des moyennes des fenêtres glissantes sélectionnées : " << windowStats << std::endl;
-    // Sortie : résultat de ( (2.2+3.3+4.4)/3 + (3.3+4.4+5.5)/3 )
-    return 0;
-}
+#include "semantics.h"  // inclut automatiquement toutes les dépendances
 ```
 
 ---
 
-## Référence Rapide de l’API Principale
+## 🎯 Exemple de base : expérimenter les index et le tri
 
-### Constructeurs de Flux (Sources de Flux)
-| Méthode | Description | Exemple |
-| :--- | :--- | :--- |
-| `useRange(start, end)` | Génère un flux d’entiers dans une plage numérique. | `useRange(0, 10)` |
-| `useFrom(container)` | Crée un flux à partir d’un conteneur standard (p. ex. vector, list). | `useFrom(std::vector{1,2,3})` |
-| `useOf(args...)` | Crée un flux à partir d’une liste d’arguments variadiques. | `useOf(1, 2, 3, 4, 5)` |
-| `useBlob(text)` | Divise une chaîne en flux caractère par caractère. | `useBlob("Hello")` |
-| `useBlob(text, start, end)` | Divise une chaîne en flux caractère par caractère dans une plage. | `useBlob("Hello", 0, 3)` |
-| `useBlob(istream)` | Divise un flux d’entrée en flux caractère par caractère. | `useBlob(istream)` |
-| `useBlob(istream, start, end)` | Divise un flux d’entrée en flux caractère par caractère dans une plage. | `useBlob(istream, 0, 3)` |
-| `useText(text)` | Traite le texte entier comme un élément unique du flux. | `useText("Hello")` |
-| `useText(text, delimiter)` | Divise le texte en flux selon un délimiteur. | `useText("Hello", 'e')` |
-
-### Opérations Intermédiaires
-| Méthode | Description | Remarques |
-| :--- | :--- | :--- |
-| `map(fonction de transformation)` | Transforme les éléments en une autre forme. | La fonction peut recevoir `(élément)` ou `(élément, index)`. |
-| `filter(fonction prédicat)` | Filtre les éléments qui satisfont la condition. | Le prédicat peut être basé sur `(élément)` ou `(élément, index)`. |
-| `distinct()` | Supprime les éléments dupliqués. | Un comparateur personnalisé peut être fourni. |
-| `limit(n)` | Limite le flux aux `n` premiers éléments. | |
-| `skip(n)` | Ignore les `n` premiers éléments du flux. | |
-| `sub(start, end)` | Obtient un sous-flux dont les index sont dans la plage `[start, end)`. | Similaire à `substr` d’une chaîne. |
-
-### Opérations sur les Index
-| Méthode | Description | Caractéristiques Clés |
-| :--- | :--- | :--- |
-| `redirect(fonction de redirection)` | Méthode centrale permettant le contrôle complet de l’index de chaque élément. | Signature de la fonction : `(élément, ancien index) -> nouvel index`. |
-| `reverse()` | Inverse logiquement les index de tous les éléments actuels. | Implémenté en interne via `redirect`. |
-| `translate(décalage)` | Ajoute un décalage fixe à tous les index des éléments. | |
-| **`sorted()`** | **Force le tri**. Trie les éléments par valeur croissante et **remplace tous les index existants**. | Renvoie immédiatement `OrderedCollectable`. |
-| **`sorted(comparator)`** | Force le tri avec un comparateur personnalisé. | Renvoie immédiatement `OrderedCollectable`. |
-
-### Déclaration de Parallélisme
-| Méthode | Description | Moment d’Exécution |
-| :--- | :--- | :--- |
-| `parallel()` | Déclare la stratégie de parallélisme par défaut (généralement le nombre de cœurs CPU). | Déclenchée par les **opérations terminales** suivantes. |
-| `parallel(n)` | Déclare le désir d’utiliser `n` threads pour le traitement parallèle. | Déclenchée par les **opérations terminales** suivantes. |
-
-### Conversions Terminales (Déclenchent le Calcul)
-| Méthode | Description | État Interne |
-| :--- | :--- | :--- |
-| `toOrdered()` | Convertit en une collection ordonnée, en conservant l’**ordre de l’index actuel**. | Matérialisé sous forme de `std::map<Index, Value>`. |
-| `toUnordered()` | Convertit en une collection non ordonnée pour une performance maximale. | Matérialisé sous forme de `std::unordered_map<Index, Value>`. |
-| `toWindow()` | Convertit en une collection de fenêtres pour l’analyse glissante/roulante. | Basé en interne sur `toOrdered()`. |
-
-### Actions Terminales (Produisent le Résultat Final)
-| Méthode | Description | Type de Retour |
-| :--- | :--- | :--- |
-| `anyMatch(prédicat)` | Vérifie si au moins un élément satisfait la condition ; sort immédiatement si trouvé. | Boolean |
-| `allMatch(prédicat)` | Vérifie si tous les éléments satisfont la condition ; sort au premier échec. | Boolean |
-| `noneMatch(prédicat)` | Vérifie si aucun élément ne satisfait la condition ; sort au premier succès. | Boolean |
-| `forEach(consumer)` | Itère sur tous les éléments du flux. | Void |
-| `count()` | Compte le nombre total d’éléments dans le flux. | `Module` (`unsigned long long`) |
-| `average()` | Calcule la moyenne des éléments numériques. | Moyenne du type de l’élément (p. ex. `double`). |
-| `findAny()` | Trouve un élément au hasard. | Un élément aléatoire du flux. |
-| `findFirst()` | Trouve le premier élément. | Le premier élément du flux. |
-| `findLast()` | Trouve le dernier élément. | Le dernier élément du flux. |
-| `findAt(index éventuellement négatif)` | Trouve le n-ième élément ; si négatif, c’est le (size + index)-ième. | L’élément à l’index spécifié. |
-| `findMinimum()` / `findMaximum()` | Trouve la valeur minimale/maximale dans le flux. | `std::optional<ElementType>` |
-| `reduce(accumulateur)` | Réduit le flux à une valeur unique (p. ex. somme). | Type du résultat de l’accumulateur. |
-| `reduce(identity, accumulator)` | Réduit le flux à une valeur unique (p. ex. somme). | Type du résultat de l’accumulateur. |
-| `collect(collector)` | Effectue une agrégation complexe avec un collector personnalisé. | Type défini par le collector. |
-| `toList()` / `toVector()` | Collecte tous les éléments dans une liste/vecteur. | `std::vector<E>` |
-| `toSet()` | Collecte tous les éléments dans un ensemble (dédupliqué). | `std::set<ElementType>` |
-| `group(keyExtractor)` | Groupe dans une Map (dédupliqué). | `std::map<K, std::vector<E>>` |
-| `toMap(keyExtractor)` | Collecte dans une Map (dédupliqué). | `std::map<K, E>` |
-
----
-
-## Sujets Avancés et Bonnes Pratiques
-
-### Essence Architecturale : Évaluation Paresseuse et Contrôle Précis des Callbacks
-Derrière chaque opération de flux se trouve un « générateur » qui accepte deux fonctions de callback :
--   **`accept(élément, index)`** : appelée par les opérations en aval lorsqu’elles sont prêtes à recevoir des données — « tire » un élément à la demande.
--   **`interrupt(élément, index)`** : appelée avant de traiter chaque élément ; si elle renvoie `true`, toute la chaîne de traitement **se termine immédiatement**.
-Ce mécanisme garantit que les données sont « tirées à la demande » et peuvent être interrompues à tout moment, évitant ainsi des calculs inutiles.
-
-### Suggestions d’Optimisation de Performance
-1.  **Choisissez le bon conteneur** :
-    -   Pour les recherches d’égalité, la déduplication ou l’agrégation sans tri → préférez `toUnordered()`.
-    -   Pour les requêtes par plage, le tri ou la pagination → utilisez `toOrdered()` ou `sorted()`.
-    -   Pour l’analyse de fenêtres en temps réel → utilisez `toWindow()`.
-2.  **Utilisez judicieusement le parallélisme** :
-    -   Le parallélisme via `parallel()` est généralement bénéfique lorsque le jeu de données est volumineux (p. ex. > 1 000 éléments) ou lorsque les opérations de traitement (`map`, `filter`) sont coûteuses en calcul.
-    -   Évitez les opérations d’E/S bloquantes à l’intérieur de flux parallèles.
-3.  **Optimisez l’ordre des opérations** :
-    -   **Filtrez tôt (`filter`)** : réduisez le volume de données avec `filter` avant d’appliquer des transformations `map` coûteuses.
-    -   **Placez le tri stratégiquement** : le tri est coûteux. Si les opérations suivantes (p. ex. `distinct`) ne dépendent pas de l’ordre, exécutez-les avant.
-
-### Collectors Personnalisés
-Lorsque les opérations terminales intégrées ne suffisent pas, vous pouvez créer des collectors personnalisés pour implémenter une logique de réduction complexe.
 ```cpp
-// Crée un collector qui joint des nombres dans une chaîne au format spécial
-auto myCollector = semantic::collector::useFull<int, std::string, std::string>(
-     []() -> std::string { return ""; }, // Supplier : valeur initiale de l’accumulateur
-    [](std::string acc, int val, auto idx) -> std::string { // Accumulateur
-        if (!acc.empty()) acc += "|";
-        return acc + "Num(" + std::to_string(val) + ")";
-    },
-    [](std::string a, std::string b) -> std::string { // Combiner (pour le parallélisme)
-        if (a.empty()) return b;
-        if (b.empty()) return a;
-        return a + "|" + b;
-    },
-    [](std::string acc) -> std::string { // Finisher : traitement final du résultat
-        return "[" + acc + "]";
-    }
-);
-
-auto result = semantic::useRange(1, 5)
-    .toOrdered() // Déclenche le calcul
-    .collect(myCollector); // Utilise le collector personnalisé
-
-std::cout << result << std::endl; // Sortie : [Num(1)|Num(2)|Num(3)|Num(4)]
-```
-
-### Exemple de Traitement de Texte
-```cpp
-auto text = semantic::useText("Hello 世界！")
-    .map([](const std::string& text) -> std::string {
-        return "<" + text + ">";
+auto result = semantic::useRange(0, 10)
+    .map(int x { return x * x; })
+    .redirect(int value, auto index -> long long {
+        return index * 2;
     })
-    .toOrdered()
-    .join(" "); // Joint tous les caractères avec des espaces
+    .reverse()
+    .sort()                              // force le tri par valeur, écrase toutes les opérations d’index
+    .toVector();
 
-std::cout << text << std::endl;
-// Sortie : <H><e><l><l><o>< ><世><界><！>
+// Sortie : 0 1 4 9 16 25 36 49 64 81
+```
+
+## ⚡ Exemple de traitement parallèle
+
+```cpp
+auto count = semantic::useRange(1, 1000)
+    .parallel(4)
+    .filter(int x { return x % 2 == 0; })
+    .toUnordered()
+    .count();
+
+// Sortie : Nombre de pairs : 500
+```
+
+## 📊 Exemple d’analyse statistique
+
+```cpp
+auto stats = semantic::useRange(1, 101)
+    .toStatistics<int, double>();
+
+auto avg = stats.average();               // moyenne
+auto med = stats.median();                // médiane
+auto std = stats.standardDeviation();     // écart-type
+auto q1  = stats.firstQuartile();          // premier quartile
+auto q3  = stats.thirdQuartile();          // troisième quartile
+auto skew = stats.skewness();              // asymétrie
+```
+
+## 🔬 Exemple d’analyse fréquentielle
+
+```cpp
+auto freq = data.toUnordered().frequency();
+for (const auto& [element, z] : freq) {
+    auto magnitude = std::abs(z);  // concentration de la distribution
+    auto phase     = std::arg(z);  // phase centrale de la distribution
+}
+```
+
+## 🧮 Exemple de FFT
+
+```cpp
+auto spectrum = semantic::useRange(0, 8)
+    .map(int x -> std::complex<double> {
+        return {static_cast<double>(x), 0.0};
+    })
+    .toUnordered()
+    .collect(collector::useFFT<double>());
 ```
 
 ---
 
-### Comparaison avec la Bibliothèque Standard de C++ et Autres Concurrents
+## ⚡ Recommandations d’optimisation des performances
 
-Pour vous aider à mieux comprendre le positionnement de conception et les cas d’usage de Semantic-Cpp, le tableau suivant la compare à plusieurs solutions de traitement de données courantes dans la communauté C++.
-
-| Fonctionnalité / Bibliothèque | **Semantic-Cpp** | **C++20/23 `std::ranges` + `std::views`** | **Bibliothèque Range-v3** | **Boucles Traditionnelles Écrites à la Main** |
-| :--- | :--- | :--- | :--- | :--- |
-| **Paradigme Central** | Traitement de flux **déclaratif et piloté par index**. Les données sont abstraites sous forme de pipeline « élément + index logique » en mettant l’accent sur le **contrôle de l’ordre**. | Composition fonctionnelle **déclarative et pilotée par vues**. Fournit des adaptateurs (`views::transform`, `views::filter`) pour le calcul différé. | Composition fonctionnelle **déclarative et pilotée par ranges**. Plan et prédécesseur de `std::ranges` avec une fonctionnalité plus riche. | Programmation **impérative et procédurale**. Manipulation directe des itérateurs et conteneurs. |
-| **Philosophie de Conception Centrale** | **Contrôle précis** de la position logique et de l’ordre de circulation des données dans le pipeline via des **index**, permettant une utilisation optimale des ressources. | Fournit des **adaptateurs de vues** composables et évalués de manière différée pour des algorithmes génériques efficaces. | Fournit un ensemble complet et composable d’**algorithmes de ranges et de vues** — pierre angulaire de la programmation fonctionnelle moderne en C++. | Le contrôle complet du flux de calcul et de l’état revient entièrement au développeur. |
-| **Support du Parallélisme** | **Parallélisme déclaratif**. `.parallel(n)` déclare l’intention ; les opérations terminales déclenchent automatiquement le pool de threads. Aucune gestion manuelle nécessaire. | C++17/20 fournit des algorithmes parallèles (`std::for_each(std::execution::par, ...)`), mais ils **ne sont pas déclaratifs** et doivent être combinés avec des vues. | Ne fournit pas directement d’algorithmes parallèles, mais peut être combiné avec des bibliothèques externes telles que TBB ou HPX. | Nécessite une implémentation manuelle (p. ex. `std::thread`, `std::async` ou algorithmes parallèles) ; complexité élevée. |
-| **Tri & Indexation** | **`sorted()` a la priorité maximale** et remplace toutes les transformations d’index précédentes. Fournit des opérations fines telles que `redirect` et `reverse` ; fonctionnalité centrale. | Fournit des algorithmes de tri (`std::ranges::sort`), mais ils sont **in situ et destructifs** et rompent la chaîne de vues. Pas de concept propre d’« index ». | Similaire à `std::ranges` ; le tri est destructif. Pas d’abstraction d’« index ». | Le développeur doit implémenter la logique de tri et gérer les relations de données avant et après. |
-| **Analyse de Fenêtres/Glissantes** | **Support natif**. `.toWindow()` associé à `.slide()`, `.tumble()` etc. construit directement des fenêtres glissantes/roulantes ; citoyens de première classe pour les analyses avancées. | Non supporté nativement. Nécessite de combiner plusieurs vues (p. ex. `views::slide` en C++23 ou `views::adjacent`) et une gestion manuelle ; code relativement complexe. | Fournit des composants tels que `ranges::views::slide` (avant C++20), mais l’agrégation avancée de fenêtres nécessite encore une composition manuelle. | Nécessite des boucles imbriquées écrites à la main et une gestion d’état ; code verbeux et sujet aux erreurs. |
-| **Structures de Données** | Clairement mappées à `std::map` (ordonné), `std::unordered_map` (non ordonné), `std::vector`, etc. Les opérations terminales déterminent la structure finale. | Les algorithmes opèrent sur des ranges sans imposer de conteneur final. Utilisez `std::ranges::to` (C++23) ou du code manuel pour stocker les résultats. | Similaire à `std::ranges` ; les résultats sont stockés via `ranges::to<Container>`. | Entièrement choisie et gérée par le développeur. |
-| **Facilité d’Usage et Expressivité** | **Élevée**. Style d’appels chaînés fluide, API modélisée sur Java Stream ; courbe d’apprentissage faible. Se concentre sur le « quoi » plutôt que le « comment ». | **Moyenne**. La composition de vues est très puissante, mais la syntaxe (opérateur pipe `\|`, projections `std::identity`) présente une courbe d’apprentissage pour les débutants ; les erreurs de compilation peuvent être complexes. | **Moyenne-Élevée**. Ensemble de vues et d’algorithmes le plus riche, mais courbe d’apprentissage la plus prononcée. | **Faible**. La logique complexe entraîne un volume de code important, une intention peu claire et une introduction facile d’erreurs. |
-| **Caractéristiques de Performance** | Optimisé par des structures de données prédéfinies dans les scénarios de contrôle d’index et de calcul de fenêtres. Le parallélisme déclaratif simplifie la programmation concurrente. | **Performance ultime**. La composition différée de vues et les optimisations au moment de la compilation peuvent produire du code comparable ou supérieur aux boucles écrites à la main (p. ex. élimination des temporaires intermédiaires). | Identique à `std::ranges` ; la performance est l’un de ses objectifs centraux. | **Maximum théorique élevé**. Les développeurs expérimentés peuvent atteindre des micro-optimisations extrêmes, mais les coûts d’implémentation et de maintenance sont très élevés. |
-| **Cas d’Usage Typiques** | 1. **Traitement de flux de séries temporelles/événements** (logs, données de capteurs).<br>2. Transformations de données nécessitant un **contrôle complexe de l’ordre**.<br>3. **Calcul parallèle déclaratif**.<br>4. **Analyse de fenêtres glissantes en temps réel**. | 1. **Transformation et filtrage général de données de conteneurs haute performance**.<br>2. Construction de **composants génériques** réutilisables.<br>3. Intégration étroite avec l’écosystème d’algorithmes et de conteneurs STL existant. | 1. Fonctionnalité moderne de bibliothèque de ranges pour les projets ne pouvant pas utiliser C++20.<br>2. Recherche et expérimentation avec les propositions de ranges les plus avancées. | 1. Scénarios critiques en termes de performance avec une logique extrêmement simple.<br>2. Besoins bas niveau spéciaux qu’aucune bibliothèque ne peut satisfaire. |
-| **Dépendances & Intégration** | **Zéro dépendance, un seul en-tête**. Intégration extrêmement simple. | Partie de la bibliothèque standard C++20/23 ; aucune dépendance supplémentaire. | Doit être intégrée comme bibliothèque tierce ; très riche en fonctionnalités mais ajoute des dépendances au projet. | Aucune. |
-
-**Recommandations Résumées :**
-- **Choisissez Semantic-Cpp** si votre projet **dépend fortement d’un contrôle fin de l’ordre/index des données**, nécessite des **analyses complexes de fenêtres glissantes** ou souhaite un **parallélisme déclaratif avec la plus faible charge cognitive**. Semantic-Cpp offre une solution hautement abstraite et spécialement conçue.
-- **Choisissez `std::ranges`** si votre projet utilise déjà C++20/23 et que vos besoins sont une **transformation et interrogation de données générale et haute performance**, vous souhaitez une intégration transparente avec l’écosystème STL et vous êtes à l’aise avec une courbe d’apprentissage modérée. `std::ranges` est le choix le plus standard et le plus compatible avec l’avenir.
-- **Choisissez Range-v3** si les contraintes du compilateur empêchent l’utilisation de C++20 mais que vous avez encore besoin d’une fonctionnalité similaire à `std::ranges`.
-- **Choisissez les boucles écrites à la main** uniquement lorsque la logique est extrêmement simple, que vous avez besoin d’une performance au niveau de la nanoseconde et que les abstractions de bibliothèque deviennent réellement un goulot d’étranglement.
+1. 🎯 **Choisissez le bon conteneur**
+   - Recherches d’égalité, agrégation non triée → `toUnordered()`
+   - Requêtes d’intervalle, tri, pagination → `toOrdered()` ou `sort()`
+   - Analyse de fenêtres en temps réel → `toWindow()`
+2. ⚡ **Exploitez judicieusement le parallélisme** : utilisez `parallel()` pour les grands ensembles de données ou les traitements lourds ; évitez les E/S bloquantes.
+3. 📐 **Optimisez l’ordre des opérations** : filtrez tôt, triez avec discernement.
+4. 🔄 **Profitez de l’évaluation paresseuse** : les opérations intermédiaires ne s’exécutent qu’à la terminaison ; `takeWhile` et `limit` permettent une sortie anticipée.
 
 ---
 
-## Licence et Support
-- **Licence** : Ce projet est publié sous licence MIT.
-- **Problèmes et Retours** : Si vous rencontrez des bugs ou avez des suggestions de fonctionnalités, veuillez les soumettre sur la page https://github.com/eloyhere/semantic-cpp/issues.
-- **Discussion et Échange** : Vous pouvez également lancer une discussion à https://github.com/eloyhere/semantic-cpp/discussions.
+## 📊 Comparaison avec la bibliothèque standard C++ et les alternatives
 
-**Semantic-Cpp** — Construire des pipelines de traitement de données efficaces et clairs avec du C++ moderne. 🚀
+| Caractéristique | Semantic-Cpp | C++20/23 Ranges | Boucles traditionnelles |
+|----------------|-------------|-----------------|------------------------|
+| 🎯 Paradigme central | Déclaratif, piloté par index | Axé sur les vues, composition fonctionnelle | Impératif, procédural |
+| ⚡ Prise en charge du parallélisme | Déclaratif, pool de threads automatique | Nécessite de combiner des algorithmes parallèles | Implémentation manuelle |
+| 📐 Tri et indexation | Contrôle fin des index, prise en charge des index négatifs | Tri destructif | Totalement manuel |
+| 📊 Analyse statistique | Plus de 20 méthodes statistiques intégrées | Non intégré | Nécessite des bibliothèques tierces |
+| 🔬 Analyse fréquentielle | DFT / FFT / caractéristiques fréquentielles natives | Non pris en charge nativement | Nécessite des bibliothèques tierces |
+| 🧮 Descente de gradient | Modes analytique et numérique | Non intégré | Nécessite des bibliothèques tierces |
+| 🌐 Unicode | Prise en charge native multi-encodage (UTF‑8/16/32, etc.) | Non pris en charge nativement | Gestion manuelle |
+| 📦 Collecte en conteneurs | Plus de 20 conteneurs standards couverts | Prise en charge partielle | Implémentation manuelle |
+| 📦 Dépendances | Zéro dépendance externe, 7 en-têtes | Bibliothèque standard | Aucune |
+
+---
+
+## 📜 Licence
+
+- 📄 **Licence** : MIT
+
+---
+
+**Semantic-Cpp — Construire des pipelines de traitement de données efficaces et clairs avec le C++ moderne. 🚀**

@@ -1,307 +1,578 @@
-# Semantic-Cpp 深入解析：面向未來的 C++ 智慧型串流處理框架
+# 🚀 Semantic-Cpp：面向未來的 C++ 智慧串流處理框架
 
-Semantic-Cpp 是一套完全重新設計的現代 C++ 串流處理函式庫，採用「單一標頭檔、零相依」的架構。其核心檔案 `semantic.h` 整合了整個函式庫的所有功能。本函式庫創造性地融合了多種程式設計典範的精華：
+Semantic-Cpp 是一個完全重構設計的現代化 C++ 串流處理函式庫，採用「多標頭檔、零外部相依」的模組化架構。每個標頭檔職責清晰、獨立可測，共同構成了一個完整的串流處理生態系。本函式庫創造性地融合了多種程式設計典範的精華：
 
--   **Java Stream API 的優雅與流暢**：提供鏈式呼叫與宣告式程式設計體驗。
--   **JavaScript Generator 的延遲性與彈性**：支援延遲計算與隨需產生資料。
--   **資料庫索引的高效率與有序性**：內建智慧型排序與索引驅動機制，特別適合處理時間序列與事件資料。
+- 🎯 **Java Stream API** 的優雅與流暢：鏈式呼叫，宣告式程式設計，讓程式碼如詩般優雅
+- ⚡ **JavaScript Generator** 的惰性與靈活：延遲計算，按需產生，記憶體友善
+- 🗄️ **資料庫索引** 的高效與有序：智慧排序，索引驅動，時序資料處理利器
 
-與傳統的資料處理方式（例如手寫迴圈或複雜的非同步回呼）不同，Semantic-Cpp 旨在提供一種**型別安全、表現力強且高效能**的解決方案。其最核心的設計哲學是**精準的資料流控制**：資料僅在明確需要時才會在「處理管線」中流動，而流動的「順序」與「位置」可透過「索引」進行細緻調控，從而實現資源的最佳利用。
+與傳統的資料處理方式（手寫迴圈、非同步回呼）不同，Semantic-Cpp 旨在提供一種 **型別安全、表達力強且高效能** 的解決方案。其核心設計哲學是 **精準的資料流控制**：資料僅在需要時流動，順序和位置透過「索引」精細調控，實現資源最佳利用。
 
 ---
 
-## 核心靈魂：索引驅動的資料世界
+## 📐 專案架構：七層模組化設計
+
+Semantic-Cpp 由 **七個核心標頭檔** 組成，層層遞進，每個檔案職責單一、獨立可測：
+
+```
+┌─────────────────────────────────────────────────┐
+│                 semantics.h                     │
+│    (串流建構工廠：數值範圍、容器、文字、Unicode)      │
+├─────────────────────────────────────────────────┤
+│                  semantic.h                     │
+│   (串流中介操作、Collectable 體系、容器特化)        │
+├─────────────────────────────────────────────────┤
+│                 collectors.h                    │
+│  (收集器工廠：比對、搜尋、聚合、統計、DFT/FFT 等)   │
+├─────────────────────────────────────────────────┤
+│                 collector.h                     │
+│     (收集器框架：五階段模型、並行平行支援)          │
+├─────────────────────────────────────────────────┤
+│                charsequence.h                   │
+│  (Unicode 字元序列、多編碼轉換、Builder、Buffer)   │
+├─────────────────────────────────────────────────┤
+│                   pool.h                        │
+│   (全域執行緒池：任務提交、緊急關閉、例外傳播)        │
+├─────────────────────────────────────────────────┤
+│                 function.h                      │
+│  (型別定義：Generator、Supplier、Consumer 等別名)   │
+└─────────────────────────────────────────────────┘
+```
+
+### 相依關係
+
+```
+function.h          ← 無相依，型別基石
+pool.h              ← 相依於 function.h
+charsequence.h      ← 獨立模組，Unicode 處理
+collector.h         ← 相依於 function.h、pool.h
+collectors.h        ← 相依於 collector.h、charsequence.h
+semantic.h          ← 相依於 collector.h、collectors.h、charsequence.h
+semantics.h         ← 相依於 semantic.h
+```
+
+每個標頭檔均可獨立編譯測試，也支援按需引入。  
+例如，只需收集器功能時，僅引入 `collector.h` 和 `collectors.h` 即可。
+
+---
+
+## 🏗️ 第一層：function.h — 型別基礎
+
+`function.h` 定義了整個框架的型別系統，是所有模組的共同基石：
+
+```cpp
+namespace function {
+    using Timestamp = long long;           // 索引型別
+    using Module = unsigned long long;     // 模組／計數型別
+    
+    template <typename T>
+    using Generator = std::function<void(
+        std::function<void(T, Timestamp)>,      // accept
+        std::function<bool(T, Timestamp)>       // interrupt
+    )>;
+}
+```
+
+`Generator` 是整個串流系統的核心抽象：接受 `accept`（接收資料）和 `interrupt`（中斷流程）兩個回呼，體現了「惰性拉取」模型。
+
+---
+
+## ⚡ 第二層：pool.h — 並行基石
+
+`pool.h` 提供全域執行緒池 `pool::pool`，是整個框架的並行引擎：
+
+| 特性 | 說明 |
+|----|----|
+| 🎯 宣告式平行處理 | `parallel(n)` 僅宣告意圖，終端操作時自動啟動 |
+| 🛡️ 緊急關閉 | 內建 `emergencyShutdown()` 和 `std::set_terminate` 處理器 |
+| 🔄 例外傳播 | `submit()` 回傳 `std::future`，支援例外安全傳播 |
+
+---
+
+## 🔤 第三層：charsequence.h — Unicode 字元序列
+
+`charsequence.h` 是一個完整的 Unicode 處理模組，提供字元序列的建立、轉換和操作功能：
+
+| 功能 | 描述 |
+|----|----|
+| 🌐 多編碼支援 | UTF‑8、UTF‑16（LE/BE）、UTF‑32（LE/BE）、ASCII、Latin1 |
+| 🔍 碼點迭代器 | `PointIterator` 支援雙向遍歷 Unicode 碼點 |
+| 🏗️ 建構器模式 | `Builder` 類別支援高效位元組級字串拼接 |
+| 📦 緩衝器 | `Buffer` 類別提供執行緒安全的環形緩衝區 |
+| 🔑 雜湊與比較 | 所有核心型別均有 `std::hash` 和 `std::less` 特化 |
+
+### 核心型別
+
+| 型別 | 描述 |
+|----|----|
+| `Meta` | 元資料包裝器，儲存無號整數值 |
+| `Point` | Unicode 碼點，支援代理對檢測和有效性驗證 |
+| `Charsequence` | 不可變字元序列，支援分割、取代、搜尋、大小寫轉換等操作 |
+| `Builder` | 可變位元組建構器，支援 `prepend`、`insert`、`append` 及各種資料型別 |
+| `Buffer` | 執行緒安全環形緩衝區，支援讀寫、預取、容量管理 |
+
+---
+
+## 🔧 第四層：collector.h — 收集器框架
+
+`collector.h` 實作了收集器模式，是終端操作的核心引擎。
+
+### 五階段模型
+
+```
+Identity → Accumulator → Combiner → Finisher
+              ↑
+           Interrupt (可選短路)
+```
+
+### 型別別名
+
+| 型別 | 定義 | 角色 |
+|----|----|----|
+| `Identity<A>` | `Supplier<A>` | 提供初始值 |
+| `Accumulator<A,E>` | `TriFunction<A,E,Timestamp,A>` | 累加元素 |
+| `Combiner<A>` | `BiFunction<A,A,A>` | 合併平行結果 |
+| `Finisher<A,R>` | `Function<A,R>` | 最終轉換 |
+| `Interrupt<E,A>` | `TriPredicate<E,Timestamp,A>` | 短路判斷 |
+
+### 並行支援
+
+`Collector::collect()` 自動處理：
+
+- 📦 資料分片（按索引模運算分發到各執行緒）
+- 🔗 結果合併（透過 `Combiner` 歸併局部結果）
+- ⚠️ 例外傳播（透過 `std::exception_ptr` 和 `std::atomic<bool>`）
+
+---
+
+## 🏭 第五層：collectors.h — 收集器工廠
+
+`collectors.h` 提供了豐富的預置收集器工廠函式。
+
+### 📊 比對操作
+
+| 方法 | 描述 | 回傳型別 |
+|----|----|----|
+| `useAllMatch(predicate)` | 所有元素滿足條件 | `bool` |
+| `useAnyMatch(predicate)` | 任一元素滿足條件 | `bool` |
+| `useNoneMatch(predicate)` | 沒有元素滿足條件 | `bool` |
+
+### 🔍 搜尋操作
+
+| 方法 | 描述 | 回傳型別 |
+|----|----|----|
+| `useFindFirst()` | 搜尋第一個元素 | `std::optional<E>` |
+| `useFindLast()` | 搜尋最後一個元素 | `std::optional<E>` |
+| `useFindAny()` | 隨機搜尋元素 | `std::optional<E>` |
+| `useFindAt(index)` | 搜尋指定索引元素（支援負索引） | `std::optional<E>` |
+| `useFindMaximum()` | 搜尋最大值（支援自訂比較器） | `std::optional<E>` |
+| `useFindMinimum()` | 搜尋最小值（支援自訂比較器） | `std::optional<E>` |
+
+### 📈 聚合操作
+
+| 方法 | 描述 | 回傳型別 |
+|----|----|----|
+| `useCount()` | 計算元素總數 | `Module` |
+| `useSummate<E,D>()` | 求和 | `D` |
+| `useSummate<E,D>(mapper)` | 帶映射的求和 | `D` |
+| `useAverage<E,D>()` | 平均值 | `D` |
+| `useAverage<E,D>(mapper)` | 帶映射的平均值 | `D` |
+| `useRange<E,D>()` | 數值範圍（最大減最小） | `D` |
+| `useRange<E,D>(mapper)` | 帶映射的範圍 | `D` |
+| `useMinimum<E,D>()` | 最小值 | `std::optional<D>` |
+| `useMaximum<E,D>()` | 最大值 | `std::optional<D>` |
+
+### 📊 統計操作
+
+| 方法 | 描述 | 回傳型別 |
+|----|----|----|
+| `useVariance<E,D>()` | 總體變異數 | `D` |
+| `useStandardDeviation<E,D>()` | 總體標準差 | `D` |
+| `useSkewness<E,D>()` | 偏度 | `D` |
+| `useKurtosis<E,D>()` | 峰度 | `D` |
+| `useMedian<E,D>()` | 中位數 | `std::optional<D>` |
+| `useMode<E>()` | 眾數（基於頻域分析） | `std::optional<E>` |
+| `usePercentile<E,D>(p)` | 第 p 百分位數 | `std::optional<D>` |
+| `useFrequency<E>()` | 頻域特徵（索引相位編碼） | `std::map<E, complex>` |
+| `useDistribution<E>()` | 空間分布特徵（位置編碼） | `std::map<E, complex>` |
+
+### 🔗 歸約操作
+
+| 方法 | 描述 | 回傳型別 |
+|----|----|----|
+| `useReduce(reducer)` | 無初始值歸約 | `std::optional<E>` |
+| `useReduce(identity, reducer)` | 帶初始值歸約 | `E` |
+| `useReduce(id, red, comb, fin)` | 完全自訂歸約 | `R` |
+
+### 📦 收集到容器操作
+
+| 方法 | 描述 | 回傳型別 |
+|----|----|----|
+| `useToVector()` | 收集為 vector | `std::vector<E>` |
+| `useToList()` | 收集為 list | `std::list<E>` |
+| `useToDeque()` | 收集為 deque | `std::deque<E>` |
+| `useToForwardList()` | 收集為 forward_list | `std::forward_list<E>` |
+| `useToArray<N>()` | 收集為固定大小 array | `std::array<E, N>` |
+| `useToSet()` | 收集為 set（去重排序） | `std::set<E>` |
+| `useToMultiset()` | 收集為 multiset | `std::multiset<E>` |
+| `useToUnorderedSet()` | 收集為 unordered_set | `std::unordered_set<E>` |
+| `useToUnorderedMultiset()` | 收集為 unordered_multiset | `std::unordered_multiset<E>` |
+| `useToMap(keyExtractor)` | 收集為 map | `std::map<K, E>` |
+| `useToMap(keyExtractor, valueExtractor)` | 收集為 map（自訂值） | `std::map<K, V>` |
+| `useToMultimap(keyExtractor)` | 收集為 multimap | `std::multimap<K, E>` |
+| `useToMultimap(keyExtractor, valueExtractor)` | 收集為 multimap（自訂值） | `std::multimap<K, V>` |
+| `useToUnorderedMap(keyExtractor, valueExtractor)` | 收集為 unordered_map | `std::unordered_map<K, V>` |
+| `useToUnorderedMultimap(keyExtractor)` | 收集為 unordered_multimap | `std::unordered_multimap<K, E>` |
+| `useToUnorderedMultimap(keyExtractor, valueExtractor)` | 收集為 unordered_multimap（自訂值） | `std::unordered_multimap<K, V>` |
+| `useToStack()` | 收集為 stack | `std::stack<E>` |
+| `useToQueue()` | 收集為 queue | `std::queue<E>` |
+| `useToPriorityQueue()` | 收集為 priority_queue | `std::priority_queue<E>` |
+
+### 🔀 分組與分區操作
+
+| 方法 | 描述 | 回傳型別 |
+|----|----|----|
+| `useGroup(keyExtractor)` | 按鍵分組 | `std::unordered_map<K, vector<E>>` |
+| `usePartition(size)` | 按固定大小分區 | `std::vector<vector<E>>` |
+| `usePartitionBy(keyExtractor)` | 按自訂鍵分區 | `std::vector<vector<E>>` |
+
+### 🎨 字串輸出操作
+
+| 方法 | 描述 | 回傳型別 |
+|----|----|----|
+| `useJoin()` | 連接為字串（預設逗號分隔，方括號包圍） | `Charsequence` |
+| `useJoin(delimiter)` | 自訂分隔符連接 | `Charsequence` |
+| `useJoin(prefix, delimiter, suffix)` | 完全自訂格式化連接 | `Charsequence` |
+| `useOut()` | 格式化輸出到 stdout | `Charsequence` |
+| `useOut(delimiter)` | 自訂分隔符輸出到 stdout | `Charsequence` |
+| `useOut(prefix, delimiter, suffix)` | 完全自訂格式化輸出到 stdout | `Charsequence` |
+| `useError()` | 格式化輸出到 stderr | `Charsequence` |
+| `useError(delimiter)` | 自訂分隔符輸出到 stderr | `Charsequence` |
+| `useError(prefix, delimiter, suffix)` | 完全自訂格式化輸出到 stderr | `Charsequence` |
+
+### 🧮 數學工具
+
+| 方法 | 描述 | 回傳型別 |
+|----|----|----|
+| `useDFT()` | 離散傅立葉轉換 | `vector<complex<double>>` |
+| `useIDFT()` | 逆離散傅立葉轉換 | `vector<complex<double>>` |
+| `useFFT()` | 快速傅立葉轉換 (Cooley-Tukey) | `vector<complex<double>>` |
+| `useIFFT()` | 逆快速傅立葉轉換 | `vector<complex<double>>` |
+| `useGradient(gradFunc, lr, iter, th)` | 梯度下降（解析梯度） | `vector<double>` |
+| `useGradient(costFunc, lr, iter, th, h)` | 梯度下降（數值梯度） | `vector<double>` |
+
+---
+
+## 🌊 第六層：semantic.h — 串流中介操作與收集體系
+
+`semantic.h` 是整個框架的核心，包含 `collectable` 和 `semantic` 兩個命名空間。
+
+### collectable 命名空間
+
+提供可收集物件的繼承體系：
+
+| 類別 | 描述 | 底層儲存 |
+|----|----|----|
+| `Collectable<E>` | 抽象基類，純虛函式 `source()` | — |
+| `OrderedCollectable<E>` | 有序收集，支援自訂排序 | `std::map<Timestamp, E>` |
+| `UnorderedCollectable<E>` | 無序收集，高效 O(1) 查詢 | `std::unordered_map<Timestamp, E>` |
+| `Statistics<E, D>` | 統計收集（繼承 `OrderedCollectable`） | 提供 20+ 統計方法 |
+| `WindowCollectable<E>` | 視窗收集（繼承 `OrderedCollectable`） | 支援 `slide` / `tumble` |
+
+#### Collectable 基類方法
+
+提供所有 `toXxx()` 終端收集方法（共 20+ 種容器），以及 `count()`、`findFirst()`、`findAny()`、`anyMatch()`、`allMatch()`、`noneMatch()`、`reduce()`、`join()`、`out()`、`error()`、`group()`、`partition()`、`partitionBy()` 等操作。
+
+#### Statistics 類別方法
+
+| 方法 | 回傳型別 | 描述 |
+|----|----|----|
+| `summate()` / `summate(mapper)` | `D` | 求和 |
+| `average()` / `average(mapper)` | `D` | 平均值 |
+| `minimum()` / `minimum(mapper)` | `std::optional<D>` | 最小值 |
+| `maximum()` / `maximum(mapper)` | `std::optional<D>` | 最大值 |
+| `range()` / `range(mapper)` | `D` | 範圍（最大 − 最小） |
+| `variance()` / `variance(mapper)` | `D` | 總體變異數 |
+| `standardDeviation()` / `standardDeviation(mapper)` | `D` | 總體標準差 |
+| `frequency()` / `frequency(mapper)` | `std::map<*, complex>` | 頻域特徵（索引相位編碼） |
+| `distribute()` / `distribute(mapper)` | `std::map<*, complex>` | 空間分布特徵（位置編碼） |
+| `median()` / `median(mapper)` | `std::optional<D>` | 中位數 |
+| `mode()` | `std::optional<E>` | 眾數 |
+| `percentile(p)` / `percentile(p, mapper)` | `std::optional<D>` | 第 p 百分位數 |
+| `firstQuartile()` / `firstQuartile(mapper)` | `std::optional<D>` | 第一四分位數 (Q1) |
+| `thirdQuartile()` / `thirdQuartile(mapper)` | `std::optional<D>` | 第三四分位數 (Q3) |
+| `interquartileRange()` / `interquartileRange(mapper)` | `std::optional<D>` | 四分位距 (Q3 − Q1) |
+| `skewness()` / `skewness(mapper)` | `D` | 偏度 |
+| `kurtosis()` / `kurtosis(mapper)` | `D` | 峰度 |
+| `dft()` | `vector<complex<double>>` | 離散傅立葉轉換 |
+| `idft()` | `vector<complex<double>>` | 逆離散傅立葉轉換 |
+| `fft()` | `vector<complex<double>>` | 快速傅立葉轉換 |
+| `ifft()` | `vector<complex<double>>` | 逆快速傅立葉轉換 |
+| `gradient(gradFunc, lr, iter, th)` | `vector<double>` | 梯度下降（解析梯度） |
+| `gradient(costFunc, lr, iter, th, h)` | `vector<double>` | 梯度下降（數值梯度） |
+
+### semantic 命名空間
+
+提供 `Semantic<E>` 樣板類別及其完整的特化體系。
+
+#### 主樣板方法清單
+
+| 類別 | 方法 | 描述 |
+|----|----|----|
+| 🎨 元素轉換 | `map` | 一對一映射轉換 |
+| | `flatMap` | 一對多映射並展平 |
+| | `flat` | 展平巢狀串流 |
+| 🔍 元素過濾 | `filter` | 條件過濾 |
+| | `takeWhile` | 條件滿足時持續獲取 |
+| | `dropWhile` | 條件滿足時持續丟棄 |
+| | `distinct` | 去重（支援自訂比較器） |
+| 📏 數量控制 | `limit` | 限制元素數量 |
+| | `skip` | 跳過前 n 個元素 |
+| | `sub` | 截取子範圍 |
+| 📐 索引操作 | `redirect` | 重新映射索引 |
+| | `reverse` | 反轉索引 |
+| | `translate` | 偏移索引（固定或動態） |
+| 👀 觀察操作 | `peek` | 觀察每個元素（不修改串流） |
+| ⚡ 平行宣告 | `parallel` | 宣告平行度 |
+| 🔗 連接操作 | `concatenate` | 連接另一個串流或容器 |
+| 📤 終端轉換 | `toUnordered` | 轉為無序收集器 |
+| | `toOrdered` | 轉為有序收集器 |
+| | `toWindow` | 轉為視窗收集器 |
+| | `toStatistics` | 轉為統計收集器 |
+
+#### 容器特化完整支援
+
+| 特化型別 | 描述 |
+|----|----|
+| `Semantic<std::vector<E>>` | 向量容器串流，支援排序、去重等操作 |
+| `Semantic<std::list<E>>` | 鍊錶容器串流，支援排序、去重等操作 |
+
+---
+
+## 🏭 第七層：semantics.h — 串流建構工廠
+
+`semantics.h` 提供所有串流建構工廠函式。
+
+### 📐 數值範圍產生
+
+| 方法 | 描述 |
+|----|----|
+| `useRange(start, end)` | 產生 `[start, end)` 範圍內的數值串流 |
+| `useRange(start, end, step)` | 帶步長的範圍產生 |
+| `useRangeClosed(start, end)` | 產生 `[start, end]` 閉區間範圍 |
+| `useRangeClosed(start, end, step)` | 帶步長的閉區間範圍 |
+
+### ♾️ 無限串流產生
+
+| 方法 | 描述 |
+|----|----|
+| `useInfinite(seed, generator)` | 從種子值開始，無限迭代產生 |
+| `useGenerate(supplier)` | 無限呼叫供應者產生 |
+| `useGenerate(supplier, limit)` | 有限次數呼叫供應者產生 |
+| `useIterate(seed, generator)` | 從種子值開始無限迭代 |
+| `useIterate(seed, generator, limit)` | 有限次數迭代產生 |
+| `useRandom()` | 無限隨機整數串流 |
+| `useRandom(min, max)` | 指定範圍的無限隨機數串流 |
+| `useRandom(min, max, count)` | 指定範圍和數量的隨機數串流 |
+
+### 📦 容器與元素建構
+
+| 方法 | 描述 |
+|----|----|
+| `useEmpty()` | 建立空串流 |
+| `useOf(element)` | 從單一元素建立串流 |
+| `useOf(e1, e2)` | 從兩個元素建立串流 |
+| `useOf(e1, e2, e3)` | 從三個元素建立串流 |
+| `useOf({...})` | 從初始化列表建立串流 |
+| `useFrom(container)` | 從任何標準容器建立串流 |
+| `useFrom({...})` | 從初始化列表建立串流 |
+| `useRepeat(element, count)` | 重複指定元素 n 次 |
+
+### 📝 文字處理
+
+| 方法 | 描述 |
+|----|----|
+| `useBlob(text)` | 將字串按位元組拆分為 char 串流 |
+| `useBlob(text, start, end)` | 將字串指定範圍按位元組拆分 |
+| `useBlob(istream)` | 從輸入串流按行讀取 |
+| `useBlob(istream, delimiter)` | 從輸入串流按分隔符讀取 |
+| `useText(text)` | 將字串作為整體文字串流 |
+| `useText(text, delimiter)` | 按分隔符拆分文字 |
+| `useText(istream)` | 從輸入串流讀取整個內容 |
+| `useText(istream, delimiter)` | 從輸入串流按分隔符讀取 |
+
+### 🌐 Unicode 處理
+
+| 方法 | 描述 |
+|----|----|
+| `useSequence(charsequence)` | 從字元序列建立碼點串流 |
+| `useSequence(charsequence, start, end)` | 從字元序列指定範圍建立碼點串流 |
+| `useSequence(text, encoding)` | 從文字建立指定編碼的碼點串流 |
+| `useSequence(istream, encoding)` | 從輸入串流建立指定編碼的碼點串流 |
+| `useCharsequence(charsequence)` | 將字元序列作為整體串流 |
+| `useCharsequence(charsequence, delimiter)` | 按分隔符拆分字元序列 |
+| `useCharsequence(istream, encoding)` | 從輸入串流讀取整個字元序列 |
+| `useCharsequence(istream, delimiter, encoding)` | 從輸入串流按分隔符讀取字元序列 |
+
+---
+
+## 🧠 核心概念：索引驅動的資料世界
 
 Semantic-Cpp 將資料處理抽象為對「元素」及其「邏輯位置（索引）」的操作。理解這一點是掌握本函式庫的關鍵。
 
-### 1. 基礎索引轉換
-索引決定了元素在處理鏈中的邏輯順序，您可以對其進行靈活操作：
--   **`redirect(重定向函式)`**：核心方法。您可以透過自訂函式，完全重寫元素的索引。例如，可以將索引加倍、或根據元素值產生新索引等。
--   **`reverse()`**：便捷方法，內部透過 `redirect` 實現，將目前所有索引邏輯反轉（例如，正索引變為負索引）。
--   **`translate(偏移量)`**：為所有索引增加一個固定的偏移量。
+### 1. 📐 基礎索引變換
 
-### 2. 排序的「絕對優先」規則
-排序操作 (`sorted`) 在函式庫中擁有最高優先權，其行為是確定性的：
--   **`sorted()` 會覆蓋一切**：無論您先前透過 `redirect`、`reverse` 進行了多麼複雜的索引轉換，一旦呼叫 `sorted()`，所有先前的索引操作都將被**覆蓋**。系統會根據元素的**實際值**，為其重新分配從 0 開始的自然順序索引。
--   **立即「實體化」為有序集合**：為了避免後續操作中不必要的重複排序開銷，`sorted()` 方法會**立即**回傳一個 `OrderedCollectable` 型別的物件。這表示資料在此刻已經被收集並完成排序。
+| 方法 | 描述 |
+|----|----|
+| `redirect(fn)` | 核心方法：自訂函式完全重寫元素索引 |
+| `reverse()` | 將所有索引邏輯反轉（內部透過 `redirect` 實作） |
+| `translate(offset)` | 固定偏移 |
+| `translate(translator)` | 動態偏移函式，根據元素和索引計算新索引 |
 
-### 3. 宣告式平行處理
-平行處理變得非常簡單且直觀：
--   **`parallel(執行緒數)` 僅僅是一項宣告**：呼叫此方法只是表達「我希望後續操作能平行執行」的意圖，並指定期望的執行緒數量，**並不會立即啟動任何執行緒或提交任務**。
--   **終端操作觸發平行**：真正的平行計算是在呼叫如 `toUnordered()`、`toOrdered()`、`count()` 等**終端操作方法**時才被觸發。此時，函式庫內建的執行緒池會根據宣告的執行緒數，自動將資料分片並提交任務。
--   **無需手動管理**：您無需關心執行緒建立、任務分發和結果合併的細節，函式庫會為您自動處理。
+### 2. 📊 排序的「霸道」規則
 
-### 4. 如何選擇最終的資料容器？
-根據您的效能需求與操作類型，可以選擇不同的終端轉換方法：
+> ⚠️ **`sort()` 會覆蓋一切**：呼叫後所有之前的索引操作都將被覆蓋，元素按值重新分配自然順序索引。
+
+- `sort()` → 立即物化為 `OrderedCollectable`，按元素值自然排序
+- `sort(comparator)` → 自訂比較器排序
+
+### 3. ⚡ 宣告式平行處理
+
+- `parallel(n)` 僅宣告意圖，不立即啟動執行緒
+- 終端操作（`toUnordered()`、`count()` 等）才真正觸發平行處理
+- 執行緒池自動處理任務分發和結果合併
+
+### 4. 🎯 如何選擇最終的資料容器？
 
 | 轉換方法 | 底層資料結構 | 效能特徵 | 最佳適用場景 |
-| :--- | :--- | :--- | :--- |
-| **`sorted()`** | `std::map<索引, 元素>` | O(log n) 存取，嚴格保持元素順序。 | 分頁、範圍查詢、時間序列分析、滾動統計。 |
-| **`sorted(comparator)`** | `std::map<索引, 元素>` | O(log n) 存取，按自訂規則排序。 | 自訂排序規則的分頁或範圍查詢。 |
-| **`toOrdered()`** | `std::map<索引, 元素>` | O(log n) 存取，保持**目前索引**的順序。 | 當您想保留 `redirect` 等操作定義的索引順序，並進行有序操作時。 |
-| **`toUnordered()`** | `std::unordered_map<索引, 元素>` | 平均 O(1) 存取，**最高效能**，但不保證順序。 | 快速查詢、去重統計、聚合計算等不關心順序的場景。 |
-| **`toWindow()`** | 基於 `std::map` 的視窗檢視 | O(log n)，支援在有序資料集上定義滑動或滾動視窗。 | 即時串流資料分析、滑動視窗聚合、事件工作階段劃分。 |
-
-> **重要提示**：`WindowCollectable`（由 `toWindow()` 回傳）內部依賴於一個有序的集合（透過 `toOrdered()` 實現），以確保視窗滑動與翻滾操作能基於確定的順序正確執行。
+|----|----|----|----|
+| `sort()` | `OrderedCollectable` | 排序後物化，保持值順序 | 按值排序、分頁、時間序列 |
+| `toOrdered()` | `OrderedCollectable` | 保持當前索引順序 | 保留自訂索引順序 |
+| `toUnordered()` | `UnorderedCollectable` | 平均 O(1)，最高效能 | 快速查詢、去重、聚合 |
+| `toWindow()` | `WindowCollectable` | 基於有序集合 | 滑動 / 滾動視窗分析 |
+| `toStatistics()` | `Statistics` | 20+ 統計方法 | 全面統計分析 |
 
 ---
 
-## 快速上手指南
+## 🚀 快速上手指南
 
 ### 安裝
-只需將 `semantic.h` 標頭檔放入您的專案，並確保編譯器支援 C++17 或更高標準。
-```cpp
-#include "semantic.h"
-// 可選：使用 semantic 命名空間
-using namespace semantic;
+
+將所有標頭檔放入專案目錄，確保編譯器支援 **C++17 或更高標準**：
+
+```
+include/
+├── function.h
+├── pool.h
+├── charsequence.h
+├── collector.h
+├── collectors.h
+├── semantic.h
+└── semantics.h
 ```
 
-### 基礎範例：體驗索引與排序
 ```cpp
-#include <iostream>
-#include "semantic.h"
-
-int main() {
-    auto result = semantic::useRange(0, 10)   // 1. 建立 0 到 9 的整數串流
-        .map([](int x) -> int { return x * x; })    // 2. 將每個元素平方 (0,1,4,9...81)
-        .redirect([](int value, auto index) -> long long {    // 3. 索引重定向：將索引加倍
-            return index * 2;                  // 現在索引是 0,2,4,6...
-        })
-        .reverse()                           // 4. 邏輯反轉索引 (...,6,4,2,0)
-        .sorted()                            // 5. ⚠️ 強制按元素值(1,4,9...)重新排序！
-                                             //    之前的所有索引操作被覆蓋，索引變為0,1,2...
-        .toList();                           // 6. 收集到 std::vector
-
-    // 輸出: 0 1 4 9 16 25 36 49 64 81 （已排序）
-    for (auto& item : result) {
-        std::cout << item << " ";
-    }
-    return 0;
-}
-```
-
-### 平行處理範例
-```cpp
-#include <iostream>
-#include "semantic.h"
-
-int main() {
-    // 1. 建構一個串流處理管線，並宣告希望使用 4 個執行緒平行執行。
-    auto dataStream = semantic::useRange(1, 1000)
-        .parallel(4)                         // 宣告平行，尚未執行
-        .filter([](int x) -> bool {
-            return x % 2 == 0;               // 過濾出偶數
-        })
-        .filter([](int x, auto index) -> bool {
-            return index < 5LL;              // 再過濾出邏輯索引小於 5 的元素
-        });
-
-    // 2. 終端操作 `count()` 觸發真正的平行計算
-    //    執行緒池啟動，資料被分片，四個執行緒並行計數，結果自動合併。
-    auto result = dataStream
-        .toUnordered()                       // 轉換為無序集合並行處理
-        .count();                            // 統計最終元素數量
-
-    std::cout << "過濾後的元素數量: " << result << std::endl;
-    return 0;
-}
-```
-
-### 時間序列與視窗分析範例
-```cpp
-#include <iostream>
-#include "semantic.h"
-
-int main() {
-    // 模擬一組時間序列資料（例如股價）
-    auto timeSeries = semantic::useFrom(std::vector<double>{1.1, 2.2, 3.3, 4.4, 5.5});
-
-    // 1. 轉換為視窗檢視
-    auto windowStats = timeSeries
-        .toWindow()                     // 轉換為 WindowCollectable
-        .slide(3, 1)                    // 定義大小為 3 的滑動視窗，步長為 1
-                                        // 視窗 1: {1.1, 2.2, 3.3}
-                                        // 視窗 2: {2.2, 3.3, 4.4}
-                                        // 視窗 3: {3.3, 4.4, 5.5}
-        .sub(1, 4)                      // 取索引 1 到 3 的視窗（即視窗 2 和 3）
-        .map([](auto&& window) -> double { // 對每個視窗進行處理
-            // 計算每個視窗的平均值
-            return window
-                .toStatistics<double, double>() // 將視窗轉為 Statistics 以進行數學計算
-                .average();
-        })
-        .toStatistics<double, double>() // 對計算結果（平均值序列）進行有序統計
-        .summate();                     // 對所有視窗平均值求和
-
-    std::cout << "選定滑動視窗的平均值總和: " << windowStats << std::endl;
-    // 輸出: ( (2.2+3.3+4.4)/3 + (3.3+4.4+5.5)/3 ) 的結果
-    return 0;
-}
+#include "semantics.h"  // 自動包含其他相依項
 ```
 
 ---
 
-## 核心 API 速查手冊
+## 🎯 基礎範例：體驗索引與排序
 
-### 串流建構器（串流來源）
-| 方法 | 描述 | 範例 |
-| :--- | :--- | :--- |
-| `useRange(start, end)` | 產生數值範圍內的整數串流。 | `useRange(0, 10)` |
-| `useFrom(container)` | 從標準容器（如 vector、list）建立串流。 | `useFrom(std::vector{1,2,3})` |
-| `useOf(args...)` | 從可變參數列表建立串流。 | `useOf(1, 2, 3, 4, 5)` |
-| `useBlob(text)` | 將字串按字元拆分為串流。 | `useBlob("Hello")` |
-| `useBlob(text, start, end)` | 將字串按區間字元拆分為串流。 | `useBlob("Hello", 0, 3)` |
-| `useBlob(istream)` | 將輸入串流按字元拆分為串流。 | `useBlob(istream)` |
-| `useBlob(istream, start, end)` | 將輸入串流按區間字元拆分為串流。 | `useBlob(istream, 0, 3)` |
-| `useText(text)` | 將整個文字作為單一元素串流。 | `useText("Hello")` |
-| `useText(text, delimiter)` | 將文字按區間字元拆分為串流。 | `useText("Hello", 'e')` |
-
-### 中間操作（Intermediate Operations）
-| 方法 | 描述 | 注意事項 |
-| :--- | :--- | :--- |
-| `map(轉換函式)` | 將元素轉換為另一種形式。 | 函式可接收 `(元素)` 或 `(元素, 索引)`。 |
-| `filter(斷言函式)` | 過濾滿足條件的元素。 | 斷言可基於 `(元素)` 或 `(元素, 索引)`。 |
-| `distinct()` | 去除重複的元素。 | 可傳入自訂比較器。 |
-| `limit(n)` | 限制串流中元素的數量為前 `n` 個。 | |
-| `skip(n)` | 跳過串流中的前 `n` 個元素。 | |
-| `sub(start, end)` | 取得索引在 `[start, end)` 範圍內的子串流。 | 類似字串的 `substr`。 |
-
-### 索引操作（Index Operations）
-| 方法 | 描述 | 關鍵特性 |
-| :--- | :--- | :--- |
-| `redirect(重定向函式)` | 核心方法，允許完全控制每個元素的索引。 | 函式簽名為 `(元素, 舊索引) -> 新索引`。 |
-| `reverse()` | 將目前所有元素的索引邏輯反轉。 | 內部透過 `redirect` 實現。 |
-| `translate(偏移量)` | 將所有元素的索引增加一個固定偏移量。 | |
-| **`sorted()`** | **強制排序**。按元素值升序排列，**覆蓋所有已有索引**。 | 立即回傳 `OrderedCollectable`。 |
-| **`sorted(比較器)`** | 使用自訂比較器強制排序。 | 立即回傳 `OrderedCollectable`。 |
-
-### 平行宣告（Parallel Declaration）
-| 方法 | 描述 | 執行時機 |
-| :--- | :--- | :--- |
-| `parallel()` | 宣告使用預設平行策略（通常為 CPU 核心數）。 | 在後續的**終端操作**中觸發。 |
-| `parallel(n)` | 宣告希望使用 `n` 個執行緒進行平行處理。 | 在後續的**終端操作**中觸發。 |
-
-### 終端轉換（Terminal Conversions - 觸發計算）
-| 方法 | 描述 | 內部狀態 |
-| :--- | :--- | :--- |
-| `toOrdered()` | 轉換為有序集合，保留**目前的索引順序**。 | 實體化為 `std::map<Index, Value>`。 |
-| `toUnordered()` | 轉換為無序集合，以獲得最高效能。 | 實體化為 `std::unordered_map<Index, Value>`。 |
-| `toWindow()` | 轉換為視窗集合，用於滑動/滾動分析。 | 內部基於 `toOrdered()`。 |
-
-### 終端動作（Terminal Actions - 產生最終結果）
-| 方法 | 描述 | 回傳型別 |
-| :--- | :--- | :--- |
-| `anyMatch(predicate)` | 計算串流中是否任意有一個滿足條件，如果找到立即退出。 | 是否任意滿足 |
-| `allMatch(predicate)` | 計算串流中是否全部滿足條件，如果不滿足則退出。 | 是否全部滿足 |
-| `noneMatch(predicate)` | 計算串流中是否全部不滿足條件，如果滿足則退出。 | 是否全部不滿足 |
-| `forEach(consumer)` | 遍歷串流中元素。 | 逐個遍歷 |
-| `count()` | 計算串流中元素的總數。 | `Module` (`unsigned long long`) |
-| `average()` | 計算數值元素的平均值。 | 元素型別的平均值（如 `double`）。 |
-| `findAny()` | 隨機查找元素。 | 串流內部隨機元素。 |
-| `findFirst()` | 查找第一個元素。 | 串流內部第一個元素。 |
-| `findLast()` | 查找最後一個元素。 | 串流內部最後一個元素。 |
-| `findAt(可負索引)` | 查找第 n 個元素，如果為負數，則為第 (size+index) 個元素。 | 串流內部某個索引的元素。 |
-| `findMinimum()` / `findMaximum()` | 查找串流中的最小/最大值。 | `std::optional<元素型別>` |
-| `reduce(accumulator)` | 將串流縮減為單一值（如求和）。 | 累加器結果的型別。 |
-| `reduce(identity, accumulator)` | 將串流縮減為單一值（如求和）。 | 累加器結果的型別。 |
-| `collect(collector)` | 使用自訂收集器進行複雜聚合。 | 收集器定義的回傳型別。 |
-| `toList()` / `toVector()` | 收集所有元素到列表/向量。 | `std::vector<E>` |
-| `toSet()` | 收集所有元素到集合（去重）。 | `std::set<元素型別>` |
-| `group(keyExtractor)` | 分組到 Map（去重）。 | `std::map<K, std::vector<E>>` |
-| `toMap(keyExtractor)` | 收集到 Map（去重）。 | `std::map<K, E>` |
-
----
-
-## 進階主題與最佳實務
-
-### 架構精髓：延遲求值與精準回呼控制
-每個串流操作背後都是一個接受兩個回呼函式的「產生器」：
--   **`accept(元素, 索引)`**：當下游操作準備好處理資料時，會呼叫此回呼來「請求」一個元素。
--   **`interrupt(元素, 索引)`**：在處理每個元素前呼叫，如果回傳 `true`，則整個處理鏈會**立即終止**。
-這種機制確保了資料是「按需拉取」的，並且可以隨時提前結束，避免不必要的計算。
-
-### 效能最佳化建議
-1.  **選擇正確的容器**：
-    -   做等值查找、去重、不排序的聚合 → 優先使用 `toUnordered()`。
-    -   需要範圍查詢、排序、分頁 → 使用 `toOrdered()` 或 `sorted()`。
-    -   做即時視窗分析 → 使用 `toWindow()`。
-2.  **善用平行**：
-    -   資料量較大（例如 >1000 筆）或處理邏輯（`map`、`filter`）較耗時時，使用 `parallel()` 通常能獲得效益。
-    -   避免在平行串流中進行阻塞式的 I/O 操作。
-3.  **最佳化操作順序**：
-    -   **盡早過濾 (`filter`)**：在應用昂貴的 `map` 轉換之前，先透過 `filter` 減少資料量。
-    -   **明智排序**：排序開銷大。如果後續操作（如 `distinct`）不依賴順序，可先進行這些操作再排序。
-
-### 自訂收集器
-當內建的終端操作無法滿足需求時，您可以建構自訂收集器，實現複雜的縮減邏輯。
 ```cpp
-// 建立一個將數字連接成特定格式字串的收集器
-auto myCollector = semantic::collector::useFull<int, std::string, std::string>(
-     []() -> std::string { return ""; }, // Supplier：提供初始累加值
-    [](std::string acc, int val, auto idx) -> std::string { // 累加器
-        if (!acc.empty()) acc += "|";
-        return acc + "Num(" + std::to_string(val) + ")";
-    },
-    [](std::string a, std::string b) -> std::string { // Combiner（用於平行）
-        if (a.empty()) return b;
-        if (b.empty()) return a;
-        return a + "|" + b;
-    },
-    [](std::string acc) -> std::string { // Finisher：對最終結果做最後處理
-        return "[" + acc + "]";
-    }
-);
-
-auto result = semantic::useRange(1, 5)
-    .toOrdered() // 觸發計算
-    .collect(myCollector); // 使用自訂收集器
-
-std::cout << result << std::endl; // 輸出: [Num(1)|Num(2)|Num(3)|Num(4)]
-```
-
-### 文字處理範例
-```cpp
-auto text = semantic::useText("Hello 世界！")
-    .map([](const std::string& text) -> std::string {
-        return "<" + text + ">";
+auto result = semantic::useRange(0, 10)
+    .map(int x { return x * x; })
+    .redirect(int value, auto index -> long long {
+        return index * 2;
     })
-    .toOrdered()
-    .join(" "); // 用空格連接所有字元
+    .reverse()
+    .sort()                              // 強制按值排序，覆蓋所有索引操作
+    .toVector();
 
-std::cout << text << std::endl;
-// 輸出: <H><e><l><l><o>< ><世><界><！>
+// 輸出: 0 1 4 9 16 25 36 49 64 81
+```
+
+## ⚡ 平行處理範例
+
+```cpp
+auto count = semantic::useRange(1, 1000)
+    .parallel(4)
+    .filter(int x { return x % 2 == 0; })
+    .toUnordered()
+    .count();
+
+// 輸出: 偶數數量: 500
+```
+
+## 📊 統計分析範例
+
+```cpp
+auto stats = semantic::useRange(1, 101)
+    .toStatistics<int, double>();
+
+auto avg = stats.average();               // 平均值
+auto med = stats.median();                // 中位數
+auto std = stats.standardDeviation();     // 標準差
+auto q1  = stats.firstQuartile();          // 第一四分位數
+auto q3  = stats.thirdQuartile();          // 第三四分位數
+auto skew = stats.skewness();              // 偏度
+```
+
+## 🔬 頻域分析範例
+
+```cpp
+auto freq = data.toUnordered().frequency();
+for (const auto& [element, z] : freq) {
+    auto magnitude = std::abs(z);  // 分布集中度
+    auto phase     = std::arg(z);  // 分布中心相位
+}
+```
+
+## 🧮 FFT 轉換範例
+
+```cpp
+auto spectrum = semantic::useRange(0, 8)
+    .map(int x -> std::complex<double> {
+        return {static_cast<double>(x), 0.0};
+    })
+    .toUnordered()
+    .collect(collector::useFFT<double>());
 ```
 
 ---
 
-### 與 C++ 標準函式庫及其他競品的對比
+## ⚡ 效能最佳化建議
 
-為了幫助您更好地理解 Semantic-Cpp 的設計定位與使用場景，以下將其與 C++ 社群中幾個主流的資料處理方案進行對比。
-
-| 特性 / 函式庫 | **Semantic-Cpp** | **C++20/23 `std::ranges` + `std::views`** | **Range-v3 函式庫** | **傳統手寫迴圈** |
-| :--- | :--- | :--- | :--- | :--- |
-| **核心典範** | **宣告式、索引驅動**的串流處理。將資料抽象為「元素+邏輯索引」的管線，強調**順序控制**。 | **宣告式、視圖驅動**的函數式組合。提供適配器（`views::transform`、`views::filter`）來組合延遲計算。 | **宣告式、範圍驅動**的函數式組合。是 `std::ranges` 的藍圖與前身，功能更豐富。 | **命令式、程序化**程式設計。直接操作疊代器與容器。 |
-| **核心設計哲學** | 透過**索引**精準控制資料在管線中的邏輯位置與流動順序，實現資源最優利用。 | 提供可組合、延遲求值的**視圖適配器**，以建構高效的泛型演算法。 | 提供一套完整、可組合的**範圍演算法與視圖**，是現代 C++ 函數式程式設計的基石。 | 完全由開發者控制計算流程與狀態。 |
-| **平行支援** | **宣告式平行**。透過 `.parallel(n)` 宣告意圖，由終端操作自動觸發執行緒池平行計算，無需手動管理。 | C++17/20 提供了平行演算法（`std::for_each(std::execution::par, ...)`），但需與視圖組合使用，**非宣告式**。 | 不直接提供平行演算法，但可與 TBB、HPX 等外部平行函式庫結合。 | 需手動實現，如使用 `std::thread`、`std::async` 或平行演算法，複雜度高。 |
-| **排序與索引** | **`sorted()` 具有最高優先權**，會覆蓋所有先前的索引轉換。提供 `redirect`、`reverse` 等細緻索引操作，是核心特性。 | 提供排序演算法（`std::ranges::sort`），但它是**就地的、破壞性的**操作，會中斷視圖鏈。不提供自訂「索引」概念。 | 與 `std::ranges` 類似，排序是破壞性演算法。不提供「索引」抽象。 | 開發者需手動實現排序邏輯，並管理排序前後的資料關係。 |
-| **視窗/滑動分析** | **原生支援**。透過 `.toWindow()` 與 `.slide()`、`.tumble()` 等方法直接建構滑動/滾動視窗，是高級分析的一等公民。 | 不原生支援。需要組合多個視圖（如 C++23 的 `views::slide` 或 `views::adjacent`）並手動處理，程式碼較複雜。 | 提供 `ranges::views::slide`（C++20 前）等元件，但視窗的高級聚合與分析仍需自行組合。 | 需手寫多層巢狀迴圈與狀態管理，程式碼冗長且易錯。 |
-| **資料結構** | 明確映射到 `std::map`（有序）、`std::unordered_map`（無序）、`std::vector` 等。終端操作決定最終資料結構。 | 演算法作用於範圍，不強制指定最終容器。透過 `std::ranges::to`（C++23）或手寫程式碼將視圖結果存入容器。 | 類似 `std::ranges`，透過 `ranges::to<Container>` 將結果存入容器。 | 完全由開發者選擇與管理。 |
-| **易用性與表現力** | **高**。鏈式呼叫風格流暢，API 設計模仿 Java Stream，學習成本低。專注於「做什麼」而非「怎麼做」。 | **中等**。組合視圖非常強大，但語法（管道符 `\|`、投影 `std::identity`）對新手有一定門檻，編譯錯誤訊息可能複雜。 | **中高**。提供了最豐富的視圖與演算法，但學習曲線最陡峭。 | **低**。表達複雜的處理邏輯時，程式碼量龐大，意圖不明確，容易引入 Bug。 |
-| **效能特徵** | 在索引控制、視窗計算等場景下，透過預先定義的資料結構可提供最佳化。宣告式平行簡化了並行程式設計。 | **極致效能**。視圖的延遲組合與編譯期最佳化可產生與手寫迴圈媲美甚至更優的程式碼（如消除中間暫存）。 | 同 `std::ranges`，效能是其核心目標之一。 | **理論峰值高**。經驗豐富的開發者可以進行最極致的微調，但實作與維護成本極高。 |
-| **典型適用場景** | 1. **時序/事件串流處理**（如日誌、感測器資料）。<br>2. **需要複雜順序控制**的資料轉換。<br>3. **宣告式平行計算**。<br>4. **即時滑動視窗分析**。 | 1. **通用、高效能的容器資料轉換與過濾**。<br>2. 建構可重用的**泛型元件**。<br>3. 與現有 STL 演算法與容器生態緊密結合。 | 1. 需要 C++20 之前版本的**現代範圍函式庫功能**。<br>2. 研究與實驗**最前沿的範圍提案特性**。 | 1. 效能**臨界**，且邏輯極其簡單的場景。<br>2. 現有函式庫無法滿足的特殊底層需求。 |
-| **相依性與整合** | **零相依、單一標頭檔**。整合極其簡單。 | C++20/23 標準函式庫的一部分，無需額外相依。 | 需作為第三方函式庫整合，功能最全但增加專案相依。 | 無。 |
-
-**總結建議：**
-- **選擇 Semantic-Cpp**：如果您的專案**強烈依賴「資料順序/索引」的精細控制**，需要進行**複雜的滑動視窗分析**，或者希望以**最小的認知負擔獲得宣告式平行**能力，Semantic-Cpp 提供了高度抽象且針對性強的解決方案。
-- **選擇 `std::ranges`**：如果您的專案已使用 C++20/23，且需求是**通用的、高效能的資料轉換與查詢**，希望與 STL 生態無縫整合，並願意接受一定的學習曲線，`std::ranges` 是最標準、未來相容性最好的選擇。
-- **選擇 Range-v3**：如果您的專案因編譯器限制無法使用 C++20，但又需要類似 `std::ranges` 的強大功能。
-- **選擇手寫迴圈**：僅在邏輯極其簡單，或對效能有極致到奈秒級的要求，且其他函式庫的抽象確實成為瓶頸時考慮。
+1. 🎯 **選擇對的容器**
+   - 等值查詢、不排序的聚合 → `toUnordered()`
+   - 範圍查詢、排序、分頁 → `toOrdered()` 或 `sort()`
+   - 即時視窗分析 → `toWindow()`
+2. ⚡ **善用平行處理**：資料量大或處理邏輯耗時時使用 `parallel()`，避免阻斷式 I/O
+3. 📐 **優化操作順序**：儘早 `filter`，明智 `sort`
+4. 🔄 **利用惰性求值**：中間操作不立即執行，`takeWhile` 和 `limit` 可提前終止
 
 ---
 
-## 授權與支援
-- **授權**：本專案基於 MIT 開放原始碼。
-- **問題與回饋**：如果您遇到任何錯誤或有新功能建議，歡迎在 https://github.com/eloyhere/semantic-cpp/issues 頁面提交。
-- **討論與交流**：您也可以在 https://github.com/eloyhere/semantic-cpp/discussions 發起討論。
+## 📊 與 C++ 標準函式庫及競品對比
 
-**Semantic-Cpp** —— 用現代 C++ 建構高效、清晰的資料處理管線。 🚀
+| 特性 | Semantic-Cpp | C++20/23 ranges | 傳統迴圈 |
+|----|----|----|----|
+| 🎯 核心典範 | 宣告式、索引驅動 | 視圖驅動、函數式組合 | 命令式、程序化 |
+| ⚡ 平行支援 | 宣告式，自動執行緒池 | 需組合平行演算法 | 手動實作 |
+| 📐 排序與索引 | 索引精細控制，支援負索引 | 破壞性排序 | 完全手動 |
+| 📊 統計分析 | 20+ 內建統計方法 | 不內建 | 需第三方函式庫 |
+| 🔬 頻域分析 | 原生 DFT / FFT / 頻域特徵 | 不原生支援 | 需第三方函式庫 |
+| 🧮 梯度下降 | 解析 + 數值雙模式 | 不內建 | 需第三方函式庫 |
+| 🌐 Unicode | 原生多編碼支援（UTF‑8/16/32 等） | 不原生支援 | 手動處理 |
+| 📦 容器收集 | 20+ 標準容器全覆蓋 | 部分支援 | 手動實作 |
+| 📦 相依性 | 零外部相依，7 標頭檔 | 標準函式庫 | 無 |
+
+---
+
+## 📜 授權
+
+- 📄 **授權條款**：基於 MIT 開源授權
+
+---
+
+**Semantic-Cpp — 用現代 C++ 建構高效、清晰的資料處理管線。🚀**

@@ -2,15 +2,17 @@
 #include <algorithm>
 #include <stdexcept>
 #include <cstring>
-#include <memory>
+#include <cstddef>
+#include <limits>
 #include <vector>
+#include <deque>
 #include <sstream>
-#include <regex>
 #include <iterator>
 #include <iostream>
-#include <cassert>
 #include <string>
+#include <string_view>
 #include <type_traits>
+#include <mutex>
 
 namespace charsequence
 {
@@ -24,15 +26,488 @@ enum class charset
 	utf32,
 	utf32be,
 	utf32le,
-	latin1,
-	gbk
+	latin1
 };
+
+inline std::size_t sequenceLength(unsigned char byte, charset encoding)
+{
+	if (encoding == charset::utf8)
+	{
+		if (byte < 0x80)
+			return 1;
+		if (byte < 0xC2)
+			return 0;
+		if (byte < 0xE0)
+			return 2;
+		if (byte < 0xF0)
+			return 3;
+		if (byte < 0xF8)
+			return 4;
+		return 0;
+	}
+	else if (encoding == charset::utf16 || encoding == charset::utf16le || encoding == charset::utf16be)
+	{
+		return 2;
+	}
+	else if (encoding == charset::utf32 || encoding == charset::utf32le || encoding == charset::utf32be)
+	{
+		return 4;
+	}
+	return 1;
+}
+
+inline std::vector<unsigned char> encode(unsigned int codepoint, charset encoding)
+{
+	std::vector<unsigned char> result;
+	if (encoding == charset::utf8)
+	{
+		if (codepoint <= 0x7F)
+		{
+			result.push_back(static_cast<unsigned char>(codepoint));
+		}
+		else if (codepoint <= 0x7FF)
+		{
+			result.push_back(static_cast<unsigned char>(0xC0 | (codepoint >> 6)));
+			result.push_back(static_cast<unsigned char>(0x80 | (codepoint & 0x3F)));
+		}
+		else if (codepoint <= 0xFFFF)
+		{
+			if (codepoint >= 0xD800 && codepoint <= 0xDFFF)
+			{
+				result.push_back(0xEF);
+				result.push_back(0xBF);
+				result.push_back(0xBD);
+			}
+			else
+			{
+				result.push_back(static_cast<unsigned char>(0xE0 | (codepoint >> 12)));
+				result.push_back(static_cast<unsigned char>(0x80 | ((codepoint >> 6) & 0x3F)));
+				result.push_back(static_cast<unsigned char>(0x80 | (codepoint & 0x3F)));
+			}
+		}
+		else if (codepoint <= 0x10FFFF)
+		{
+			result.push_back(static_cast<unsigned char>(0xF0 | (codepoint >> 18)));
+			result.push_back(static_cast<unsigned char>(0x80 | ((codepoint >> 12) & 0x3F)));
+			result.push_back(static_cast<unsigned char>(0x80 | ((codepoint >> 6) & 0x3F)));
+			result.push_back(static_cast<unsigned char>(0x80 | (codepoint & 0x3F)));
+		}
+		else
+		{
+			result.push_back(0xEF);
+			result.push_back(0xBF);
+			result.push_back(0xBD);
+		}
+	}
+	else if (encoding == charset::ascii)
+	{
+		if (codepoint < 0x80)
+		{
+			result.push_back(static_cast<unsigned char>(codepoint));
+		}
+		else
+		{
+			result.push_back('?');
+		}
+	}
+	else if (encoding == charset::latin1)
+	{
+		if (codepoint < 0x100)
+		{
+			result.push_back(static_cast<unsigned char>(codepoint));
+		}
+		else
+		{
+			result.push_back('?');
+		}
+	}
+	else if (encoding == charset::utf16 || encoding == charset::utf16le)
+	{
+		if (codepoint <= 0xFFFF)
+		{
+			if (codepoint >= 0xD800 && codepoint <= 0xDFFF)
+			{
+				result.push_back(0xFD);
+				result.push_back(0xFF);
+			}
+			else
+			{
+				result.push_back(static_cast<unsigned char>(codepoint & 0xFF));
+				result.push_back(static_cast<unsigned char>((codepoint >> 8) & 0xFF));
+			}
+		}
+		else if (codepoint <= 0x10FFFF)
+		{
+			unsigned int high = 0xD800 + ((codepoint - 0x10000) >> 10);
+			unsigned int low = 0xDC00 + ((codepoint - 0x10000) & 0x3FF);
+			result.push_back(static_cast<unsigned char>(high & 0xFF));
+			result.push_back(static_cast<unsigned char>((high >> 8) & 0xFF));
+			result.push_back(static_cast<unsigned char>(low & 0xFF));
+			result.push_back(static_cast<unsigned char>((low >> 8) & 0xFF));
+		}
+		else
+		{
+			result.push_back(0xFD);
+			result.push_back(0xFF);
+		}
+	}
+	else if (encoding == charset::utf16be)
+	{
+		if (codepoint <= 0xFFFF)
+		{
+			if (codepoint >= 0xD800 && codepoint <= 0xDFFF)
+			{
+				result.push_back(0xFF);
+				result.push_back(0xFD);
+			}
+			else
+			{
+				result.push_back(static_cast<unsigned char>((codepoint >> 8) & 0xFF));
+				result.push_back(static_cast<unsigned char>(codepoint & 0xFF));
+			}
+		}
+		else if (codepoint <= 0x10FFFF)
+		{
+			unsigned int high = 0xD800 + ((codepoint - 0x10000) >> 10);
+			unsigned int low = 0xDC00 + ((codepoint - 0x10000) & 0x3FF);
+			result.push_back(static_cast<unsigned char>((high >> 8) & 0xFF));
+			result.push_back(static_cast<unsigned char>(high & 0xFF));
+			result.push_back(static_cast<unsigned char>((low >> 8) & 0xFF));
+			result.push_back(static_cast<unsigned char>(low & 0xFF));
+		}
+		else
+		{
+			result.push_back(0xFF);
+			result.push_back(0xFD);
+		}
+	}
+	else if (encoding == charset::utf32 || encoding == charset::utf32le)
+	{
+		result.push_back(static_cast<unsigned char>(codepoint & 0xFF));
+		result.push_back(static_cast<unsigned char>((codepoint >> 8) & 0xFF));
+		result.push_back(static_cast<unsigned char>((codepoint >> 16) & 0xFF));
+		result.push_back(static_cast<unsigned char>((codepoint >> 24) & 0xFF));
+	}
+	else if (encoding == charset::utf32be)
+	{
+		result.push_back(static_cast<unsigned char>((codepoint >> 24) & 0xFF));
+		result.push_back(static_cast<unsigned char>((codepoint >> 16) & 0xFF));
+		result.push_back(static_cast<unsigned char>((codepoint >> 8) & 0xFF));
+		result.push_back(static_cast<unsigned char>(codepoint & 0xFF));
+	}
+	return result;
+}
+
+inline unsigned int decode(const std::vector<unsigned char> &data, std::size_t &index, charset encoding)
+{
+	if (index >= data.size())
+	{
+		return 0xFFFD;
+	}
+
+	if (encoding == charset::latin1)
+	{
+		unsigned char byte = data[index];
+		index++;
+		return byte;
+	}
+	else if (encoding == charset::ascii)
+	{
+		unsigned char byte = data[index];
+		index++;
+		if (byte < 0x80)
+		{
+			return byte;
+		}
+		else
+		{
+			return 0xFFFD;
+		}
+	}
+	else if (encoding == charset::utf8)
+	{
+		unsigned char byte = data[index];
+		if (byte < 0x80)
+		{
+			index++;
+			return byte;
+		}
+		if (byte < 0xC2)
+		{
+			index++;
+			return 0xFFFD;
+		}
+		std::size_t seqLen;
+		if (byte < 0xE0)
+		{
+			seqLen = 2;
+		}
+		else if (byte < 0xF0)
+		{
+			seqLen = 3;
+		}
+		else if (byte < 0xF8)
+		{
+			seqLen = 4;
+		}
+		else
+		{
+			index++;
+			return 0xFFFD;
+		}
+		if (index + seqLen > data.size())
+		{
+			index = data.size();
+			return 0xFFFD;
+		}
+		unsigned int codepoint;
+		if (seqLen == 2)
+		{
+			if ((data[index + 1] & 0xC0) != 0x80)
+			{
+				index += 1;
+				return 0xFFFD;
+			}
+			codepoint = (byte & 0x1F) << 6;
+			codepoint |= (data[index + 1] & 0x3F);
+			if (codepoint < 0x80)
+			{
+				index += 2;
+				return 0xFFFD;
+			}
+		}
+		else if (seqLen == 3)
+		{
+			if ((data[index + 1] & 0xC0) != 0x80 || (data[index + 2] & 0xC0) != 0x80)
+			{
+				index += 1;
+				return 0xFFFD;
+			}
+			codepoint = (byte & 0x0F) << 12;
+			codepoint |= (data[index + 1] & 0x3F) << 6;
+			codepoint |= (data[index + 2] & 0x3F);
+			if (codepoint < 0x800)
+			{
+				index += 3;
+				return 0xFFFD;
+			}
+			if (codepoint >= 0xD800 && codepoint <= 0xDFFF)
+			{
+				index += 3;
+				return 0xFFFD;
+			}
+		}
+		else
+		{
+			if ((data[index + 1] & 0xC0) != 0x80 || (data[index + 2] & 0xC0) != 0x80 || (data[index + 3] & 0xC0) != 0x80)
+			{
+				index += 1;
+				return 0xFFFD;
+			}
+			codepoint = (byte & 0x07) << 18;
+			codepoint |= (data[index + 1] & 0x3F) << 12;
+			codepoint |= (data[index + 2] & 0x3F) << 6;
+			codepoint |= (data[index + 3] & 0x3F);
+			if (codepoint < 0x10000)
+			{
+				index += 4;
+				return 0xFFFD;
+			}
+			if (codepoint > 0x10FFFF)
+			{
+				index += 4;
+				return 0xFFFD;
+			}
+		}
+		index += seqLen;
+		return codepoint;
+	}
+	else if (encoding == charset::utf16 || encoding == charset::utf16le)
+	{
+		if (index + 1 >= data.size())
+		{
+			index = data.size();
+			return 0xFFFD;
+		}
+		unsigned short unit = data[index] | (data[index + 1] << 8);
+		if (unit >= 0xD800 && unit <= 0xDBFF)
+		{
+			if (index + 3 >= data.size())
+			{
+				index = data.size();
+				return 0xFFFD;
+			}
+			unsigned short low = data[index + 2] | (data[index + 3] << 8);
+			if (low < 0xDC00 || low > 0xDFFF)
+			{
+				index += 2;
+				return 0xFFFD;
+			}
+			unsigned int codepoint = 0x10000 + ((unit - 0xD800) << 10) + (low - 0xDC00);
+			index += 4;
+			return codepoint;
+		}
+		else if (unit >= 0xDC00 && unit <= 0xDFFF)
+		{
+			index += 2;
+			return 0xFFFD;
+		}
+		else
+		{
+			index += 2;
+			return unit;
+		}
+	}
+	else if (encoding == charset::utf16be)
+	{
+		if (index + 1 >= data.size())
+		{
+			index = data.size();
+			return 0xFFFD;
+		}
+		unsigned short unit = (data[index] << 8) | data[index + 1];
+		if (unit >= 0xD800 && unit <= 0xDBFF)
+		{
+			if (index + 3 >= data.size())
+			{
+				index = data.size();
+				return 0xFFFD;
+			}
+			unsigned short low = (data[index + 2] << 8) | data[index + 3];
+			if (low < 0xDC00 || low > 0xDFFF)
+			{
+				index += 2;
+				return 0xFFFD;
+			}
+			unsigned int codepoint = 0x10000 + ((unit - 0xD800) << 10) + (low - 0xDC00);
+			index += 4;
+			return codepoint;
+		}
+		else if (unit >= 0xDC00 && unit <= 0xDFFF)
+		{
+			index += 2;
+			return 0xFFFD;
+		}
+		else
+		{
+			index += 2;
+			return unit;
+		}
+	}
+	else if (encoding == charset::utf32 || encoding == charset::utf32le)
+	{
+		if (index + 3 >= data.size())
+		{
+			index = data.size();
+			return 0xFFFD;
+		}
+		unsigned int codepoint = data[index] | (data[index + 1] << 8) | (data[index + 2] << 16) | (data[index + 3] << 24);
+		index += 4;
+		if (codepoint > 0x10FFFF || (codepoint >= 0xD800 && codepoint <= 0xDFFF))
+		{
+			return 0xFFFD;
+		}
+		return codepoint;
+	}
+	else if (encoding == charset::utf32be)
+	{
+		if (index + 3 >= data.size())
+		{
+			index = data.size();
+			return 0xFFFD;
+		}
+		unsigned int codepoint = (data[index] << 24) | (data[index + 1] << 16) | (data[index + 2] << 8) | data[index + 3];
+		index += 4;
+		if (codepoint > 0x10FFFF || (codepoint >= 0xD800 && codepoint <= 0xDFFF))
+		{
+			return 0xFFFD;
+		}
+		return codepoint;
+	}
+	return 0xFFFD;
+}
+
+inline std::string convert(std::string_view input, charset from, charset to)
+{
+	if (from == to)
+	{
+		return std::string(input);
+	}
+	std::string result;
+	std::vector<unsigned char> bytes(input.begin(), input.end());
+	std::size_t index = 0;
+	while (index < bytes.size())
+	{
+		unsigned int codepoint = decode(bytes, index, from);
+		auto encoded = encode(codepoint, to);
+		result.insert(result.end(), encoded.begin(), encoded.end());
+	}
+	return result;
+}
+
+inline std::vector<unsigned char> convert(const std::vector<unsigned char> &input, charset from, charset to)
+{
+	if (from == to)
+	{
+		return input;
+	}
+	std::vector<unsigned char> result;
+	std::size_t index = 0;
+	while (index < input.size())
+	{
+		unsigned int codepoint = decode(input, index, from);
+		auto encoded = encode(codepoint, to);
+		result.insert(result.end(), encoded.begin(), encoded.end());
+	}
+	return result;
+}
+
+inline std::vector<char> convert(const std::vector<char> &input, charset from, charset to)
+{
+	std::vector<unsigned char> bytes(input.begin(), input.end());
+	std::vector<unsigned char> converted = convert(bytes, from, to);
+	return std::vector<char>(converted.begin(), converted.end());
+}
+
+inline void convertTo(std::string_view input, charset from, charset to, std::vector<unsigned char> &output)
+{
+	if (from == to)
+	{
+		output.insert(output.end(), input.begin(), input.end());
+		return;
+	}
+	std::vector<unsigned char> bytes(input.begin(), input.end());
+	std::size_t index = 0;
+	while (index < bytes.size())
+	{
+		unsigned int codepoint = decode(bytes, index, from);
+		auto encoded = encode(codepoint, to);
+		output.insert(output.end(), encoded.begin(), encoded.end());
+	}
+}
+
+inline void convertToDeque(std::string_view input, charset from, charset to, std::deque<unsigned char> &output)
+{
+	if (from == to)
+	{
+		output.insert(output.end(), input.begin(), input.end());
+		return;
+	}
+	std::vector<unsigned char> bytes(input.begin(), input.end());
+	std::size_t index = 0;
+	while (index < bytes.size())
+	{
+		unsigned int codepoint = decode(bytes, index, from);
+		auto encoded = encode(codepoint, to);
+		output.insert(output.end(), encoded.begin(), encoded.end());
+	}
+}
 
 class Meta
 {
   public:
 	Meta() : value(0) {}
-	explicit Meta(unsigned int val) : value(val) {}
+	explicit Meta(unsigned int initial) : value(initial) {}
 	Meta(const Meta &other) : value(other.value) {}
 	Meta(Meta &&other) noexcept : value(other.value) { other.value = 0; }
 
@@ -57,6 +532,7 @@ class Meta
 
 	bool operator==(const Meta &other) const { return value == other.value; }
 	bool operator!=(const Meta &other) const { return value != other.value; }
+	bool operator<(const Meta &other) const { return value < other.value; }
 	unsigned int getValue() const { return value; }
 
   private:
@@ -92,6 +568,7 @@ class Point
 
 	bool operator==(const Point &other) const { return code == other.code; }
 	bool operator!=(const Point &other) const { return code != other.code; }
+	bool operator<(const Point &other) const { return code < other.code; }
 	unsigned int getValue() const { return code; }
 	bool isSurrogate() const { return code >= 0xD800 && code <= 0xDFFF; }
 	bool isValidCodePoint() const { return code <= 0x10FFFF && !isSurrogate(); }
@@ -110,143 +587,109 @@ class PointIterator
 	using iterator_category = std::bidirectional_iterator_tag;
 	using value_type = Point;
 	using difference_type = std::ptrdiff_t;
-	using pointer = std::unique_ptr<Point>;
-	using reference = Point;
+	using pointer = const Point *;
+	using reference = const Point &;
 
-	PointIterator(const Charsequence *sequence, std::size_t index)
-		: charsequence(sequence), position(index) {}
+	PointIterator(std::vector<Point>::const_iterator iterator) : baseIterator(iterator) {}
 
-	Point operator*() const;
-	std::unique_ptr<Point> operator->() const;
-	PointIterator &operator++();
-	PointIterator operator++(int);
-	PointIterator &operator--();
-	PointIterator operator--(int);
-	bool operator==(const PointIterator &other) const;
-	bool operator!=(const PointIterator &other) const;
+	reference operator*() const { return *baseIterator; }
+	pointer operator->() const { return &(*baseIterator); }
+
+	PointIterator &operator++()
+	{
+		++baseIterator;
+		return *this;
+	}
+	PointIterator operator++(int)
+	{
+		PointIterator temp = *this;
+		++baseIterator;
+		return temp;
+	}
+	PointIterator &operator--()
+	{
+		--baseIterator;
+		return *this;
+	}
+	PointIterator operator--(int)
+	{
+		PointIterator temp = *this;
+		--baseIterator;
+		return temp;
+	}
+
+	bool operator==(const PointIterator &other) const { return baseIterator == other.baseIterator; }
+	bool operator!=(const PointIterator &other) const { return baseIterator != other.baseIterator; }
 
   private:
-	const Charsequence *charsequence;
-	std::size_t position;
+	std::vector<Point>::const_iterator baseIterator;
 };
 
 class Charsequence
 {
   public:
-	Charsequence() : metaStorage(), pointStorage(), storageEncoding(charset::utf8) {}
+	Charsequence() : pointStorage(), storageEncoding(charset::utf8) {}
 
-	explicit Charsequence(charset encode) : metaStorage(), pointStorage(), storageEncoding(charset::utf8) {}
+	explicit Charsequence(charset encoding) : pointStorage(), storageEncoding(encoding) {}
 
-	explicit Charsequence(const std::string &source, charset sourceEncoding = charset::utf8)
-		: metaStorage(), pointStorage(), storageEncoding(charset::utf8)
+	Charsequence(std::string_view source, charset sourceEncoding = charset::utf8, charset targetEncoding = charset::utf8)
+		: pointStorage(), storageEncoding(targetEncoding)
 	{
-		std::string temp(source);
-		std::vector<unsigned char> bytes;
-		if (sourceEncoding == charset::utf8)
-		{
-			bytes.assign(temp.begin(), temp.end());
-		}
-		else
-		{
-			auto converted = convertEncoding(temp, sourceEncoding, charset::utf8);
-			bytes.assign(converted.begin(), converted.end());
-		}
-		buildFromBytes(bytes);
+		initializeFromBytes(reinterpret_cast<const unsigned char *>(source.data()), source.size(), sourceEncoding, targetEncoding);
 	}
 
-	explicit Charsequence(std::string &&source, charset sourceEncoding = charset::utf8)
-		: metaStorage(), pointStorage(), storageEncoding(charset::utf8)
-	{
-		std::string temp(std::move(source));
-		std::vector<unsigned char> bytes;
-		if (sourceEncoding == charset::utf8)
-		{
-			bytes.assign(temp.begin(), temp.end());
-		}
-		else
-		{
-			auto converted = convertEncoding(temp, sourceEncoding, charset::utf8);
-			bytes.assign(converted.begin(), converted.end());
-		}
-		buildFromBytes(bytes);
-	}
-
-	explicit Charsequence(const char *source, charset sourceEncoding = charset::utf8)
-		: metaStorage(), pointStorage(), storageEncoding(charset::utf8)
-	{
-		std::string temp(source ? source : "");
-		std::vector<unsigned char> bytes;
-		if (sourceEncoding == charset::utf8)
-		{
-			bytes.assign(temp.begin(), temp.end());
-		}
-		else
-		{
-			auto converted = convertEncoding(temp, sourceEncoding, charset::utf8);
-			bytes.assign(converted.begin(), converted.end());
-		}
-		buildFromBytes(bytes);
-	}
-
-	explicit Charsequence(std::istream &stream, std::size_t maxLength, charset sourceEncoding = charset::utf8)
-		: metaStorage(), pointStorage(), storageEncoding(charset::utf8)
+	Charsequence(std::istream &stream, std::size_t maxLength, charset sourceEncoding = charset::utf8, charset targetEncoding = charset::utf8)
+		: pointStorage(), storageEncoding(targetEncoding)
 	{
 		std::string temp;
 		temp.resize(maxLength);
 		stream.read(&temp[0], maxLength);
 		std::size_t bytesRead = stream.gcount();
 		temp.resize(bytesRead);
-		std::vector<unsigned char> bytes;
-		if (sourceEncoding == charset::utf8)
-		{
-			bytes.assign(temp.begin(), temp.end());
-		}
-		else
-		{
-			auto converted = convertEncoding(temp, sourceEncoding, charset::utf8);
-			bytes.assign(converted.begin(), converted.end());
-		}
-		buildFromBytes(bytes);
+		initializeFromBytes(reinterpret_cast<const unsigned char *>(temp.data()), temp.size(), sourceEncoding, targetEncoding);
 	}
 
-	explicit Charsequence(const Meta *source, std::size_t length, charset sourceEncoding)
-		: metaStorage(), pointStorage(), storageEncoding(charset::utf8)
+	Charsequence(std::stringstream &stream, charset sourceEncoding = charset::utf8, charset targetEncoding = charset::utf8)
+		: pointStorage(), storageEncoding(targetEncoding)
 	{
+		std::string temp = stream.str();
+		initializeFromBytes(reinterpret_cast<const unsigned char *>(temp.data()), temp.size(), sourceEncoding, targetEncoding);
+	}
+
+	Charsequence(const Meta *source, std::size_t length, charset sourceEncoding, charset targetEncoding = charset::utf8)
+		: pointStorage(), storageEncoding(targetEncoding)
+	{
+		if (!source || length == 0)
+		{
+			return;
+		}
 		std::string temp;
 		temp.reserve(length);
 		for (std::size_t i = 0; i < length; ++i)
 		{
 			temp.push_back(static_cast<char>(source[i].getValue() & 0xFF));
 		}
-		std::vector<unsigned char> bytes;
-		if (sourceEncoding == charset::utf8)
-		{
-			bytes.assign(temp.begin(), temp.end());
-		}
-		else
-		{
-			auto converted = convertEncoding(temp, sourceEncoding, charset::utf8);
-			bytes.assign(converted.begin(), converted.end());
-		}
-		buildFromBytes(bytes);
+		initializeFromBytes(reinterpret_cast<const unsigned char *>(temp.data()), temp.size(), sourceEncoding, targetEncoding);
 	}
 
-	explicit Charsequence(const Point *source, std::size_t length)
-		: metaStorage(), pointStorage(), storageEncoding(charset::utf8)
+	Charsequence(const Point *source, std::size_t length, charset targetEncoding = charset::utf8)
+		: pointStorage(), storageEncoding(targetEncoding)
 	{
+		if (!source || length == 0)
+		{
+			return;
+		}
 		for (std::size_t i = 0; i < length; ++i)
 		{
 			pointStorage.push_back(source[i]);
-			unsigned int codepoint = source[i].getValue();
-			encodePointToMeta(codepoint);
 		}
 	}
 
 	Charsequence(const Charsequence &other)
-		: metaStorage(other.metaStorage), pointStorage(other.pointStorage), storageEncoding(other.storageEncoding) {}
+		: pointStorage(other.pointStorage), storageEncoding(other.storageEncoding) {}
 
 	Charsequence(Charsequence &&other) noexcept
-		: metaStorage(std::move(other.metaStorage)), pointStorage(std::move(other.pointStorage)), storageEncoding(other.storageEncoding)
+		: pointStorage(std::move(other.pointStorage)), storageEncoding(other.storageEncoding)
 	{
 		other.storageEncoding = charset::utf8;
 	}
@@ -255,7 +698,6 @@ class Charsequence
 	{
 		if (this != &other)
 		{
-			metaStorage = other.metaStorage;
 			pointStorage = other.pointStorage;
 			storageEncoding = other.storageEncoding;
 		}
@@ -266,7 +708,6 @@ class Charsequence
 	{
 		if (this != &other)
 		{
-			metaStorage = std::move(other.metaStorage);
 			pointStorage = std::move(other.pointStorage);
 			storageEncoding = other.storageEncoding;
 			other.storageEncoding = charset::utf8;
@@ -288,62 +729,118 @@ class Charsequence
 
 	charset encoding() const { return storageEncoding; }
 
-	std::unique_ptr<Charsequence> sub(std::size_t start, std::size_t length) const
+	Charsequence sub(std::size_t start, std::size_t length) const
 	{
 		std::size_t totalPoints = pointStorage.size();
 		if (start > totalPoints)
+		{
 			start = totalPoints;
+		}
 		if (length > totalPoints - start)
+		{
 			length = totalPoints - start;
+		}
 		if (length == 0)
 		{
-			return std::make_unique<Charsequence>(std::string(), storageEncoding);
+			Charsequence result;
+			result.storageEncoding = storageEncoding;
+			return result;
 		}
-		auto result = std::make_unique<Charsequence>();
-		result->storageEncoding = storageEncoding;
+		Charsequence result;
+		result.storageEncoding = storageEncoding;
 		for (std::size_t i = start; i < start + length && i < totalPoints; ++i)
 		{
-			result->pointStorage.push_back(pointStorage[i]);
-			result->encodePointToMeta(pointStorage[i].getValue());
+			result.pointStorage.push_back(pointStorage[i]);
 		}
 		return result;
 	}
 
-	std::unique_ptr<Charsequence> repeat(std::size_t count) const
+	Charsequence repeat(std::size_t count) const
 	{
 		if (count == 0)
 		{
-			return std::make_unique<Charsequence>(std::string(), storageEncoding);
+			Charsequence result;
+			result.storageEncoding = storageEncoding;
+			return result;
 		}
-		auto result = std::make_unique<Charsequence>();
-		result->storageEncoding = storageEncoding;
+		if (count > 1 && pointStorage.size() > std::numeric_limits<std::size_t>::max() / count)
+		{
+			throw std::overflow_error("repeat size overflow");
+		}
+		Charsequence result;
+		result.storageEncoding = storageEncoding;
+		result.pointStorage.reserve(pointStorage.size() * count);
 		for (std::size_t i = 0; i < count; ++i)
 		{
-			for (const auto &p : pointStorage)
-			{
-				result->pointStorage.push_back(p);
-				result->encodePointToMeta(p.getValue());
-			}
+			result.pointStorage.insert(result.pointStorage.end(), pointStorage.begin(), pointStorage.end());
 		}
 		return result;
 	}
 
-	std::unique_ptr<Charsequence> concat(const Charsequence &other) const
+	Charsequence concat(const Charsequence &other) const
 	{
-		auto result = std::make_unique<Charsequence>();
-		result->storageEncoding = storageEncoding;
-		for (const auto &p : pointStorage)
-		{
-			result->pointStorage.push_back(p);
-			result->encodePointToMeta(p.getValue());
-		}
-		auto otherPoints = other.getPoints();
-		for (const auto &p : otherPoints)
-		{
-			result->pointStorage.push_back(p);
-			result->encodePointToMeta(p.getValue());
-		}
+		Charsequence result;
+		result.storageEncoding = storageEncoding;
+		result.pointStorage.reserve(pointStorage.size() + other.pointStorage.size());
+		result.pointStorage.insert(result.pointStorage.end(), pointStorage.begin(), pointStorage.end());
+		result.pointStorage.insert(result.pointStorage.end(), other.pointStorage.begin(), other.pointStorage.end());
 		return result;
+	}
+
+	bool startsWith(const Charsequence &other) const
+	{
+		if (other.pointStorage.size() > pointStorage.size())
+		{
+			return false;
+		}
+		for (std::size_t i = 0; i < other.pointStorage.size(); ++i)
+		{
+			if (pointStorage[i].getValue() != other.pointStorage[i].getValue())
+			{
+				return false;
+			}
+		}
+		return true;
+	}
+
+	bool startsWith(std::string_view str) const
+	{
+		Charsequence temp(str, storageEncoding, storageEncoding);
+		return startsWith(temp);
+	}
+
+	bool endsWith(const Charsequence &other) const
+	{
+		if (other.pointStorage.size() > pointStorage.size())
+		{
+			return false;
+		}
+		std::size_t offset = pointStorage.size() - other.pointStorage.size();
+		for (std::size_t i = 0; i < other.pointStorage.size(); ++i)
+		{
+			if (pointStorage[offset + i].getValue() != other.pointStorage[i].getValue())
+			{
+				return false;
+			}
+		}
+		return true;
+	}
+
+	bool endsWith(std::string_view str) const
+	{
+		Charsequence temp(str, storageEncoding, storageEncoding);
+		return endsWith(temp);
+	}
+
+	bool contains(const Charsequence &other) const
+	{
+		return indexOf(other) != static_cast<std::size_t>(-1);
+	}
+
+	bool contains(std::string_view str) const
+	{
+		Charsequence temp(str, storageEncoding, storageEncoding);
+		return contains(temp);
 	}
 
 	std::size_t indexOf(const Charsequence &other, std::size_t fromCodePoint = 0) const
@@ -352,10 +849,14 @@ class Charsequence
 		{
 			return static_cast<std::size_t>(-1);
 		}
-		auto otherPoints = other.getPoints();
+		const auto &otherPoints = other.pointStorage;
 		if (otherPoints.empty())
 		{
 			return 0;
+		}
+		if (otherPoints.size() > pointStorage.size())
+		{
+			return static_cast<std::size_t>(-1);
 		}
 		for (std::size_t i = fromCodePoint; i <= pointStorage.size() - otherPoints.size(); ++i)
 		{
@@ -378,29 +879,34 @@ class Charsequence
 
 	std::size_t lastIndexOf(const Charsequence &other, std::size_t fromCodePoint = static_cast<std::size_t>(-1)) const
 	{
-		auto otherPoints = other.getPoints();
+		const auto &otherPoints = other.pointStorage;
 		if (otherPoints.empty())
 		{
 			return pointStorage.size();
 		}
-		std::size_t startPos = pointStorage.size();
+		if (otherPoints.size() > pointStorage.size())
+		{
+			return static_cast<std::size_t>(-1);
+		}
+		std::size_t startPosition = pointStorage.size() - otherPoints.size();
 		if (fromCodePoint != static_cast<std::size_t>(-1))
 		{
 			if (fromCodePoint >= pointStorage.size())
 			{
 				return static_cast<std::size_t>(-1);
 			}
-			startPos = fromCodePoint + otherPoints.size();
-			if (startPos > pointStorage.size())
-				startPos = pointStorage.size();
+			if (fromCodePoint < startPosition)
+			{
+				startPosition = fromCodePoint;
+			}
 		}
-		for (std::size_t i = startPos; i >= otherPoints.size(); --i)
+		for (std::size_t i = startPosition + 1; i > 0; --i)
 		{
-			std::size_t idx = i - otherPoints.size();
+			std::size_t currentIndex = i - 1;
 			bool found = true;
 			for (std::size_t j = 0; j < otherPoints.size(); ++j)
 			{
-				if (pointStorage[idx + j].getValue() != otherPoints[j].getValue())
+				if (pointStorage[currentIndex + j].getValue() != otherPoints[j].getValue())
 				{
 					found = false;
 					break;
@@ -408,17 +914,242 @@ class Charsequence
 			}
 			if (found)
 			{
-				return idx;
+				return currentIndex;
 			}
 		}
 		return static_cast<std::size_t>(-1);
 	}
 
-	std::unique_ptr<Charsequence> toString(charset targetEncoding) const
+	Charsequence replace(const Charsequence &target, const Charsequence &replacement) const
 	{
-		auto bytes = getBytes();
-		auto converted = convertEncoding(std::string(bytes.begin(), bytes.end()), storageEncoding, targetEncoding);
-		return std::make_unique<Charsequence>(converted, targetEncoding);
+		if (target.pointStorage.empty())
+		{
+			return *this;
+		}
+		Charsequence result;
+		result.storageEncoding = storageEncoding;
+		std::size_t pos = 0;
+		while (pos < pointStorage.size())
+		{
+			std::size_t found = indexOf(target, pos);
+			if (found == static_cast<std::size_t>(-1))
+			{
+				for (std::size_t i = pos; i < pointStorage.size(); ++i)
+				{
+					result.pointStorage.push_back(pointStorage[i]);
+				}
+				break;
+			}
+			for (std::size_t i = pos; i < found; ++i)
+			{
+				result.pointStorage.push_back(pointStorage[i]);
+			}
+			for (const auto &p : replacement.pointStorage)
+			{
+				result.pointStorage.push_back(p);
+			}
+			pos = found + target.pointStorage.size();
+		}
+		return result;
+	}
+
+	Charsequence replace(std::string_view target, std::string_view replacement) const
+	{
+		Charsequence targetCs(target, storageEncoding, storageEncoding);
+		Charsequence replacementCs(replacement, storageEncoding, storageEncoding);
+		return replace(targetCs, replacementCs);
+	}
+
+	Charsequence replace(const Charsequence &target, const Charsequence &replacement, std::size_t maxCount) const
+	{
+		if (target.pointStorage.empty() || maxCount == 0)
+		{
+			return *this;
+		}
+		Charsequence result;
+		result.storageEncoding = storageEncoding;
+		std::size_t pos = 0;
+		std::size_t count = 0;
+		while (pos < pointStorage.size() && count < maxCount)
+		{
+			std::size_t found = indexOf(target, pos);
+			if (found == static_cast<std::size_t>(-1))
+			{
+				for (std::size_t i = pos; i < pointStorage.size(); ++i)
+				{
+					result.pointStorage.push_back(pointStorage[i]);
+				}
+				break;
+			}
+			for (std::size_t i = pos; i < found; ++i)
+			{
+				result.pointStorage.push_back(pointStorage[i]);
+			}
+			for (const auto &p : replacement.pointStorage)
+			{
+				result.pointStorage.push_back(p);
+			}
+			pos = found + target.pointStorage.size();
+			count++;
+		}
+		if (pos < pointStorage.size())
+		{
+			for (std::size_t i = pos; i < pointStorage.size(); ++i)
+			{
+				result.pointStorage.push_back(pointStorage[i]);
+			}
+		}
+		return result;
+	}
+
+	std::size_t count(const Charsequence &target) const
+	{
+		if (target.pointStorage.empty())
+		{
+			return 0;
+		}
+		std::size_t result = 0;
+		std::size_t pos = 0;
+		while (true)
+		{
+			std::size_t found = indexOf(target, pos);
+			if (found == static_cast<std::size_t>(-1))
+			{
+				break;
+			}
+			result++;
+			pos = found + target.pointStorage.size();
+		}
+		return result;
+	}
+
+	Charsequence trim() const
+	{
+		std::size_t start = 0;
+		while (start < pointStorage.size() && isWhitespace(pointStorage[start].getValue()))
+		{
+			start++;
+		}
+		std::size_t end = pointStorage.size();
+		while (end > start && isWhitespace(pointStorage[end - 1].getValue()))
+		{
+			end--;
+		}
+		return sub(start, end - start);
+	}
+
+	Charsequence toUpperCase() const
+	{
+		Charsequence result;
+		result.storageEncoding = storageEncoding;
+		result.pointStorage.reserve(pointStorage.size());
+		for (const auto &p : pointStorage)
+		{
+			unsigned int cp = p.getValue();
+			if (cp >= 'a' && cp <= 'z')
+			{
+				result.pointStorage.push_back(Point(cp - 32));
+			}
+			else
+			{
+				result.pointStorage.push_back(p);
+			}
+		}
+		return result;
+	}
+
+	Charsequence toLowerCase() const
+	{
+		Charsequence result;
+		result.storageEncoding = storageEncoding;
+		result.pointStorage.reserve(pointStorage.size());
+		for (const auto &p : pointStorage)
+		{
+			unsigned int cp = p.getValue();
+			if (cp >= 'A' && cp <= 'Z')
+			{
+				result.pointStorage.push_back(Point(cp + 32));
+			}
+			else
+			{
+				result.pointStorage.push_back(p);
+			}
+		}
+		return result;
+	}
+
+	Charsequence reverse() const
+	{
+		Charsequence result;
+		result.storageEncoding = storageEncoding;
+		result.pointStorage.reserve(pointStorage.size());
+		for (auto it = pointStorage.rbegin(); it != pointStorage.rend(); ++it)
+		{
+			result.pointStorage.push_back(*it);
+		}
+		return result;
+	}
+
+	std::vector<Charsequence> split(const Charsequence &delimiter) const
+	{
+		std::vector<Charsequence> result;
+		if (pointStorage.empty())
+		{
+			return result;
+		}
+		std::size_t pos = 0;
+		while (pos <= pointStorage.size())
+		{
+			std::size_t found = indexOf(delimiter, pos);
+			if (found == static_cast<std::size_t>(-1))
+			{
+				result.push_back(sub(pos, pointStorage.size() - pos));
+				break;
+			}
+			result.push_back(sub(pos, found - pos));
+			pos = found + delimiter.pointStorage.size();
+		}
+		return result;
+	}
+
+	std::vector<Charsequence> split(std::string_view delimiter) const
+	{
+		Charsequence delim(delimiter, storageEncoding, storageEncoding);
+		return split(delim);
+	}
+
+	static Charsequence join(const std::vector<Charsequence> &parts, const Charsequence &separator)
+	{
+		if (parts.empty())
+		{
+			return Charsequence();
+		}
+		Charsequence result = parts[0];
+		for (std::size_t i = 1; i < parts.size(); ++i)
+		{
+			result = result.concat(separator).concat(parts[i]);
+		}
+		return result;
+	}
+
+	Charsequence toString(charset targetEncoding) const
+	{
+		if (targetEncoding == storageEncoding)
+		{
+			return *this;
+		}
+		Charsequence result;
+		result.storageEncoding = targetEncoding;
+		for (const auto &point : pointStorage)
+		{
+			auto encoded = encode(point.getValue(), targetEncoding);
+			std::size_t index = 0;
+			while (index < encoded.size())
+			{
+				result.pointStorage.push_back(Point(decode(encoded, index, targetEncoding)));
+			}
+		}
+		return result;
 	}
 
 	int compare(const Charsequence &other) const
@@ -427,34 +1158,48 @@ class Charsequence
 		for (std::size_t i = 0; i < minSize; ++i)
 		{
 			if (pointStorage[i].getValue() < other.pointStorage[i].getValue())
+			{
 				return -1;
+			}
 			if (pointStorage[i].getValue() > other.pointStorage[i].getValue())
+			{
 				return 1;
+			}
 		}
 		if (pointStorage.size() < other.pointStorage.size())
+		{
 			return -1;
+		}
 		if (pointStorage.size() > other.pointStorage.size())
+		{
 			return 1;
+		}
 		return 0;
 	}
 
-	std::vector<unsigned char> getBytes(charset targetEncoding = charset::utf8) const
+	std::vector<unsigned char> getBytes(charset targetEncoding) const
 	{
-		if (targetEncoding == storageEncoding && storageEncoding == charset::utf8)
+		std::vector<unsigned char> result;
+		for (const auto &point : pointStorage)
 		{
-			return metaStorage;
+			auto encoded = encode(point.getValue(), targetEncoding);
+			result.insert(result.end(), encoded.begin(), encoded.end());
 		}
-		std::string temp(metaStorage.begin(), metaStorage.end());
-		auto converted = convertEncoding(temp, storageEncoding, targetEncoding);
-		return std::vector<unsigned char>(converted.begin(), converted.end());
+		return result;
+	}
+
+	std::vector<unsigned char> getBytes() const
+	{
+		return getBytes(storageEncoding);
 	}
 
 	std::vector<char> getCharacters() const
 	{
-		return std::vector<char>(metaStorage.begin(), metaStorage.end());
+		auto bytes = getBytes();
+		return std::vector<char>(bytes.begin(), bytes.end());
 	}
 
-	std::vector<Point> getPoints() const
+	const std::vector<Point> &getPoints() const
 	{
 		return pointStorage;
 	}
@@ -462,10 +1207,10 @@ class Charsequence
 	std::vector<Meta> getMetas() const
 	{
 		std::vector<Meta> metas;
-		metas.reserve(metaStorage.size());
-		for (unsigned char byte : metaStorage)
+		metas.reserve(pointStorage.size());
+		for (const auto &point : pointStorage)
 		{
-			metas.emplace_back(byte);
+			metas.emplace_back(point.getValue());
 		}
 		return metas;
 	}
@@ -474,50 +1219,27 @@ class Charsequence
 	{
 		Charsequence result;
 		result.storageEncoding = storageEncoding;
-		for (const auto &p : pointStorage)
-		{
-			result.pointStorage.push_back(p);
-			result.encodePointToMeta(p.getValue());
-		}
-		for (const auto &p : other.pointStorage)
-		{
-			result.pointStorage.push_back(p);
-			result.encodePointToMeta(p.getValue());
-		}
+		result.pointStorage.reserve(pointStorage.size() + other.pointStorage.size());
+		result.pointStorage.insert(result.pointStorage.end(), pointStorage.begin(), pointStorage.end());
+		result.pointStorage.insert(result.pointStorage.end(), other.pointStorage.begin(), other.pointStorage.end());
 		return result;
 	}
 
-	Charsequence operator+(const std::string &str) const
+	Charsequence operator+(std::string_view str) const
 	{
-		Charsequence temp(str, storageEncoding);
-		return *this + temp;
-	}
-
-	Charsequence operator+(const char *str) const
-	{
-		Charsequence temp(str, storageEncoding);
+		Charsequence temp(str, storageEncoding, storageEncoding);
 		return *this + temp;
 	}
 
 	Charsequence &operator+=(const Charsequence &other)
 	{
-		for (const auto &p : other.pointStorage)
-		{
-			pointStorage.push_back(p);
-			encodePointToMeta(p.getValue());
-		}
+		pointStorage.insert(pointStorage.end(), other.pointStorage.begin(), other.pointStorage.end());
 		return *this;
 	}
 
-	Charsequence &operator+=(const std::string &other)
+	Charsequence &operator+=(std::string_view other)
 	{
-		Charsequence temp(other, storageEncoding);
-		return *this += temp;
-	}
-
-	Charsequence &operator+=(const char *other)
-	{
-		Charsequence temp(other, storageEncoding);
+		Charsequence temp(other, storageEncoding, storageEncoding);
 		return *this += temp;
 	}
 
@@ -530,370 +1252,79 @@ class Charsequence
 
 	Point operator[](std::size_t index) const { return at(index); }
 
-	friend std::ostream &operator<<(std::ostream &os, const Charsequence &str)
+	friend std::ostream &operator<<(std::ostream &stream, const Charsequence &sequence)
 	{
-		os.write(reinterpret_cast<const char *>(str.metaStorage.data()), str.metaStorage.size());
-		return os;
+		auto bytes = sequence.getBytes();
+		stream.write(reinterpret_cast<const char *>(bytes.data()), bytes.size());
+		return stream;
 	}
 
-	friend std::istream &operator>>(std::istream &is, Charsequence &str)
-	{
-		std::string temp;
-		is >> temp;
-		str = Charsequence(temp, str.storageEncoding);
-		return is;
-	}
-
-	friend std::stringstream &operator<<(std::stringstream &ss, const Charsequence &str)
-	{
-		ss.write(reinterpret_cast<const char *>(str.metaStorage.data()), str.metaStorage.size());
-		return ss;
-	}
-
-	friend std::stringstream &operator>>(std::stringstream &ss, Charsequence &str)
+	friend std::istream &operator>>(std::istream &stream, Charsequence &sequence)
 	{
 		std::string temp;
-		ss >> temp;
-		str = Charsequence(temp, str.storageEncoding);
-		return ss;
+		std::getline(stream, temp);
+		sequence = Charsequence(std::string_view(temp), charset::utf8, sequence.storageEncoding);
+		return stream;
 	}
 
-	friend Charsequence operator+(const std::string &lhs, const Charsequence &rhs)
+	friend std::stringstream &operator<<(std::stringstream &stream, const Charsequence &sequence)
 	{
-		Charsequence temp(lhs, rhs.storageEncoding);
-		return temp + rhs;
+		auto bytes = sequence.getBytes();
+		stream.write(reinterpret_cast<const char *>(bytes.data()), bytes.size());
+		return stream;
 	}
 
-	friend Charsequence operator+(const char *lhs, const Charsequence &rhs)
+	friend std::stringstream &operator>>(std::stringstream &stream, Charsequence &sequence)
 	{
-		Charsequence temp(lhs, rhs.storageEncoding);
-		return temp + rhs;
+		std::string temp = stream.str();
+		stream.str("");
+		stream.clear();
+		sequence = Charsequence(std::string_view(temp), charset::utf8, sequence.storageEncoding);
+		return stream;
 	}
 
-	friend Charsequence operator+(std::unique_ptr<Charsequence> lhs, const Charsequence &rhs)
+	friend Charsequence operator+(std::string_view left, const Charsequence &right)
 	{
-		return *lhs + rhs;
+		Charsequence temp(left, right.storageEncoding, right.storageEncoding);
+		return temp + right;
 	}
 
-	friend Charsequence operator+(const Charsequence &lhs, std::unique_ptr<Charsequence> rhs)
-	{
-		return lhs + *rhs;
-	}
-
-	friend Charsequence operator+(std::unique_ptr<Charsequence> lhs, std::unique_ptr<Charsequence> rhs)
-	{
-		return *lhs + *rhs;
-	}
-
-	PointIterator begin() const { return PointIterator(this, 0); }
-	PointIterator end() const { return PointIterator(this, pointStorage.size()); }
-
-	static std::string convertEncoding(const std::string &input, charset from, charset to)
-	{
-		if (from == to)
-			return input;
-		if (from == charset::utf8 && to == charset::ascii)
-		{
-			std::string result;
-			result.reserve(input.length());
-			for (char c : input)
-			{
-				if (static_cast<unsigned char>(c) < 0x80)
-					result.push_back(c);
-				else
-					result.push_back('?');
-			}
-			return result;
-		}
-		if (from == charset::utf8 && to == charset::utf16)
-		{
-			std::string result;
-			std::size_t i = 0;
-			while (i < input.length())
-			{
-				unsigned char byte = static_cast<unsigned char>(input[i]);
-				std::size_t bytes = bytesInSequence(byte);
-				unsigned int codepoint;
-				if (bytes == 1)
-					codepoint = byte;
-				else if (bytes == 2)
-				{
-					codepoint = (byte & 0x1F) << 6;
-					codepoint |= (static_cast<unsigned char>(input[i + 1]) & 0x3F);
-				}
-				else if (bytes == 3)
-				{
-					codepoint = (byte & 0x0F) << 12;
-					codepoint |= (static_cast<unsigned char>(input[i + 1]) & 0x3F) << 6;
-					codepoint |= (static_cast<unsigned char>(input[i + 2]) & 0x3F);
-				}
-				else
-				{
-					codepoint = (byte & 0x07) << 18;
-					codepoint |= (static_cast<unsigned char>(input[i + 1]) & 0x3F) << 12;
-					codepoint |= (static_cast<unsigned char>(input[i + 2]) & 0x3F) << 6;
-					codepoint |= (static_cast<unsigned char>(input[i + 3]) & 0x3F);
-				}
-				if (codepoint <= 0xFFFF)
-				{
-					result.push_back(static_cast<char>(codepoint & 0xFF));
-					result.push_back(static_cast<char>((codepoint >> 8) & 0xFF));
-				}
-				else
-				{
-					unsigned int high = 0xD800 + ((codepoint - 0x10000) >> 10);
-					unsigned int low = 0xDC00 + ((codepoint - 0x10000) & 0x3FF);
-					result.push_back(static_cast<char>(high & 0xFF));
-					result.push_back(static_cast<char>((high >> 8) & 0xFF));
-					result.push_back(static_cast<char>(low & 0xFF));
-					result.push_back(static_cast<char>((low >> 8) & 0xFF));
-				}
-				i += bytes;
-			}
-			return result;
-		}
-		if (from == charset::utf8 && to == charset::utf32)
-		{
-			std::string result;
-			std::size_t i = 0;
-			while (i < input.length())
-			{
-				unsigned char byte = static_cast<unsigned char>(input[i]);
-				std::size_t bytes = bytesInSequence(byte);
-				unsigned int codepoint;
-				if (bytes == 1)
-					codepoint = byte;
-				else if (bytes == 2)
-				{
-					codepoint = (byte & 0x1F) << 6;
-					codepoint |= (static_cast<unsigned char>(input[i + 1]) & 0x3F);
-				}
-				else if (bytes == 3)
-				{
-					codepoint = (byte & 0x0F) << 12;
-					codepoint |= (static_cast<unsigned char>(input[i + 1]) & 0x3F) << 6;
-					codepoint |= (static_cast<unsigned char>(input[i + 2]) & 0x3F);
-				}
-				else
-				{
-					codepoint = (byte & 0x07) << 18;
-					codepoint |= (static_cast<unsigned char>(input[i + 1]) & 0x3F) << 12;
-					codepoint |= (static_cast<unsigned char>(input[i + 2]) & 0x3F) << 6;
-					codepoint |= (static_cast<unsigned char>(input[i + 3]) & 0x3F);
-				}
-				result.push_back(static_cast<char>(codepoint & 0xFF));
-				result.push_back(static_cast<char>((codepoint >> 8) & 0xFF));
-				result.push_back(static_cast<char>((codepoint >> 16) & 0xFF));
-				result.push_back(static_cast<char>((codepoint >> 24) & 0xFF));
-				i += bytes;
-			}
-			return result;
-		}
-		return input;
-	}
+	PointIterator begin() const { return PointIterator(pointStorage.cbegin()); }
+	PointIterator end() const { return PointIterator(pointStorage.cend()); }
 
   private:
-	std::vector<unsigned char> metaStorage;
 	std::vector<Point> pointStorage;
 	charset storageEncoding;
 
-	void buildFromBytes(const std::vector<unsigned char> &bytes)
+	static bool isWhitespace(unsigned int codepoint)
 	{
-		metaStorage = bytes;
+		return codepoint == ' ' || codepoint == '\t' || codepoint == '\n' || codepoint == '\r' || codepoint == '\v' || codepoint == '\f';
+	}
+
+	void initializeFromBytes(const unsigned char *data, std::size_t length, charset sourceEncoding, charset targetEncoding)
+	{
+		std::vector<unsigned char> bytes;
+		if (sourceEncoding == targetEncoding)
+		{
+			bytes.assign(data, data + length);
+		}
+		else
+		{
+			convertTo(std::string_view(reinterpret_cast<const char *>(data), length), sourceEncoding, targetEncoding, bytes);
+		}
 		std::size_t index = 0;
 		while (index < bytes.size())
 		{
-			pointStorage.push_back(decodePointFromBytes(bytes, index));
-		}
-		validateEncoding();
-	}
-
-	void encodePointToMeta(unsigned int codepoint)
-	{
-		if (codepoint <= 0x7F)
-		{
-			metaStorage.push_back(static_cast<unsigned char>(codepoint));
-		}
-		else if (codepoint <= 0x7FF)
-		{
-			metaStorage.push_back(static_cast<unsigned char>(0xC0 | (codepoint >> 6)));
-			metaStorage.push_back(static_cast<unsigned char>(0x80 | (codepoint & 0x3F)));
-		}
-		else if (codepoint <= 0xFFFF)
-		{
-			if (codepoint >= 0xD800 && codepoint <= 0xDFFF)
-				throw std::invalid_argument("Surrogate code points not valid for UTF-8");
-			metaStorage.push_back(static_cast<unsigned char>(0xE0 | (codepoint >> 12)));
-			metaStorage.push_back(static_cast<unsigned char>(0x80 | ((codepoint >> 6) & 0x3F)));
-			metaStorage.push_back(static_cast<unsigned char>(0x80 | (codepoint & 0x3F)));
-		}
-		else if (codepoint <= 0x10FFFF)
-		{
-			metaStorage.push_back(static_cast<unsigned char>(0xF0 | (codepoint >> 18)));
-			metaStorage.push_back(static_cast<unsigned char>(0x80 | ((codepoint >> 12) & 0x3F)));
-			metaStorage.push_back(static_cast<unsigned char>(0x80 | ((codepoint >> 6) & 0x3F)));
-			metaStorage.push_back(static_cast<unsigned char>(0x80 | (codepoint & 0x3F)));
-		}
-		else
-		{
-			throw std::invalid_argument("Code point exceeds 0x10FFFF");
-		}
-	}
-
-	Point decodePointFromBytes(const std::vector<unsigned char> &data, std::size_t &index) const
-	{
-		if (index >= data.size())
-			return Point(0xFFFD);
-		unsigned char byte = data[index];
-		if (byte >= 0x80 && byte < 0xC2)
-		{
-			index++;
-			return Point(0xFFFD);
-		}
-		unsigned int codepoint;
-		std::size_t bytes = bytesInSequence(byte);
-		if (index + bytes > data.size())
-		{
-			index = data.size();
-			return Point(0xFFFD);
-		}
-		if (bytes == 1)
-			codepoint = byte;
-		else if (bytes == 2)
-		{
-			codepoint = (byte & 0x1F) << 6;
-			codepoint |= (data[index + 1] & 0x3F);
-		}
-		else if (bytes == 3)
-		{
-			codepoint = (byte & 0x0F) << 12;
-			codepoint |= (data[index + 1] & 0x3F) << 6;
-			codepoint |= (data[index + 2] & 0x3F);
-		}
-		else if (bytes == 4)
-		{
-			codepoint = (byte & 0x07) << 18;
-			codepoint |= (data[index + 1] & 0x3F) << 12;
-			codepoint |= (data[index + 2] & 0x3F) << 6;
-			codepoint |= (data[index + 3] & 0x3F);
-		}
-		else
-		{
-			codepoint = 0xFFFD;
-			bytes = 1;
-		}
-		index += bytes;
-		return Point(codepoint);
-	}
-
-	static std::size_t bytesInSequence(unsigned char byte)
-	{
-		if (byte < 0x80)
-			return 1;
-		if (byte < 0xC2)
-			return 1;
-		if (byte < 0xE0)
-			return 2;
-		if (byte < 0xF0)
-			return 3;
-		if (byte < 0xF8)
-			return 4;
-		return 1;
-	}
-
-	void validateEncoding()
-	{
-		if (storageEncoding == charset::utf8)
-		{
-			std::size_t i = 0;
-			while (i < metaStorage.size())
-			{
-				unsigned char byte = metaStorage[i];
-				if ((byte >= 0x80 && byte < 0xC2) || byte >= 0xF8)
-				{
-					throw std::invalid_argument("Invalid UTF-8 sequence");
-				}
-				std::size_t bytes = bytesInSequence(byte);
-				if (bytes == 0 || i + bytes > metaStorage.size())
-				{
-					throw std::invalid_argument("Invalid UTF-8 sequence");
-				}
-				for (std::size_t j = 1; j < bytes; ++j)
-				{
-					if ((metaStorage[i + j] & 0xC0) != 0x80)
-					{
-						throw std::invalid_argument("Invalid UTF-8 continuation byte");
-					}
-				}
-				unsigned int codepoint = 0;
-				if (bytes == 1)
-					codepoint = byte;
-				else if (bytes == 2)
-				{
-					codepoint = (byte & 0x1F) << 6;
-					codepoint |= (metaStorage[i + 1] & 0x3F);
-					if (codepoint < 0x80)
-						throw std::invalid_argument("Overlong UTF-8 sequence");
-				}
-				else if (bytes == 3)
-				{
-					codepoint = (byte & 0x0F) << 12;
-					codepoint |= (metaStorage[i + 1] & 0x3F) << 6;
-					codepoint |= (metaStorage[i + 2] & 0x3F);
-					if (codepoint < 0x800)
-						throw std::invalid_argument("Overlong UTF-8 sequence");
-					if (codepoint >= 0xD800 && codepoint <= 0xDFFF)
-						throw std::invalid_argument("Invalid UTF-8 surrogate");
-				}
-				else if (bytes == 4)
-				{
-					codepoint = (byte & 0x07) << 18;
-					codepoint |= (metaStorage[i + 1] & 0x3F) << 12;
-					codepoint |= (metaStorage[i + 2] & 0x3F) << 6;
-					codepoint |= (metaStorage[i + 3] & 0x3F);
-					if (codepoint < 0x10000)
-						throw std::invalid_argument("Overlong UTF-8 sequence");
-					if (codepoint > 0x10FFFF)
-						throw std::invalid_argument("Code point exceeds 0x10FFFF");
-				}
-				i += bytes;
-			}
+			pointStorage.push_back(Point(decode(bytes, index, targetEncoding)));
 		}
 	}
 };
-
-inline Point PointIterator::operator*() const { return charsequence->at(position); }
-inline std::unique_ptr<Point> PointIterator::operator->() const { return std::make_unique<Point>(charsequence->at(position)); }
-inline PointIterator &PointIterator::operator++()
-{
-	++position;
-	return *this;
-}
-inline PointIterator PointIterator::operator++(int)
-{
-	PointIterator temp = *this;
-	++position;
-	return temp;
-}
-inline PointIterator &PointIterator::operator--()
-{
-	--position;
-	return *this;
-}
-inline PointIterator PointIterator::operator--(int)
-{
-	PointIterator temp = *this;
-	--position;
-	return temp;
-}
-inline bool PointIterator::operator==(const PointIterator &other) const { return charsequence == other.charsequence && position == other.position; }
-inline bool PointIterator::operator!=(const PointIterator &other) const { return !(*this == other); }
 
 class Builder
 {
   public:
 	Builder() : storage(), storageEncoding(charset::utf8) {}
-	explicit Builder(charset enc) : storage(), storageEncoding(charset::utf8) {}
+	explicit Builder(charset encoding) : storage(), storageEncoding(encoding) {}
 
 	Builder(const Builder &other) : storage(other.storage), storageEncoding(other.storageEncoding) {}
 	Builder(Builder &&other) noexcept : storage(std::move(other.storage)), storageEncoding(other.storageEncoding)
@@ -901,171 +1332,290 @@ class Builder
 		other.storageEncoding = charset::utf8;
 	}
 
-	explicit Builder(const std::string &source, charset sourceEncoding = charset::utf8)
-		: storageEncoding(charset::utf8)
+	Builder &operator=(const Builder &other)
 	{
-		std::string temp(source);
-		if (sourceEncoding == charset::utf8)
+		if (this != &other)
+		{
+			storage = other.storage;
+			storageEncoding = other.storageEncoding;
+		}
+		return *this;
+	}
+
+	Builder &operator=(Builder &&other) noexcept
+	{
+		if (this != &other)
+		{
+			storage = std::move(other.storage);
+			storageEncoding = other.storageEncoding;
+			other.storageEncoding = charset::utf8;
+		}
+		return *this;
+	}
+
+	Builder(std::string_view source, charset sourceEncoding = charset::utf8, charset targetEncoding = charset::utf8)
+		: storage(), storageEncoding(targetEncoding)
+	{
+		if (sourceEncoding == targetEncoding)
+		{
+			storage.assign(source.begin(), source.end());
+		}
+		else
+		{
+			convertToDeque(source, sourceEncoding, targetEncoding, storage);
+		}
+	}
+
+	Builder(std::istream &stream, std::size_t maxLength, charset sourceEncoding = charset::utf8, charset targetEncoding = charset::utf8)
+		: storage(), storageEncoding(targetEncoding)
+	{
+		std::string chunk;
+		std::deque<unsigned char> leftover;
+		constexpr std::size_t chunkSize = 4096;
+		std::size_t totalRead = 0;
+		while (totalRead < maxLength && stream.good())
+		{
+			std::size_t toRead = std::min(chunkSize, maxLength - totalRead);
+			chunk.resize(toRead);
+			stream.read(&chunk[0], toRead);
+			std::size_t bytesRead = stream.gcount();
+			if (bytesRead == 0)
+			{
+				break;
+			}
+			chunk.resize(bytesRead);
+			std::deque<unsigned char> combined;
+			if (!leftover.empty())
+			{
+				combined = std::move(leftover);
+				leftover.clear();
+				combined.insert(combined.end(), chunk.begin(), chunk.end());
+			}
+			else
+			{
+				combined.assign(chunk.begin(), chunk.end());
+			}
+			std::size_t safeSize = combined.size();
+			if (sourceEncoding == charset::utf8 && safeSize > 0)
+			{
+				std::size_t trailing = 0;
+				auto it = combined.end();
+				while (it != combined.begin())
+				{
+					--it;
+					unsigned char b = *it;
+					if (b < 0x80)
+					{
+						break;
+					}
+					if (b >= 0xC0 && b < 0xF8)
+					{
+						std::size_t expectedLen = sequenceLength(b, charset::utf8);
+						std::size_t remaining = static_cast<std::size_t>(combined.end() - it);
+						if (remaining < expectedLen)
+						{
+							trailing = remaining;
+						}
+						break;
+					}
+				}
+				if (trailing > 0)
+				{
+					auto startIt = combined.end();
+					std::advance(startIt, -static_cast<std::ptrdiff_t>(trailing));
+					leftover.assign(startIt, combined.end());
+					safeSize -= trailing;
+				}
+			}
+			auto endIt = combined.begin();
+			std::advance(endIt, safeSize);
+			if (sourceEncoding == targetEncoding)
+			{
+				storage.insert(storage.end(), combined.begin(), endIt);
+			}
+			else
+			{
+				std::string temp(combined.begin(), endIt);
+				std::string convertedStr = convert(std::string_view(temp), sourceEncoding, targetEncoding);
+				storage.insert(storage.end(), convertedStr.begin(), convertedStr.end());
+			}
+			totalRead += bytesRead;
+		}
+		for (auto byte : leftover)
+		{
+			storage.push_back(byte);
+		}
+	}
+
+	Builder(std::stringstream &stream, charset sourceEncoding = charset::utf8, charset targetEncoding = charset::utf8)
+		: storage(), storageEncoding(targetEncoding)
+	{
+		std::string temp = stream.str();
+		if (sourceEncoding == targetEncoding)
 		{
 			storage.assign(temp.begin(), temp.end());
 		}
 		else
 		{
-			auto converted = Charsequence::convertEncoding(temp, sourceEncoding, charset::utf8);
-			storage.assign(converted.begin(), converted.end());
+			convertToDeque(std::string_view(temp), sourceEncoding, targetEncoding, storage);
 		}
 	}
 
-	explicit Builder(std::string &&source, charset sourceEncoding = charset::utf8)
-		: storageEncoding(charset::utf8)
-	{
-		std::string temp(std::move(source));
-		if (sourceEncoding == charset::utf8)
-		{
-			storage.assign(temp.begin(), temp.end());
-		}
-		else
-		{
-			auto converted = Charsequence::convertEncoding(temp, sourceEncoding, charset::utf8);
-			storage.assign(converted.begin(), converted.end());
-		}
-	}
-
-	explicit Builder(const char *source, charset sourceEncoding = charset::utf8)
-		: storageEncoding(charset::utf8)
-	{
-		std::string temp(source ? source : "");
-		if (sourceEncoding == charset::utf8)
-		{
-			storage.assign(temp.begin(), temp.end());
-		}
-		else
-		{
-			auto converted = Charsequence::convertEncoding(temp, sourceEncoding, charset::utf8);
-			storage.assign(converted.begin(), converted.end());
-		}
-	}
-
-	Builder &insert(std::size_t pos, const Charsequence &source)
+	Builder &prepend(const Charsequence &source)
 	{
 		auto bytes = source.getBytes(storageEncoding);
-		if (pos >= storage.size())
+		storage.insert(storage.begin(), bytes.begin(), bytes.end());
+		return *this;
+	}
+
+	Builder &prepend(std::string_view source)
+	{
+		Charsequence temp(source, storageEncoding, storageEncoding);
+		return prepend(temp);
+	}
+
+	Builder &prepend(Point point)
+	{
+		Charsequence temp(&point, 1, storageEncoding);
+		return prepend(temp);
+	}
+
+	Builder &prepend(unsigned char byte)
+	{
+		storage.push_front(byte);
+		return *this;
+	}
+
+	Builder &prepend(char byte)
+	{
+		storage.push_front(static_cast<unsigned char>(byte));
+		return *this;
+	}
+
+	Builder &insert(std::size_t position, const Charsequence &source)
+	{
+		auto bytes = source.getBytes(storageEncoding);
+		if (position >= storage.size())
 		{
 			storage.insert(storage.end(), bytes.begin(), bytes.end());
 		}
 		else
 		{
-			storage.insert(storage.begin() + pos, bytes.begin(), bytes.end());
+			auto it = storage.begin();
+			std::advance(it, position);
+			storage.insert(it, bytes.begin(), bytes.end());
 		}
 		return *this;
 	}
 
-	Builder &insert(std::size_t pos, const std::string &source)
+	Builder &insert(std::size_t position, std::string_view source)
 	{
-		Charsequence temp(source, storageEncoding);
-		return insert(pos, temp);
+		Charsequence temp(source, storageEncoding, storageEncoding);
+		return insert(position, temp);
 	}
 
-	Builder &insert(std::size_t pos, const char *source)
+	Builder &insert(std::size_t position, Point point)
 	{
-		Charsequence temp(source, storageEncoding);
-		return insert(pos, temp);
+		Charsequence temp(&point, 1, storageEncoding);
+		return insert(position, temp);
 	}
 
-	Builder &insert(std::size_t pos, Point point)
+	Builder &insert(std::size_t position, unsigned char byte)
 	{
-		Charsequence temp(&point, 1);
-		return insert(pos, temp);
-	}
-
-	Builder &insert(std::size_t pos, unsigned char byte)
-	{
-		if (pos >= storage.size())
+		if (position >= storage.size())
 		{
 			storage.push_back(byte);
 		}
 		else
 		{
-			storage.insert(storage.begin() + pos, byte);
+			auto it = storage.begin();
+			std::advance(it, position);
+			storage.insert(it, byte);
 		}
 		return *this;
 	}
 
-	Builder &insert(std::size_t pos, char byte)
+	Builder &insert(std::size_t position, char byte)
 	{
-		return insert(pos, static_cast<unsigned char>(byte));
+		return insert(position, static_cast<unsigned char>(byte));
 	}
 
-	Builder &insert(std::size_t pos, bool value)
+	Builder &insert(std::size_t position, bool value)
 	{
 		std::string str = value ? "true" : "false";
-		return insert(pos, str);
+		return insert(position, std::string_view(str));
 	}
 
-	Builder &insert(std::size_t pos, short value)
+	Builder &insert(std::size_t position, short value)
 	{
 		std::string str = std::to_string(value);
-		return insert(pos, str);
+		return insert(position, std::string_view(str));
 	}
 
-	Builder &insert(std::size_t pos, int value)
+	Builder &insert(std::size_t position, int value)
 	{
 		std::string str = std::to_string(value);
-		return insert(pos, str);
+		return insert(position, std::string_view(str));
 	}
 
-	Builder &insert(std::size_t pos, long value)
+	Builder &insert(std::size_t position, long value)
 	{
 		std::string str = std::to_string(value);
-		return insert(pos, str);
+		return insert(position, std::string_view(str));
 	}
 
-	Builder &insert(std::size_t pos, long long value)
+	Builder &insert(std::size_t position, long long value)
 	{
 		std::string str = std::to_string(value);
-		return insert(pos, str);
+		return insert(position, std::string_view(str));
 	}
 
-	Builder &insert(std::size_t pos, float value)
+	Builder &insert(std::size_t position, float value)
 	{
-		std::string str = std::to_string(value);
-		return insert(pos, str);
+		std::ostringstream stream;
+		stream << value;
+		std::string str = stream.str();
+		return insert(position, std::string_view(str));
 	}
 
-	Builder &insert(std::size_t pos, double value)
+	Builder &insert(std::size_t position, double value)
 	{
-		std::string str = std::to_string(value);
-		return insert(pos, str);
+		std::ostringstream stream;
+		stream << value;
+		std::string str = stream.str();
+		return insert(position, std::string_view(str));
 	}
 
-	Builder &insert(std::size_t pos, long double value)
+	Builder &insert(std::size_t position, long double value)
 	{
-		std::string str = std::to_string(value);
-		return insert(pos, str);
+		std::ostringstream stream;
+		stream << value;
+		std::string str = stream.str();
+		return insert(position, std::string_view(str));
 	}
 
-	Builder &insert(std::size_t pos, unsigned short value)
+	Builder &insert(std::size_t position, unsigned short value)
 	{
 		std::string str = std::to_string(value);
-		return insert(pos, str);
+		return insert(position, std::string_view(str));
 	}
 
-	Builder &insert(std::size_t pos, unsigned int value)
+	Builder &insert(std::size_t position, unsigned int value)
 	{
 		std::string str = std::to_string(value);
-		return insert(pos, str);
+		return insert(position, std::string_view(str));
 	}
 
-	Builder &insert(std::size_t pos, unsigned long value)
+	Builder &insert(std::size_t position, unsigned long value)
 	{
 		std::string str = std::to_string(value);
-		return insert(pos, str);
+		return insert(position, std::string_view(str));
 	}
 
-	Builder &insert(std::size_t pos, unsigned long long value)
+	Builder &insert(std::size_t position, unsigned long long value)
 	{
 		std::string str = std::to_string(value);
-		return insert(pos, str);
+		return insert(position, std::string_view(str));
 	}
 
 	Builder &append(const Charsequence &source)
@@ -1075,21 +1625,15 @@ class Builder
 		return *this;
 	}
 
-	Builder &append(const std::string &source)
+	Builder &append(std::string_view source)
 	{
-		Charsequence temp(source, storageEncoding);
-		return append(temp);
-	}
-
-	Builder &append(const char *source)
-	{
-		Charsequence temp(source, storageEncoding);
+		Charsequence temp(source, storageEncoding, storageEncoding);
 		return append(temp);
 	}
 
 	Builder &append(Point point)
 	{
-		Charsequence temp(&point, 1);
+		Charsequence temp(&point, 1, storageEncoding);
 		auto bytes = temp.getBytes(storageEncoding);
 		storage.insert(storage.end(), bytes.begin(), bytes.end());
 		return *this;
@@ -1110,73 +1654,79 @@ class Builder
 	Builder &append(bool value)
 	{
 		std::string str = value ? "true" : "false";
-		return append(str);
+		return append(std::string_view(str));
 	}
 
 	Builder &append(short value)
 	{
 		std::string str = std::to_string(value);
-		return append(str);
+		return append(std::string_view(str));
 	}
 
 	Builder &append(int value)
 	{
 		std::string str = std::to_string(value);
-		return append(str);
+		return append(std::string_view(str));
 	}
 
 	Builder &append(long value)
 	{
 		std::string str = std::to_string(value);
-		return append(str);
+		return append(std::string_view(str));
 	}
 
 	Builder &append(long long value)
 	{
 		std::string str = std::to_string(value);
-		return append(str);
+		return append(std::string_view(str));
 	}
 
 	Builder &append(float value)
 	{
-		std::string str = std::to_string(value);
-		return append(str);
+		std::ostringstream stream;
+		stream << value;
+		std::string str = stream.str();
+		return append(std::string_view(str));
 	}
 
 	Builder &append(double value)
 	{
-		std::string str = std::to_string(value);
-		return append(str);
+		std::ostringstream stream;
+		stream << value;
+		std::string str = stream.str();
+		return append(std::string_view(str));
 	}
 
 	Builder &append(long double value)
 	{
-		std::string str = std::to_string(value);
-		return append(str);
+		std::ostringstream stream;
+		stream << value;
+		std::string str = stream.str();
+		return append(std::string_view(str));
 	}
 
 	Builder &append(unsigned short value)
 	{
 		std::string str = std::to_string(value);
-		return append(str);
+		return append(std::string_view(str));
 	}
 
 	Builder &append(unsigned int value)
 	{
 		std::string str = std::to_string(value);
-		return append(str);
+		return append(std::string_view(str));
 	}
 
 	Builder &append(unsigned long value)
 	{
 		std::string str = std::to_string(value);
-		return append(str);
+		return append(std::string_view(str));
 	}
 
 	Builder &append(unsigned long long value)
 	{
 		std::string str = std::to_string(value);
-		return append(str);
+		return append(std::string_view(str));
 	}
 
 	Builder operator+(const Builder &other) const
@@ -1193,14 +1743,7 @@ class Builder
 		return result;
 	}
 
-	Builder operator+(const std::string &str) const
-	{
-		Builder result(*this);
-		result.append(str);
-		return result;
-	}
-
-	Builder operator+(const char *str) const
+	Builder operator+(std::string_view str) const
 	{
 		Builder result(*this);
 		result.append(str);
@@ -1219,13 +1762,7 @@ class Builder
 		return *this;
 	}
 
-	Builder &operator+=(const std::string &str)
-	{
-		append(str);
-		return *this;
-	}
-
-	Builder &operator+=(const char *str)
+	Builder &operator+=(std::string_view str)
 	{
 		append(str);
 		return *this;
@@ -1233,342 +1770,312 @@ class Builder
 
 	Charsequence toCharsequence() const
 	{
-		return Charsequence(std::string(storage.begin(), storage.end()), charset::utf8);
+		std::string temp(storage.begin(), storage.end());
+		return Charsequence(std::string_view(temp), storageEncoding, storageEncoding);
 	}
 
-	std::size_t size() const { return toCharsequence().size(); }
+	std::size_t size() const { return storage.size(); }
 	bool empty() const { return storage.empty(); }
 	charset encoding() const { return storageEncoding; }
 
-	std::vector<unsigned char> getBytes() const { return storage; }
-
-	friend std::ostream &operator<<(std::ostream &os, const Builder &builder)
+	std::vector<unsigned char> getBytes() const
 	{
-		os.write(reinterpret_cast<const char *>(builder.storage.data()), builder.storage.size());
-		return os;
+		return std::vector<unsigned char>(storage.begin(), storage.end());
 	}
 
-	friend std::istream &operator>>(std::istream &is, Builder &builder)
+	friend std::ostream &operator<<(std::ostream &stream, const Builder &builder)
+	{
+		auto bytes = builder.getBytes();
+		stream.write(reinterpret_cast<const char *>(bytes.data()), bytes.size());
+		return stream;
+	}
+
+	friend std::istream &operator>>(std::istream &stream, Builder &builder)
 	{
 		std::string temp;
-		is >> temp;
-		builder = Builder(temp, builder.storageEncoding);
-		return is;
+		std::getline(stream, temp);
+		builder = Builder(std::string_view(temp), builder.storageEncoding, builder.storageEncoding);
+		return stream;
 	}
 
-	friend std::stringstream &operator<<(std::stringstream &ss, const Builder &builder)
+	friend std::stringstream &operator<<(std::stringstream &stream, const Builder &builder)
 	{
-		ss.write(reinterpret_cast<const char *>(builder.storage.data()), builder.storage.size());
-		return ss;
+		auto bytes = builder.getBytes();
+		stream.write(reinterpret_cast<const char *>(bytes.data()), bytes.size());
+		return stream;
 	}
 
-	friend std::stringstream &operator>>(std::stringstream &ss, Builder &builder)
+	friend std::stringstream &operator>>(std::stringstream &stream, Builder &builder)
 	{
-		std::string temp;
-		ss >> temp;
-		builder = Builder(temp, builder.storageEncoding);
-		return ss;
+		std::string temp = stream.str();
+		stream.str("");
+		stream.clear();
+		builder = Builder(std::string_view(temp), builder.storageEncoding, builder.storageEncoding);
+		return stream;
 	}
 
-	friend Builder operator+(const std::string &lhs, const Builder &rhs)
+	friend Builder operator+(std::string_view left, const Builder &right)
 	{
-		Builder result(lhs, rhs.storageEncoding);
-		result.append(rhs.toCharsequence());
+		Builder result(left, right.storageEncoding, right.storageEncoding);
+		result.append(right.toCharsequence());
 		return result;
-	}
-
-	friend Builder operator+(const char *lhs, const Builder &rhs)
-	{
-		Builder result(lhs, rhs.storageEncoding);
-		result.append(rhs.toCharsequence());
-		return result;
-	}
-
-	friend Builder operator+(std::unique_ptr<Builder> lhs, const Builder &rhs)
-	{
-		return *lhs + rhs;
-	}
-
-	friend Builder operator+(const Builder &lhs, std::unique_ptr<Builder> rhs)
-	{
-		return lhs + *rhs;
-	}
-
-	friend Builder operator+(std::unique_ptr<Builder> lhs, std::unique_ptr<Builder> rhs)
-	{
-		return *lhs + *rhs;
 	}
 
   private:
-	std::vector<unsigned char> storage;
+	std::deque<unsigned char> storage;
 	charset storageEncoding;
 };
 
 class Buffer
 {
   public:
-	Buffer() : storage() {}
-	explicit Buffer(std::size_t capacity) : storage() { storage.reserve(capacity); }
+	static constexpr std::size_t defaultCapacity = 4096;
+
+	Buffer() : storage(defaultCapacity), readPosition(0), writePosition(0), elementCount(0), mutex() {}
+	explicit Buffer(std::size_t capacity) : storage(capacity), readPosition(0), writePosition(0), elementCount(0), mutex() {}
+
+	Buffer(std::string_view source) : storage(source.size() > 0 ? source.size() : defaultCapacity), readPosition(0), writePosition(0), elementCount(0), mutex()
+	{
+		write(source);
+	}
+
+	Buffer(std::istream &stream, std::size_t maxLength) : storage(maxLength > 0 ? maxLength : defaultCapacity), readPosition(0), writePosition(0), elementCount(0), mutex()
+	{
+		std::string temp;
+		temp.resize(maxLength);
+		stream.read(&temp[0], maxLength);
+		std::size_t bytesRead = stream.gcount();
+		temp.resize(bytesRead);
+		write(std::string_view(temp));
+	}
+
+	Buffer(std::stringstream &stream) : storage(defaultCapacity), readPosition(0), writePosition(0), elementCount(0), mutex()
+	{
+		std::string temp = stream.str();
+		if (temp.size() > 0)
+		{
+			storage.resize(temp.size());
+		}
+		write(std::string_view(temp));
+	}
+
+	Buffer(const Buffer &other) : storage(), readPosition(0), writePosition(0), elementCount(0), mutex()
+	{
+		std::lock_guard<std::mutex> lock(other.mutex);
+		storage = other.storage;
+		readPosition = other.readPosition;
+		writePosition = other.writePosition;
+		elementCount = other.elementCount;
+	}
+
+	Buffer(Buffer &&other) noexcept : storage(), readPosition(0), writePosition(0), elementCount(0), mutex()
+	{
+		std::lock_guard<std::mutex> lock(other.mutex);
+		storage = std::move(other.storage);
+		readPosition = other.readPosition;
+		writePosition = other.writePosition;
+		elementCount = other.elementCount;
+		other.readPosition = 0;
+		other.writePosition = 0;
+		other.elementCount = 0;
+	}
+
+	Buffer &operator=(const Buffer &other)
+	{
+		if (this == &other)
+		{
+			return *this;
+		}
+		std::lock(mutex, other.mutex);
+		std::lock_guard<std::mutex> lockThis(mutex, std::adopt_lock);
+		std::lock_guard<std::mutex> lockOther(other.mutex, std::adopt_lock);
+		storage = other.storage;
+		readPosition = other.readPosition;
+		writePosition = other.writePosition;
+		elementCount = other.elementCount;
+		return *this;
+	}
+
+	Buffer &operator=(Buffer &&other) noexcept
+	{
+		if (this == &other)
+		{
+			return *this;
+		}
+		std::unique_lock<std::mutex> lockThis(mutex, std::defer_lock);
+		std::unique_lock<std::mutex> lockOther(other.mutex, std::defer_lock);
+		std::lock(lockThis, lockOther);
+		storage = std::move(other.storage);
+		readPosition = other.readPosition;
+		writePosition = other.writePosition;
+		elementCount = other.elementCount;
+		other.readPosition = 0;
+		other.writePosition = 0;
+		other.elementCount = 0;
+		return *this;
+	}
 
 	std::size_t write(const char *input, std::size_t length)
 	{
+		std::lock_guard<std::mutex> lock(mutex);
 		if (!input || length == 0)
+		{
 			return 0;
-		storage.insert(storage.end(), input, input + length);
-		return length;
+		}
+		ensureCapacity(length);
+		std::size_t written = 0;
+		while (written < length)
+		{
+			std::size_t space = storage.size() - writePosition;
+			std::size_t chunk = std::min(length - written, space);
+			std::memcpy(&storage[writePosition], input + written, chunk);
+			writePosition = (writePosition + chunk) % storage.size();
+			written += chunk;
+		}
+		elementCount += written;
+		return written;
 	}
 
-	std::size_t write(const std::string &input)
+	std::size_t write(std::string_view input)
 	{
-		storage.insert(storage.end(), input.begin(), input.end());
-		return input.size();
+		return write(input.data(), input.size());
 	}
 
 	std::size_t write(const std::vector<unsigned char> &input)
 	{
-		storage.insert(storage.end(), input.begin(), input.end());
-		return input.size();
+		return write(reinterpret_cast<const char *>(input.data()), input.size());
 	}
 
 	std::size_t write(const Charsequence &input)
 	{
 		auto bytes = input.getBytes();
-		storage.insert(storage.end(), bytes.begin(), bytes.end());
-		return bytes.size();
+		return write(reinterpret_cast<const char *>(bytes.data()), bytes.size());
 	}
 
 	std::size_t write(const Builder &input)
 	{
 		auto bytes = input.getBytes();
-		storage.insert(storage.end(), bytes.begin(), bytes.end());
-		return bytes.size();
+		return write(reinterpret_cast<const char *>(bytes.data()), bytes.size());
 	}
 
 	std::size_t write(unsigned char byte)
 	{
-		storage.push_back(byte);
-		return 1;
+		return write(reinterpret_cast<const char *>(&byte), 1);
 	}
 
 	std::size_t write(char byte)
 	{
-		storage.push_back(static_cast<unsigned char>(byte));
-		return 1;
+		return write(&byte, 1);
 	}
 
 	std::size_t write(bool value)
 	{
 		std::string str = value ? "true" : "false";
-		return write(str);
+		return write(std::string_view(str));
 	}
 
 	std::size_t write(short value)
 	{
 		std::string str = std::to_string(value);
-		return write(str);
+		return write(std::string_view(str));
 	}
 
 	std::size_t write(int value)
 	{
 		std::string str = std::to_string(value);
-		return write(str);
+		return write(std::string_view(str));
 	}
 
 	std::size_t write(long value)
 	{
 		std::string str = std::to_string(value);
-		return write(str);
+		return write(std::string_view(str));
 	}
 
 	std::size_t write(long long value)
 	{
 		std::string str = std::to_string(value);
-		return write(str);
+		return write(std::string_view(str));
 	}
 
 	std::size_t write(float value)
 	{
-		std::string str = std::to_string(value);
-		return write(str);
+		std::ostringstream stream;
+		stream << value;
+		std::string str = stream.str();
+		return write(std::string_view(str));
 	}
 
 	std::size_t write(double value)
 	{
-		std::string str = std::to_string(value);
-		return write(str);
+		std::ostringstream stream;
+		stream << value;
+		std::string str = stream.str();
+		return write(std::string_view(str));
 	}
 
 	std::size_t write(long double value)
 	{
-		std::string str = std::to_string(value);
-		return write(str);
+		std::ostringstream stream;
+		stream << value;
+		std::string str = stream.str();
+		return write(std::string_view(str));
 	}
 
 	std::size_t write(unsigned short value)
 	{
 		std::string str = std::to_string(value);
-		return write(str);
+		return write(std::string_view(str));
 	}
 
 	std::size_t write(unsigned int value)
 	{
 		std::string str = std::to_string(value);
-		return write(str);
+		return write(std::string_view(str));
 	}
 
 	std::size_t write(unsigned long value)
 	{
 		std::string str = std::to_string(value);
-		return write(str);
+		return write(std::string_view(str));
 	}
 
 	std::size_t write(unsigned long long value)
 	{
 		std::string str = std::to_string(value);
-		return write(str);
+		return write(std::string_view(str));
 	}
 
-	std::size_t insert(std::size_t pos, const char *input, std::size_t length)
+	std::size_t prepend(const char *input, std::size_t length)
 	{
+		std::lock_guard<std::mutex> lock(mutex);
 		if (!input || length == 0)
+		{
 			return 0;
-		if (pos >= storage.size())
-		{
-			storage.insert(storage.end(), input, input + length);
 		}
-		else
+		ensureCapacity(length);
+		for (std::size_t i = length; i > 0; --i)
 		{
-			storage.insert(storage.begin() + pos, input, input + length);
+			readPosition = (readPosition + storage.size() - 1) % storage.size();
+			storage[readPosition] = static_cast<unsigned char>(input[i - 1]);
 		}
+		elementCount += length;
 		return length;
 	}
 
-	std::size_t insert(std::size_t pos, const std::string &input)
+	std::size_t prepend(std::string_view input)
 	{
-		if (pos >= storage.size())
-		{
-			storage.insert(storage.end(), input.begin(), input.end());
-		}
-		else
-		{
-			storage.insert(storage.begin() + pos, input.begin(), input.end());
-		}
-		return input.size();
+		return prepend(input.data(), input.size());
 	}
 
-	std::size_t insert(std::size_t pos, const std::vector<unsigned char> &input)
+	std::size_t prepend(unsigned char byte)
 	{
-		if (pos >= storage.size())
-		{
-			storage.insert(storage.end(), input.begin(), input.end());
-		}
-		else
-		{
-			storage.insert(storage.begin() + pos, input.begin(), input.end());
-		}
-		return input.size();
+		return prepend(reinterpret_cast<const char *>(&byte), 1);
 	}
 
-	std::size_t insert(std::size_t pos, const Charsequence &input)
+	std::size_t prepend(char byte)
 	{
-		auto bytes = input.getBytes();
-		return insert(pos, bytes);
-	}
-
-	std::size_t insert(std::size_t pos, const Builder &input)
-	{
-		auto bytes = input.getBytes();
-		return insert(pos, bytes);
-	}
-
-	std::size_t insert(std::size_t pos, unsigned char byte)
-	{
-		if (pos >= storage.size())
-		{
-			storage.push_back(byte);
-		}
-		else
-		{
-			storage.insert(storage.begin() + pos, byte);
-		}
-		return 1;
-	}
-
-	std::size_t insert(std::size_t pos, char byte)
-	{
-		return insert(pos, static_cast<unsigned char>(byte));
-	}
-
-	std::size_t insert(std::size_t pos, bool value)
-	{
-		std::string str = value ? "true" : "false";
-		return insert(pos, str);
-	}
-
-	std::size_t insert(std::size_t pos, short value)
-	{
-		std::string str = std::to_string(value);
-		return insert(pos, str);
-	}
-
-	std::size_t insert(std::size_t pos, int value)
-	{
-		std::string str = std::to_string(value);
-		return insert(pos, str);
-	}
-
-	std::size_t insert(std::size_t pos, long value)
-	{
-		std::string str = std::to_string(value);
-		return insert(pos, str);
-	}
-
-	std::size_t insert(std::size_t pos, long long value)
-	{
-		std::string str = std::to_string(value);
-		return insert(pos, str);
-	}
-
-	std::size_t insert(std::size_t pos, float value)
-	{
-		std::string str = std::to_string(value);
-		return insert(pos, str);
-	}
-
-	std::size_t insert(std::size_t pos, double value)
-	{
-		std::string str = std::to_string(value);
-		return insert(pos, str);
-	}
-
-	std::size_t insert(std::size_t pos, long double value)
-	{
-		std::string str = std::to_string(value);
-		return insert(pos, str);
-	}
-
-	std::size_t insert(std::size_t pos, unsigned short value)
-	{
-		std::string str = std::to_string(value);
-		return insert(pos, str);
-	}
-
-	std::size_t insert(std::size_t pos, unsigned int value)
-	{
-		std::string str = std::to_string(value);
-		return insert(pos, str);
-	}
-
-	std::size_t insert(std::size_t pos, unsigned long value)
-	{
-		std::string str = std::to_string(value);
-		return insert(pos, str);
-	}
-
-	std::size_t insert(std::size_t pos, unsigned long long value)
-	{
-		std::string str = std::to_string(value);
-		return insert(pos, str);
+		return prepend(&byte, 1);
 	}
 
 	std::size_t append(const char *input, std::size_t length)
@@ -1576,7 +2083,7 @@ class Buffer
 		return write(input, length);
 	}
 
-	std::size_t append(const std::string &input)
+	std::size_t append(std::string_view input)
 	{
 		return write(input);
 	}
@@ -1666,75 +2173,247 @@ class Buffer
 		return write(value);
 	}
 
-	std::size_t read(char *output, std::size_t maxLength) const
+	std::vector<unsigned char> read(std::size_t maxLength)
 	{
-		std::size_t len = std::min(maxLength, storage.size());
-		if (len > 0)
-			std::memcpy(output, storage.data(), len);
-		return len;
+		std::lock_guard<std::mutex> lock(mutex);
+		std::size_t length = std::min(maxLength, elementCount);
+		std::vector<unsigned char> result;
+		result.reserve(length);
+		std::size_t remaining = length;
+		while (remaining > 0)
+		{
+			std::size_t available = storage.size() - readPosition;
+			std::size_t chunk = std::min(remaining, available);
+			result.insert(result.end(), storage.begin() + readPosition, storage.begin() + readPosition + chunk);
+			readPosition = (readPosition + chunk) % storage.size();
+			remaining -= chunk;
+		}
+		elementCount -= length;
+		return result;
 	}
 
-	const unsigned char *data() const { return storage.data(); }
-	std::size_t size() const { return storage.size(); }
-	void clear() { storage.clear(); }
+	std::size_t read(char *output, std::size_t maxLength)
+	{
+		std::lock_guard<std::mutex> lock(mutex);
+		std::size_t length = std::min(maxLength, elementCount);
+		if (length == 0)
+		{
+			return 0;
+		}
+		std::size_t remaining = length;
+		std::size_t offset = 0;
+		while (remaining > 0)
+		{
+			std::size_t available = storage.size() - readPosition;
+			std::size_t chunk = std::min(remaining, available);
+			std::memcpy(output + offset, &storage[readPosition], chunk);
+			readPosition = (readPosition + chunk) % storage.size();
+			offset += chunk;
+			remaining -= chunk;
+		}
+		elementCount -= length;
+		return length;
+	}
+
+	std::vector<unsigned char> peek(std::size_t maxLength) const
+	{
+		std::lock_guard<std::mutex> lock(mutex);
+		std::size_t length = std::min(maxLength, elementCount);
+		std::vector<unsigned char> result;
+		result.reserve(length);
+		std::size_t remaining = length;
+		std::size_t pos = readPosition;
+		while (remaining > 0)
+		{
+			std::size_t available = storage.size() - pos;
+			std::size_t chunk = std::min(remaining, available);
+			result.insert(result.end(), storage.begin() + pos, storage.begin() + pos + chunk);
+			pos = (pos + chunk) % storage.size();
+			remaining -= chunk;
+		}
+		return result;
+	}
+
+	std::size_t peek(char *output, std::size_t maxLength) const
+	{
+		std::lock_guard<std::mutex> lock(mutex);
+		std::size_t length = std::min(maxLength, elementCount);
+		if (length == 0)
+		{
+			return 0;
+		}
+		std::size_t remaining = length;
+		std::size_t offset = 0;
+		std::size_t pos = readPosition;
+		while (remaining > 0)
+		{
+			std::size_t available = storage.size() - pos;
+			std::size_t chunk = std::min(remaining, available);
+			std::memcpy(output + offset, &storage[pos], chunk);
+			pos = (pos + chunk) % storage.size();
+			offset += chunk;
+			remaining -= chunk;
+		}
+		return length;
+	}
+
+	std::vector<unsigned char> data() const
+	{
+		std::lock_guard<std::mutex> lock(mutex);
+		std::vector<unsigned char> result;
+		result.reserve(elementCount);
+		std::size_t remaining = elementCount;
+		std::size_t pos = readPosition;
+		while (remaining > 0)
+		{
+			std::size_t available = storage.size() - pos;
+			std::size_t chunk = std::min(remaining, available);
+			result.insert(result.end(), storage.begin() + pos, storage.begin() + pos + chunk);
+			pos = (pos + chunk) % storage.size();
+			remaining -= chunk;
+		}
+		return result;
+	}
+
+	const unsigned char *unsafeData() const noexcept
+	{
+		return storage.data() + readPosition;
+	}
+
+	std::size_t unsafeSize() const noexcept
+	{
+		return elementCount;
+	}
+
+	bool unsafeIsContiguous() const noexcept
+	{
+		return readPosition + elementCount <= storage.size();
+	}
+
+	std::size_t size() const
+	{
+		std::lock_guard<std::mutex> lock(mutex);
+		return elementCount;
+	}
+
+	std::size_t capacity() const
+	{
+		std::lock_guard<std::mutex> lock(mutex);
+		return storage.size();
+	}
+
+	void clear()
+	{
+		std::lock_guard<std::mutex> lock(mutex);
+		readPosition = 0;
+		writePosition = 0;
+		elementCount = 0;
+	}
+
+	void shrinkToFit()
+	{
+		std::lock_guard<std::mutex> lock(mutex);
+		if (elementCount == 0)
+		{
+			storage.resize(defaultCapacity);
+			readPosition = 0;
+			writePosition = 0;
+			return;
+		}
+		std::vector<unsigned char> newStorage(elementCount);
+		std::size_t remaining = elementCount;
+		std::size_t pos = readPosition;
+		std::size_t offset = 0;
+		while (remaining > 0)
+		{
+			std::size_t available = storage.size() - pos;
+			std::size_t chunk = std::min(remaining, available);
+			std::memcpy(&newStorage[offset], &storage[pos], chunk);
+			pos = (pos + chunk) % storage.size();
+			offset += chunk;
+			remaining -= chunk;
+		}
+		storage = std::move(newStorage);
+		readPosition = 0;
+		writePosition = elementCount % storage.size();
+	}
+
+	template <typename Function>
+	auto atomic(Function &&function) -> decltype(function(std::declval<std::vector<unsigned char> &>(), std::declval<std::size_t &>(), std::declval<std::size_t &>(), std::declval<std::size_t &>()))
+	{
+		std::lock_guard<std::mutex> lock(mutex);
+		return function(storage, readPosition, writePosition, elementCount);
+	}
+
+	template <typename Function>
+	auto atomic(Function &&function) const -> decltype(function(std::declval<const std::vector<unsigned char> &>(), std::declval<const std::size_t &>(), std::declval<const std::size_t &>(), std::declval<const std::size_t &>()))
+	{
+		std::lock_guard<std::mutex> lock(mutex);
+		return function(storage, readPosition, writePosition, elementCount);
+	}
 
 	Buffer operator+(const Buffer &other) const
 	{
 		Buffer result;
-		result.storage = this->storage;
-		result.storage.insert(result.storage.end(), other.storage.begin(), other.storage.end());
+		if (this == &other)
+		{
+			std::lock_guard<std::mutex> lock(mutex);
+			auto data = peekAllUnsafe();
+			result.writeDataUnsafe(reinterpret_cast<const char *>(data.data()), data.size());
+			result.writeDataUnsafe(reinterpret_cast<const char *>(data.data()), data.size());
+		}
+		else
+		{
+			std::lock(mutex, other.mutex);
+			std::lock_guard<std::mutex> lockThis(mutex, std::adopt_lock);
+			std::lock_guard<std::mutex> lockOther(other.mutex, std::adopt_lock);
+			auto thisData = peekAllUnsafe();
+			auto otherData = other.peekAllUnsafe();
+			result.writeDataUnsafe(reinterpret_cast<const char *>(thisData.data()), thisData.size());
+			result.writeDataUnsafe(reinterpret_cast<const char *>(otherData.data()), otherData.size());
+		}
 		return result;
 	}
 
-	Buffer operator+(const std::string &str) const
+	Buffer operator+(std::string_view str) const
 	{
 		Buffer result;
-		result.storage = this->storage;
-		result.storage.insert(result.storage.end(), str.begin(), str.end());
-		return result;
-	}
-
-	Buffer operator+(const char *str) const
-	{
-		Buffer result;
-		result.storage = this->storage;
-		std::size_t len = std::strlen(str);
-		result.storage.insert(result.storage.end(), str, str + len);
+		std::lock_guard<std::mutex> lockThis(mutex);
+		auto thisData = peekAllUnsafe();
+		result.writeDataUnsafe(reinterpret_cast<const char *>(thisData.data()), thisData.size());
+		result.writeDataUnsafe(str.data(), str.size());
 		return result;
 	}
 
 	Buffer &operator+=(const Buffer &other)
 	{
-		storage.insert(storage.end(), other.storage.begin(), other.storage.end());
+		if (this == &other)
+		{
+			std::lock_guard<std::mutex> lock(mutex);
+			auto data = peekAllUnsafe();
+			writeDataUnsafe(reinterpret_cast<const char *>(data.data()), data.size());
+			writeDataUnsafe(reinterpret_cast<const char *>(data.data()), data.size());
+		}
+		else
+		{
+			std::lock(mutex, other.mutex);
+			std::lock_guard<std::mutex> lockThis(mutex, std::adopt_lock);
+			std::lock_guard<std::mutex> lockOther(other.mutex, std::adopt_lock);
+			auto otherData = other.peekAllUnsafe();
+			writeDataUnsafe(reinterpret_cast<const char *>(otherData.data()), otherData.size());
+		}
 		return *this;
 	}
 
-	Buffer &operator+=(const std::string &str)
+	Buffer &operator+=(std::string_view str)
 	{
-		storage.insert(storage.end(), str.begin(), str.end());
+		write(str);
 		return *this;
 	}
 
-	Buffer &operator+=(const char *str)
-	{
-		std::size_t len = std::strlen(str);
-		storage.insert(storage.end(), str, str + len);
-		return *this;
-	}
-
-	Buffer &operator<<(const std::string &input)
+	Buffer &operator<<(std::string_view input)
 	{
 		write(input);
-		return *this;
-	}
-
-	Buffer &operator<<(const char *input)
-	{
-		if (input)
-		{
-			std::size_t len = std::strlen(input);
-			write(input, len);
-		}
 		return *this;
 	}
 
@@ -1800,123 +2479,146 @@ class Buffer
 
 	Buffer &operator>>(std::string &output)
 	{
-		output.assign(storage.begin(), storage.end());
-		clear();
+		std::lock_guard<std::mutex> lock(mutex);
+		output.resize(elementCount);
+		readDataUnsafe(output.data(), elementCount);
+		readPosition = 0;
+		writePosition = 0;
+		elementCount = 0;
 		return *this;
 	}
 
-	friend std::ostream &operator<<(std::ostream &os, const Buffer &buffer)
+	friend std::ostream &operator<<(std::ostream &stream, const Buffer &buffer)
 	{
-		os.write(reinterpret_cast<const char *>(buffer.storage.data()), buffer.storage.size());
-		return os;
+		auto data = buffer.data();
+		stream.write(reinterpret_cast<const char *>(data.data()), data.size());
+		return stream;
 	}
 
-	friend std::istream &operator>>(std::istream &is, Buffer &buffer)
+	friend std::istream &operator>>(std::istream &stream, Buffer &buffer)
 	{
 		std::string temp;
-		is >> temp;
-		buffer.write(temp);
-		return is;
+		std::getline(stream, temp);
+		buffer.write(std::string_view(temp));
+		return stream;
 	}
 
-	friend std::stringstream &operator<<(std::stringstream &ss, const Buffer &buffer)
+	friend std::stringstream &operator<<(std::stringstream &stream, const Buffer &buffer)
 	{
-		ss.write(reinterpret_cast<const char *>(buffer.storage.data()), buffer.storage.size());
-		return ss;
+		auto data = buffer.data();
+		stream.write(reinterpret_cast<const char *>(data.data()), data.size());
+		return stream;
 	}
 
-	friend std::stringstream &operator>>(std::stringstream &ss, Buffer &buffer)
+	friend std::stringstream &operator>>(std::stringstream &stream, Buffer &buffer)
 	{
-		std::string temp;
-		ss >> temp;
-		buffer.write(temp);
-		return ss;
+		std::string temp = stream.str();
+		stream.str("");
+		stream.clear();
+		buffer.write(std::string_view(temp));
+		return stream;
 	}
 
-	friend Buffer operator+(const std::string &lhs, const Buffer &rhs)
-	{
-		Buffer result;
-		result.storage.insert(result.storage.end(), lhs.begin(), lhs.end());
-		result.storage.insert(result.storage.end(), rhs.storage.begin(), rhs.storage.end());
-		return result;
-	}
-
-	friend Buffer operator+(const char *lhs, const Buffer &rhs)
+	friend Buffer operator+(std::string_view left, const Buffer &right)
 	{
 		Buffer result;
-		std::size_t len = std::strlen(lhs);
-		result.storage.insert(result.storage.end(), lhs, lhs + len);
-		result.storage.insert(result.storage.end(), rhs.storage.begin(), rhs.storage.end());
+		std::lock_guard<std::mutex> lockRight(right.mutex);
+		auto rightData = right.peekAllUnsafe();
+		result.writeDataUnsafe(left.data(), left.size());
+		result.writeDataUnsafe(reinterpret_cast<const char *>(rightData.data()), rightData.size());
 		return result;
-	}
-
-	friend Buffer operator+(std::unique_ptr<Buffer> lhs, const Buffer &rhs)
-	{
-		return *lhs + rhs;
-	}
-
-	friend Buffer operator+(const Buffer &lhs, std::unique_ptr<Buffer> rhs)
-	{
-		return lhs + *rhs;
-	}
-
-	friend Buffer operator+(std::unique_ptr<Buffer> lhs, std::unique_ptr<Buffer> rhs)
-	{
-		return *lhs + *rhs;
 	}
 
   private:
 	std::vector<unsigned char> storage;
-};
+	std::size_t readPosition;
+	std::size_t writePosition;
+	std::size_t elementCount;
+	mutable std::mutex mutex;
 
-class Regex
-{
-  public:
-	enum class option
+	void writeDataUnsafe(const char *input, std::size_t length)
 	{
-		none = 0,
-		caseInsensitive = 1 << 0,
-		multiline = 1 << 1,
-		dotAll = 1 << 2,
-		unicode = 1 << 3
-	};
-
-	explicit Regex(const Charsequence &pattern)
-		: regexPattern(pattern.getBytes()), regexOptions(option::none)
-	{
-		compileRegex();
-	}
-
-	bool matches(const Charsequence &input) const
-	{
-		auto inputBytes = input.getBytes();
-		std::string inputStr(inputBytes.begin(), inputBytes.end());
-		return std::regex_match(inputStr, compiledRegex);
-	}
-
-	std::string getRegexPattern() const
-	{
-		return std::string(regexPattern.begin(), regexPattern.end());
-	}
-
-	option getRegexOptions() const { return regexOptions; }
-
-  private:
-	std::vector<unsigned char> regexPattern;
-	option regexOptions;
-	std::regex compiledRegex;
-
-	void compileRegex()
-	{
-		try
+		if (!input || length == 0)
+			return;
+		ensureCapacity(length);
+		std::size_t written = 0;
+		while (written < length)
 		{
-			std::regex::flag_type flags = std::regex::ECMAScript;
-			compiledRegex = std::regex(getRegexPattern(), flags);
+			std::size_t space = storage.size() - writePosition;
+			std::size_t chunk = std::min(length - written, space);
+			std::memcpy(&storage[writePosition], input + written, chunk);
+			writePosition = (writePosition + chunk) % storage.size();
+			written += chunk;
 		}
-		catch (const std::regex_error &)
+		elementCount += written;
+	}
+
+	void readDataUnsafe(char *output, std::size_t length)
+	{
+		if (!output || length == 0)
+			return;
+		std::size_t remaining = length;
+		std::size_t offset = 0;
+		while (remaining > 0)
 		{
-			compiledRegex = std::regex("");
+			std::size_t available = storage.size() - readPosition;
+			std::size_t chunk = std::min(remaining, available);
+			std::memcpy(output + offset, &storage[readPosition], chunk);
+			readPosition = (readPosition + chunk) % storage.size();
+			offset += chunk;
+			remaining -= chunk;
 		}
+	}
+
+	void ensureCapacity(std::size_t additional)
+	{
+		std::size_t required = elementCount + additional;
+		if (required <= storage.size())
+		{
+			return;
+		}
+		if (storage.size() > std::numeric_limits<std::size_t>::max() / 2)
+		{
+			throw std::overflow_error("Buffer capacity overflow");
+		}
+		std::size_t newCapacity = storage.size() * 2;
+		if (newCapacity < required)
+		{
+			newCapacity = required;
+		}
+		std::vector<unsigned char> newStorage(newCapacity);
+		std::size_t remaining = elementCount;
+		std::size_t pos = readPosition;
+		std::size_t offset = 0;
+		while (remaining > 0)
+		{
+			std::size_t available = storage.size() - pos;
+			std::size_t chunk = std::min(remaining, available);
+			std::memcpy(&newStorage[offset], &storage[pos], chunk);
+			pos = (pos + chunk) % storage.size();
+			offset += chunk;
+			remaining -= chunk;
+		}
+		storage = std::move(newStorage);
+		readPosition = 0;
+		writePosition = elementCount;
+	}
+
+	std::vector<unsigned char> peekAllUnsafe() const
+	{
+		std::vector<unsigned char> result;
+		result.reserve(elementCount);
+		std::size_t remaining = elementCount;
+		std::size_t pos = readPosition;
+		while (remaining > 0)
+		{
+			std::size_t available = storage.size() - pos;
+			std::size_t chunk = std::min(remaining, available);
+			result.insert(result.end(), storage.begin() + pos, storage.begin() + pos + chunk);
+			pos = (pos + chunk) % storage.size();
+			remaining -= chunk;
+		}
+		return result;
 	}
 };
 
@@ -1945,13 +2647,14 @@ struct hash<charsequence::Point>
 template <>
 struct hash<charsequence::Charsequence>
 {
-	size_t operator()(const charsequence::Charsequence &cs) const noexcept
+	size_t operator()(const charsequence::Charsequence &sequence) const noexcept
 	{
-		auto bytes = cs.getBytes(charsequence::charset::utf8);
-		size_t seed = bytes.size();
-		for (auto byte : bytes)
+		const auto &points = sequence.getPoints();
+		size_t seed = points.size();
+		for (const auto &point : points)
 		{
-			seed ^= hash<unsigned char>()(byte) + 0x9e3779b9 + (seed << 6) + (seed >> 2);
+			size_t value = hash<unsigned int>()(point.getValue());
+			seed ^= value + 0x9e3779b9 + (seed << 6) + (seed >> 2);
 		}
 		return seed;
 	}
@@ -1977,93 +2680,44 @@ struct hash<charsequence::Buffer>
 {
 	size_t operator()(const charsequence::Buffer &buffer) const noexcept
 	{
-		size_t seed = buffer.size();
-		for (size_t i = 0; i < buffer.size(); ++i)
+		auto data = buffer.data();
+		size_t seed = data.size();
+		for (auto byte : data)
 		{
-			seed ^= hash<unsigned char>()(buffer.data()[i]) + 0x9e3779b9 + (seed << 6) + (seed >> 2);
+			seed ^= hash<unsigned char>()(byte) + 0x9e3779b9 + (seed << 6) + (seed >> 2);
 		}
 		return seed;
 	}
 };
 
 template <>
-struct hash<charsequence::Regex>
-{
-	size_t operator()(const charsequence::Regex &regex) const noexcept
-	{
-		size_t h1 = hash<string>()(regex.getRegexPattern());
-		size_t h2 = hash<int>()(static_cast<int>(regex.getRegexOptions()));
-		return h1 ^ (h2 << 1);
-	}
-};
-
-template <>
-struct less<charsequence::Meta>
-{
-	bool operator()(const charsequence::Meta &lhs, const charsequence::Meta &rhs) const noexcept
-	{
-		return lhs.getValue() < rhs.getValue();
-	}
-};
-
-template <>
-struct less<charsequence::Point>
-{
-	bool operator()(const charsequence::Point &lhs, const charsequence::Point &rhs) const noexcept
-	{
-		return lhs.getValue() < rhs.getValue();
-	}
-};
-
-template <>
-struct less<charsequence::Charsequence>
-{
-	bool operator()(const charsequence::Charsequence &lhs, const charsequence::Charsequence &rhs) const noexcept
-	{
-		return lhs.compare(rhs) < 0;
-	}
-};
-
-template <>
 struct less<charsequence::Builder>
 {
-	bool operator()(const charsequence::Builder &lhs, const charsequence::Builder &rhs) const noexcept
+	bool operator()(const charsequence::Builder &left, const charsequence::Builder &right) const noexcept
 	{
-		return lhs.toCharsequence().compare(rhs.toCharsequence()) < 0;
+		return left.toCharsequence().compare(right.toCharsequence()) < 0;
 	}
 };
 
 template <>
 struct less<charsequence::Buffer>
 {
-	bool operator()(const charsequence::Buffer &lhs, const charsequence::Buffer &rhs) const noexcept
+	bool operator()(const charsequence::Buffer &left, const charsequence::Buffer &right) const noexcept
 	{
-		if (lhs.size() != rhs.size())
+		auto leftData = left.data();
+		auto rightData = right.data();
+		if (leftData.size() != rightData.size())
 		{
-			return lhs.size() < rhs.size();
+			return leftData.size() < rightData.size();
 		}
-		for (size_t i = 0; i < lhs.size(); ++i)
+		for (size_t i = 0; i < leftData.size(); ++i)
 		{
-			if (lhs.data()[i] != rhs.data()[i])
+			if (leftData[i] != rightData[i])
 			{
-				return lhs.data()[i] < rhs.data()[i];
+				return leftData[i] < rightData[i];
 			}
 		}
 		return false;
-	}
-};
-
-template <>
-struct less<charsequence::Regex>
-{
-	bool operator()(const charsequence::Regex &lhs, const charsequence::Regex &rhs) const noexcept
-	{
-		int patternCmp = lhs.getRegexPattern().compare(rhs.getRegexPattern());
-		if (patternCmp != 0)
-		{
-			return patternCmp < 0;
-		}
-		return static_cast<int>(lhs.getRegexOptions()) < static_cast<int>(rhs.getRegexOptions());
 	}
 };
 

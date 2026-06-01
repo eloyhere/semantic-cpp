@@ -1,13 +1,34 @@
 #pragma once
-#include "collector.h"
-#include "charsequence.h"
+
+#include <algorithm>
+#include <array>
+#include <charconv>
 #include <cmath>
 #include <complex>
-#include <type_traits>
-#include <stdexcept>
-#include <algorithm>
+#include <cstddef>
+#include <cstring>
+#include <deque>
+#include <forward_list>
 #include <functional>
+#include <iostream>
+#include <iterator>
+#include <limits>
+#include <list>
+#include <map>
+#include <mutex>
 #include <numeric>
+#include <optional>
+#include <queue>
+#include <set>
+#include <sstream>
+#include <stack>
+#include <stdexcept>
+#include <string>
+#include <string_view>
+#include <type_traits>
+#include <unordered_map>
+#include <unordered_set>
+#include <vector>
 
 namespace collector
 {

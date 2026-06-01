@@ -3,7 +3,6 @@
 #include "charsequence.h"
 #include <cmath>
 #include <complex>
-#include <numbers>
 #include <type_traits>
 #include <stdexcept>
 #include <algorithm>
@@ -11,6 +10,24 @@
 
 namespace collector
 {
+constexpr double PI() noexcept
+{
+	double sum = 0.0;
+	double term = 0.0;
+	double sign = 1.0;
+
+	for (int i = 0; i < 20; ++i)
+	{
+		term = sign / (2.0 * static_cast<double>(i) + 1.0);
+		sum += term;
+		sign = -sign;
+	}
+
+	return 4.0 * sum;
+}
+
+constexpr double pi = PI();
+
 template <typename E, typename Predicate>
 auto useAllMatch(Predicate &&predicate) -> Collector<E, bool, bool>
 {
@@ -570,7 +587,7 @@ auto useGroup(KeyExtractor &&keyExtractor) -> Collector<E, std::unordered_map<K,
 			if constexpr (std::is_invocable_r_v<K, KeyExtractor, E, function::Timestamp>)
 			{
 				K key = std::invoke(keyExtractor, element, index);
-				if (accumulatorValue.contains(key))
+				if (accumulatorValue.count(key) > 0)
 				{
 					accumulatorValue[key].push_back(element);
 					return accumulatorValue;
@@ -583,7 +600,7 @@ auto useGroup(KeyExtractor &&keyExtractor) -> Collector<E, std::unordered_map<K,
 			else if constexpr (std::is_invocable_r_v<K, KeyExtractor, E>)
 			{
 				K key = std::invoke(keyExtractor, element);
-				if (accumulatorValue.contains(key))
+				if (accumulatorValue.count(key) > 0)
 				{
 					accumulatorValue[key].push_back(element);
 					return accumulatorValue;
@@ -598,7 +615,7 @@ auto useGroup(KeyExtractor &&keyExtractor) -> Collector<E, std::unordered_map<K,
 		[](std::unordered_map<K, std::vector<E>> a, std::unordered_map<K, std::vector<E>> b) -> std::unordered_map<K, std::vector<E>> {
 			for (std::pair<K, std::vector<E>> pair : b)
 			{
-				if (a.contains(pair.first))
+				if (a.count(pair.first) > 0)
 				{
 					std::vector<E> &groupA = a[pair.first];
 					std::vector<E> &groupB = pair.second;
@@ -893,7 +910,7 @@ auto usePartition(const function::Module &size) -> Collector<E, std::vector<std:
 			if (lastA.size() < size)
 			{
 				function::Module canTake = size - lastA.size();
-				function::Module takeCount = std::min(canTake, firstB.size());
+				function::Module takeCount = std::min(canTake, static_cast<function::Module>(firstB.size()));
 				for (size_t i = 0; i < takeCount; i++)
 				{
 					lastA.push_back(firstB[i]);
@@ -1264,43 +1281,39 @@ auto useRange() -> Collector<E, std::pair<D, D>, D>
 {
 	return useFull<E, std::pair<D, D>, D>(
 		[]() -> std::pair<D, D> {
-			return std::make_pair<D, D>(D{}, D{});
+			return std::pair<D, D>(D{}, D{});
 		},
 		[](std::pair<D, D> accumulatorValue, E element, function::Timestamp index) -> std::pair<D, D> {
 			D mapped = static_cast<D>(element);
-			if (accumulatorValue.first == D{})
+			if (accumulatorValue.first == D{} && accumulatorValue.second == D{})
 			{
-				return std::make_pair<D, D>(mapped, accumulatorValue.second);
-			}
-			if (accumulatorValue.second == D{})
-			{
-				return std::make_pair<D, D>(accumulatorValue.first, mapped);
+				return std::pair<D, D>(mapped, mapped);
 			}
 			if (mapped < accumulatorValue.first)
 			{
-				return std::make_pair<D, D>(mapped, accumulatorValue.second);
+				return std::pair<D, D>(mapped, accumulatorValue.second);
 			}
 			if (mapped > accumulatorValue.second)
 			{
-				return std::make_pair<D, D>(accumulatorValue.first, mapped);
+				return std::pair<D, D>(accumulatorValue.first, mapped);
 			}
 			return accumulatorValue;
 		},
 		[](std::pair<D, D> a, std::pair<D, D> b) -> std::pair<D, D> {
-			D first = a.first;
-			D second = a.second;
-			if (first == D{} || (b.first != D{} && b.first < first))
-				first = b.first;
-			if (second == D{} || (b.second != D{} && b.second > second))
-				second = b.second;
-			return std::make_pair(first, second);
+			if (a.first == D{} && a.second == D{})
+				return b;
+			if (b.first == D{} && b.second == D{})
+				return a;
+			return std::pair<D, D>(
+				a.first < b.first ? a.first : b.first,
+				a.second > b.second ? a.second : b.second);
 		},
 		[](std::pair<D, D> accumulatorValue) -> D {
 			if (accumulatorValue.first == D{} && accumulatorValue.second == D{})
 			{
 				return D{};
 			}
-			return std::abs(accumulatorValue.second - accumulatorValue.first);
+			return accumulatorValue.second - accumulatorValue.first;
 		});
 }
 
@@ -1309,43 +1322,39 @@ auto useRange(const function::Function<E, D> &mapper) -> Collector<E, std::pair<
 {
 	return useFull<E, std::pair<D, D>, D>(
 		[]() -> std::pair<D, D> {
-			return std::make_pair<D, D>(D{}, D{});
+			return std::pair<D, D>(D{}, D{});
 		},
 		[mapper](std::pair<D, D> accumulatorValue, E element, function::Timestamp index) -> std::pair<D, D> {
 			D mapped = mapper(element);
-			if (accumulatorValue.first == D{})
+			if (accumulatorValue.first == D{} && accumulatorValue.second == D{})
 			{
-				return std::make_pair<D, D>(mapped, accumulatorValue.second);
-			}
-			if (accumulatorValue.second == D{})
-			{
-				return std::make_pair<D, D>(accumulatorValue.first, mapped);
+				return std::pair<D, D>(mapped, mapped);
 			}
 			if (mapped < accumulatorValue.first)
 			{
-				return std::make_pair<D, D>(mapped, accumulatorValue.second);
+				return std::pair<D, D>(mapped, accumulatorValue.second);
 			}
 			if (mapped > accumulatorValue.second)
 			{
-				return std::make_pair<D, D>(accumulatorValue.first, mapped);
+				return std::pair<D, D>(accumulatorValue.first, mapped);
 			}
 			return accumulatorValue;
 		},
 		[](std::pair<D, D> a, std::pair<D, D> b) -> std::pair<D, D> {
-			D first = a.first;
-			D second = a.second;
-			if (first == D{} || (b.first != D{} && b.first < first))
-				first = b.first;
-			if (second == D{} || (b.second != D{} && b.second > second))
-				second = b.second;
-			return std::make_pair(first, second);
+			if (a.first == D{} && a.second == D{})
+				return b;
+			if (b.first == D{} && b.second == D{})
+				return a;
+			return std::pair<D, D>(
+				a.first < b.first ? a.first : b.first,
+				a.second > b.second ? a.second : b.second);
 		},
 		[](std::pair<D, D> accumulatorValue) -> D {
 			if (accumulatorValue.first == D{} && accumulatorValue.second == D{})
 			{
 				return D{};
 			}
-			return std::abs(accumulatorValue.second - accumulatorValue.first);
+			return accumulatorValue.second - accumulatorValue.first;
 		});
 }
 
@@ -1434,7 +1443,7 @@ auto useDFT() -> Collector<E, std::vector<std::complex<double>>, std::vector<std
 				std::complex<double> sum(0.0, 0.0);
 				for (std::size_t n = 0; n < N; ++n)
 				{
-					double angle = -2.0 * std::numbers::pi * static_cast<double>(k * n) / static_cast<double>(N);
+					double angle = -2.0 * pi * static_cast<double>(k * n) / static_cast<double>(N);
 					std::complex<double> twiddle(std::cos(angle), std::sin(angle));
 					sum += accumulatorValue[n] * twiddle;
 				}
@@ -1482,7 +1491,7 @@ auto useIDFT() -> Collector<E, std::vector<std::complex<double>>, std::vector<st
 				std::complex<double> sum(0.0, 0.0);
 				for (std::size_t n = 0; n < N; ++n)
 				{
-					double angle = 2.0 * std::numbers::pi * static_cast<double>(k * n) / static_cast<double>(N);
+					double angle = 2.0 * pi * static_cast<double>(k * n) / static_cast<double>(N);
 					std::complex<double> twiddle(std::cos(angle), std::sin(angle));
 					sum += accumulatorValue[n] * twiddle;
 				}
@@ -1555,7 +1564,7 @@ auto useFFT() -> Collector<E, std::vector<std::complex<double>>, std::vector<std
 			}
 			for (std::size_t length = 2; length <= paddedSize; length <<= 1)
 			{
-				double angle = -2.0 * std::numbers::pi / static_cast<double>(length);
+				double angle = -2.0 * pi / static_cast<double>(length);
 				std::complex<double> omega(std::cos(angle), std::sin(angle));
 				for (std::size_t start = 0; start < paddedSize; start += length)
 				{
@@ -1639,7 +1648,7 @@ auto useIFFT() -> Collector<E, std::vector<std::complex<double>>, std::vector<st
 			}
 			for (std::size_t length = 2; length <= paddedSize; length <<= 1)
 			{
-				double angle = 2.0 * std::numbers::pi / static_cast<double>(length);
+				double angle = 2.0 * pi / static_cast<double>(length);
 				std::complex<double> omega(std::cos(angle), std::sin(angle));
 				for (std::size_t start = 0; start < paddedSize; start += length)
 				{

@@ -135,42 +135,64 @@ class Charsequence
   public:
 	Charsequence() : storage(), storageEncoding(charset::utf8) {}
 
-	explicit Charsequence(charset encode) : storage(), storageEncoding(encode) {}
+	explicit Charsequence(charset encode) : storage(), storageEncoding(charset::utf8) {}
 
-	Charsequence(const std::string &source, charset sourceEncoding = charset::utf8)
+	explicit Charsequence(const std::string &source, charset sourceEncoding = charset::utf8)
 		: storageEncoding(charset::utf8)
 	{
+		std::string temp(source);
 		if (sourceEncoding == charset::utf8)
 		{
-			storage.assign(source.begin(), source.end());
+			storage.assign(temp.begin(), temp.end());
 		}
 		else
 		{
-			auto converted = convertEncoding(source, sourceEncoding, charset::utf8);
+			auto converted = convertEncoding(temp, sourceEncoding, charset::utf8);
 			storage.assign(converted.begin(), converted.end());
 		}
 		validateEncoding();
 	}
 
-	Charsequence(std::string &&source, charset sourceEncoding = charset::utf8)
+	explicit Charsequence(std::string &&source, charset sourceEncoding = charset::utf8)
 		: storageEncoding(charset::utf8)
 	{
+		std::string temp(std::move(source));
 		if (sourceEncoding == charset::utf8)
 		{
-			storage.assign(source.begin(), source.end());
+			storage.assign(temp.begin(), temp.end());
 		}
 		else
 		{
-			auto converted = convertEncoding(source, sourceEncoding, charset::utf8);
+			auto converted = convertEncoding(temp, sourceEncoding, charset::utf8);
 			storage.assign(converted.begin(), converted.end());
 		}
 		validateEncoding();
 	}
 
-	Charsequence(const char *source, charset sourceEncoding = charset::utf8)
+	explicit Charsequence(const char *source, charset sourceEncoding = charset::utf8)
 		: storageEncoding(charset::utf8)
 	{
 		std::string temp(source ? source : "");
+		if (sourceEncoding == charset::utf8)
+		{
+			storage.assign(temp.begin(), temp.end());
+		}
+		else
+		{
+			auto converted = convertEncoding(temp, sourceEncoding, charset::utf8);
+			storage.assign(converted.begin(), converted.end());
+		}
+		validateEncoding();
+	}
+
+	explicit Charsequence(std::istream &stream, std::size_t maxLength, charset sourceEncoding = charset::utf8)
+		: storageEncoding(charset::utf8)
+	{
+		std::string temp;
+		temp.resize(maxLength);
+		stream.read(&temp[0], maxLength);
+		std::size_t bytesRead = stream.gcount();
+		temp.resize(bytesRead);
 		if (sourceEncoding == charset::utf8)
 		{
 			storage.assign(temp.begin(), temp.end());
@@ -211,46 +233,6 @@ class Charsequence
 		{
 			appendPoint(source[i]);
 		}
-	}
-
-	Charsequence(std::istream &stream, std::size_t maxLength, charset sourceEncoding = charset::utf8)
-		: storageEncoding(charset::utf8)
-	{
-		std::string temp;
-		temp.resize(maxLength);
-		stream.read(&temp[0], maxLength);
-		std::size_t bytesRead = stream.gcount();
-		temp.resize(bytesRead);
-		if (sourceEncoding == charset::utf8)
-		{
-			storage.assign(temp.begin(), temp.end());
-		}
-		else
-		{
-			auto converted = convertEncoding(temp, sourceEncoding, charset::utf8);
-			storage.assign(converted.begin(), converted.end());
-		}
-		validateEncoding();
-	}
-
-	Charsequence(std::istream &&stream, std::size_t maxLength, charset sourceEncoding = charset::utf8)
-		: storageEncoding(charset::utf8)
-	{
-		std::string temp;
-		temp.resize(maxLength);
-		stream.read(&temp[0], maxLength);
-		std::size_t bytesRead = stream.gcount();
-		temp.resize(bytesRead);
-		if (sourceEncoding == charset::utf8)
-		{
-			storage.assign(temp.begin(), temp.end());
-		}
-		else
-		{
-			auto converted = convertEncoding(temp, sourceEncoding, charset::utf8);
-			storage.assign(converted.begin(), converted.end());
-		}
-		validateEncoding();
 	}
 
 	Charsequence(const Charsequence &other)
@@ -832,7 +814,7 @@ class Builder
 {
   public:
 	Builder() : storage(), storageEncoding(charset::utf8) {}
-	explicit Builder(charset enc) : storage(), storageEncoding(enc) {}
+	explicit Builder(charset enc) : storage(), storageEncoding(charset::utf8) {}
 
 	Builder(const Builder &other) : storage(other.storage), storageEncoding(other.storageEncoding) {}
 	Builder(Builder &&other) noexcept : storage(std::move(other.storage)), storageEncoding(other.storageEncoding)
@@ -840,35 +822,37 @@ class Builder
 		other.storageEncoding = charset::utf8;
 	}
 
-	Builder(const std::string &source, charset sourceEncoding = charset::utf8)
+	explicit Builder(const std::string &source, charset sourceEncoding = charset::utf8)
 		: storageEncoding(charset::utf8)
 	{
+		std::string temp(source);
 		if (sourceEncoding == charset::utf8)
 		{
-			storage.assign(source.begin(), source.end());
+			storage.assign(temp.begin(), temp.end());
 		}
 		else
 		{
-			auto converted = Charsequence::convertEncoding(source, sourceEncoding, charset::utf8);
+			auto converted = Charsequence::convertEncoding(temp, sourceEncoding, charset::utf8);
 			storage.assign(converted.begin(), converted.end());
 		}
 	}
 
-	Builder(std::string &&source, charset sourceEncoding = charset::utf8)
+	explicit Builder(std::string &&source, charset sourceEncoding = charset::utf8)
 		: storageEncoding(charset::utf8)
 	{
+		std::string temp(std::move(source));
 		if (sourceEncoding == charset::utf8)
 		{
-			storage.assign(source.begin(), source.end());
+			storage.assign(temp.begin(), temp.end());
 		}
 		else
 		{
-			auto converted = Charsequence::convertEncoding(source, sourceEncoding, charset::utf8);
+			auto converted = Charsequence::convertEncoding(temp, sourceEncoding, charset::utf8);
 			storage.assign(converted.begin(), converted.end());
 		}
 	}
 
-	Builder(const char *source, charset sourceEncoding = charset::utf8)
+	explicit Builder(const char *source, charset sourceEncoding = charset::utf8)
 		: storageEncoding(charset::utf8)
 	{
 		std::string temp(source ? source : "");

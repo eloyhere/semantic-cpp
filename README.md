@@ -1,305 +1,476 @@
-# Semantic-Cpp In-Depth: A Future-Oriented C++ Intelligent Stream Processing Framework
+🚀 Semantic-Cpp: A Modern C++ Intelligent Stream Processing Framework
 
-# Introduction
-Semantic-Cpp is a comprehensively redesigned modern C++ stream processing framework, architected for simplicity and efficiency as a "single-header, zero-dependency" library. Its entire functionality is encapsulated within the core  semantic.h  header file. The framework is a creative synthesis of the most effective paradigms from across the programming landscape. It draws its fluid, chainable API and declarative programming model from the elegance of the Java Stream API, enabling developers to express complex data transformations with clear, readable code. Simultaneously, it incorporates the laziness and on-demand generation capabilities intrinsic to JavaScript Generator functions, ensuring that data flows through the processing pipeline only when explicitly required, thereby optimising resource utilisation. Furthermore, the library introduces a novel, index-centric data model, inspired by the efficiency and ordering principles of database indexing. This model provides built-in intelligent sorting and index-driven mechanisms, making the framework particularly adept at handling time-series data, event streams, and any scenario where the logical position of data is as crucial as its value.
+Semantic-Cpp is a completely redesigned modern C++ stream processing library, built upon a "multi-header, zero external dependency" modular architecture. Each header file has a clear, single responsibility and can be tested independently, together forming a complete stream processing ecosystem. This library creatively fuses the best elements of multiple programming paradigms:
 
-Diverging from conventional data-processing approaches—such as manual loop writing or intricate asynchronous callback structures—Semantic-Cpp is engineered to deliver a type-safe, highly expressive, and high-performance solution. Its foundational philosophy centres on precise control of data flow: every element within a stream is coupled with a logical index, and the movement, ordering, and transformation of this data can be meticulously managed through index operations. This design ensures optimal performance and clarity, allowing developers to focus on the "what" of data processing rather than the "how."
+· 🎯 The elegance and fluidity of the Java Stream API: chainable calls and declarative programming
+· ⚡ The lazy flexibility of JavaScript Generators: deferred computation and on-demand data generation
+· 🗄️ The efficiency and ordering of database indexes: built-in intelligent sorting and index-driven mechanisms, ideal for time-series and event data
 
----
-
-## The Core Soul: An Index-Driven Data World
-
-Semantic-Cpp abstracts data processing as operations on “elements” and their “logical positions (indices)”. Understanding this is the key to mastering the library.
-
-### 1. Basic Index Transformations
-Indices determine the logical order of elements within the processing chain and can be manipulated flexibly:
--   **`redirect(redirection function)`**: the core method. You can completely rewrite an element’s index using a custom function—for example, doubling the index or generating a new one based on the element’s value.
--   **`reverse()`**: a convenient method, implemented internally via `redirect`, that logically inverts the current indices (e.g., positive indices become negative).
--   **`translate(offset)`**: adds a fixed offset to all indices.
-
-### 2. The “Overriding” Rules of Sorting
-The sorting operation (`sorted`) has the highest priority in the library and its behaviour is deterministic:
--   **`sorted()` overrides everything**: no matter how complex the previous index transformations via `redirect` or `reverse` may have been, calling `sorted()` will **override** all prior index operations. The system will re-assign natural-order indices starting from 0 based on the **actual values** of the elements.
--   **Immediate materialisation into an ordered collection**: to avoid unnecessary repeated sorting later, the `sorted()` method **immediately** returns an object of type `OrderedCollectable`. This means the data has already been collected and sorted at this point.
-
-### 3. Declarative Parallel Processing
-Parallel processing becomes remarkably simple and intuitive:
--   **`parallel(thread count)` is merely a declaration**: calling this method simply expresses the intention “I would like subsequent operations to execute in parallel” and specifies the desired number of threads; **it does not launch any threads or submit tasks immediately**.
--   **Terminal operations trigger parallelism**: real parallel computation is triggered only when a **terminal operation** such as `toUnordered()`, `toOrdered()`, `count()`, etc. is called. At that point, the library’s built-in thread pool automatically shards the data and submits tasks according to the declared thread count.
--   **No manual management required**: you do not need to concern yourself with thread creation, task distribution, or result merging—the library handles everything automatically.
-
-### 4. How to Choose the Final Data Container?
-Depending on your performance requirements and operation type, you may select different terminal conversion methods:
-
-| Conversion Method | Underlying Data Structure | Performance Characteristics | Best Use Cases |
-| :--- | :--- | :--- | :--- |
-| **`sorted()`** | `std::map<Index, Element>` | O(log n) access, strictly preserves element order. | Pagination, range queries, time-series analysis, rolling statistics. |
-| **`sorted(comparator)`** | `std::map<Index, Element>` | O(log n) access, sorted by custom rules. | Pagination or range queries with custom sorting. |
-| **`toOrdered()`** | `std::map<Index, Element>` | O(log n) access, preserves the **current index** order. | When you wish to retain the index order defined by operations such as `redirect` and perform ordered operations. |
-| **`toUnordered()`** | `std::unordered_map<Index, Element>` | Average O(1) access, **highest performance**, but order is not guaranteed. | Fast lookups, deduplication statistics, aggregation calculations—scenarios where order does not matter. |
-| **`toWindow()`** | Map-based window view | O(log n), supports sliding or rolling windows on ordered datasets. | Real-time stream analysis, sliding-window aggregation, event session partitioning. |
-
-> **Important Note**: `WindowCollectable` (returned by `toWindow()`) internally relies on an ordered collection (implemented via `toOrdered()`) to ensure that window sliding and rolling operations execute correctly based on a deterministic order.
+Unlike traditional data processing approaches such as hand-written loops or complex asynchronous callbacks, Semantic-Cpp aims to provide a type-safe, expressive, and high-performance solution. Its core design philosophy is precise data flow control: data only flows through the "processing pipeline" when explicitly needed, and the "order" and "position" of that flow can be finely regulated through "indices", thereby achieving optimal resource utilisation.
 
 ---
 
-## Quick Start Guide
+📐 Project Architecture: Seven-Layer Modular Design
 
-### Installation
-Simply place the `semantic.h` header file in your project and ensure your compiler supports C++17 or higher.
-```cpp
-#include "semantic.h"
-// Optional: use the semantic namespace
-using namespace semantic;
+Semantic-Cpp consists of seven core header files, each responsible for an independent concern, building layer upon layer:
+
+```
+┌─────────────────────────────────────────────────┐
+│                  semantic.h                     │
+│     (Intermediate ops, container specialisations,│
+│                  Collectable)                   │
+├─────────────────────────────────────────────────┤
+│                 semantics.h                     │
+│     (Stream builders, factory methods,          │
+│                  text processing)               │
+├─────────────────────────────────────────────────┤
+│                 collectors.h                    │
+│   (Collector factories: count, group, reduce,   │
+│                  DFT, etc.)                     │
+├─────────────────────────────────────────────────┤
+│                 collector.h                     │
+│  (Collector framework: five-stage model,        │
+│              concurrency support)               │
+├─────────────────────────────────────────────────┤
+│                charsequence.h                   │
+│ (Unicode character sequences, encoding          │
+│          conversion, regex support)             │
+├─────────────────────────────────────────────────┤
+│                   pool.h                        │
+│ (Thread pool: emergency shutdown, exception     │
+│         propagation, task submission)           │
+├─────────────────────────────────────────────────┤
+│                 function.h                      │
+│   (Type definitions: Generator, Supplier,       │
+│               Consumer, etc.)                   │
+└─────────────────────────────────────────────────┘
 ```
 
-### Basic Example: Experiencing Indices and Sorting
+Dependency Graph
+
+```
+function.h          ← No dependencies, the type foundation
+pool.h              ← Depends on function.h
+charsequence.h      ← Independent module, Unicode processing
+collector.h         ← Depends on function.h, pool.h
+collectors.h        ← Depends on collector.h, charsequence.h
+semantic.h          ← Depends on collector.h, collectors.h, charsequence.h
+semantics.h         ← Depends on semantic.h
+```
+
+Each header file can be compiled and tested independently, and they also support on-demand inclusion. For example, if only the collector functionality is needed, simply include collector.h and collectors.h.
+
+---
+
+🏗️ Layer One: function.h — The Type Foundation
+
+function.h defines the type system for the entire framework and serves as the common foundation for all modules:
+
 ```cpp
-#include <iostream>
-#include "semantic.h"
-
-int main() {
-    auto result = semantic::useRange(0, 10)   // 1. Create an integer stream from 0 to 9
-        .map([](int x) -> int { return x * x; })    // 2. Square each element (0,1,4,9...81)
-        .redirect([](int value, auto index) -> long long {    // 3. Index redirection: double the index
-            return index * 2;                  // Indices are now 0,2,4,6...
-        })
-        .reverse()                           // 4. Logically reverse indices (...,6,4,2,0)
-        .sorted()                            // 5. ⚠️ Force re-sort by element value (1,4,9...)!
-                                             //    All previous index operations are overridden; indices become 0,1,2...
-        .toList();                           // 6. Collect into std::vector
-
-    // Output: 0 1 4 9 16 25 36 49 64 81 (sorted)
-    for (auto& item : result) {
-        std::cout << item << " ";
-    }
-    return 0;
+namespace function {
+    using Timestamp = long long;           // Index type
+    using Module = unsigned long long;     // Module/count type
+    using Generator = BiConsumer<BiConsumer<T, Timestamp>, BiPredicate<T, Timestamp>>;
 }
 ```
 
-### Parallel Processing Example
+Generator is the core abstraction of the entire stream system: it is a function that accepts two callbacks—accept (to receive data) and interrupt (to halt the flow)—embodying the "lazy pull" model.
+
+---
+
+⚡ Layer Two: pool.h — The Concurrency Foundation
+
+pool.h provides the global thread pool pool::pool, which is the concurrency engine of the entire framework:
+
+Feature Description
+🎯 Declarative Parallelism parallel(n) merely declares intent; the thread pool activates automatically at terminal operations
+🛡️ Emergency Shutdown Built-in emergencyShutdown() and std::set_terminate handler for exception safety
+🔄 Exception Propagation submit() returns std::future, enabling safe exception propagation
+
+---
+
+🔤 Layer Three: charsequence.h — Unicode Character Sequences
+
+charsequence.h is a complete Unicode processing module:
+
+Feature Description
+🌐 Multi-Encoding Support UTF-8, UTF-16, UTF-32, Latin1, GBK, and more
+🔍 Codepoint Iterator PointIterator supports bidirectional traversal of Unicode codepoints
+🏗️ Builder Pattern Builder class for efficient string concatenation
+📐 Regular Expressions Regex class wrapping std::regex
+🔑 Hash and Comparison All core types have std::hash and std::less specialisations
+
+---
+
+🔧 Layer Four: collector.h — The Collector Framework
+
+collector.h implements the Collector pattern and is the core engine for terminal operations:
+
+The Five-Stage Model
+
+```
+Identity → Accumulator → Combiner → Finisher
+              ↑
+           Interrupt (optional short-circuit)
+```
+
+Type Aliases
+
+Type Definition Role
+Identity<A> Supplier<A> Provides initial value
+Accumulator<A,E> TriFunction<A,E,Timestamp,A> Accumulates elements
+Combiner<A> BiFunction<A,A,A> Merges parallel results
+Finisher<A,R> Function<A,R> Final transformation
+Interrupt<E,A> TriPredicate<E,Timestamp,A> Short-circuit predicate
+
+Concurrency Support
+
+Collector::collect() automatically handles:
+
+· 📦 Data partitioning (distributed to threads via index modulo)
+· 🔗 Result merging (partial results combined via Combiner)
+· ⚠️ Exception propagation (via std::exception_ptr and std::atomic<bool>)
+
+---
+
+🏭 Layer Five: collectors.h — Collector Factories
+
+collectors.h provides a rich set of pre-built collector factory functions, organised into the following categories:
+
+📊 Matching Operations
+
+Method Description Return Type
+useAllMatch(predicate) All elements satisfy the predicate bool
+useAnyMatch(predicate) Any element satisfies the predicate bool
+useNoneMatch(predicate) No elements satisfy the predicate bool
+
+🔍 Finding Operations
+
+Method Description Return Type
+useFindFirst() Find the first element std::optional<E>
+useFindLast() Find the last element std::optional<E>
+useFindAny() Find a random element std::optional<E>
+useFindAt(index) Find element at index (supports negative) std::optional<E>
+useFindMaximum() Find the maximum value std::optional<E>
+useFindMinimum() Find the minimum value std::optional<E>
+
+📈 Aggregation Operations
+
+Method Description Return Type
+useCount() Count total elements Module
+useSummate<E,D>() Sum values D
+useSummate<E,D>(mapper) Sum with mapper D
+useAverage<E,D>() Average value D
+useAverage<E,D>(mapper) Average with mapper D
+useRange<E,D>() Numeric range D
+useRange<E,D>(mapper) Range with mapper D
+useMinimum<E,D>() Minimum value std::optional<D>
+useMaximum<E,D>() Maximum value std::optional<D>
+
+📊 Statistical Operations
+
+Method Description Return Type
+useVariance<E,D>() Population variance D
+useStandardDeviation<E,D>() Population standard deviation D
+useSkewness<E,D>() Skewness D
+useKurtosis<E,D>() Kurtosis D
+useMedian<E,D>() Median std::optional<D>
+useMode<E>() Mode std::optional<E>
+usePercentile<E,D>(p) p-th percentile std::optional<D>
+useFrequency<E>() Frequency-domain features std::map<E, complex>
+useDistribution<E>() Spatial distribution features std::map<E, complex>
+
+🔗 Reduction Operations
+
+Method Description Return Type
+useReduce(reducer) Reduction without identity std::optional<E>
+useReduce(identity, reducer) Reduction with identity E
+useReduce(id, red, comb, fin) Fully custom reduction R
+
+📦 Collection Operations
+
+Method Description Return Type
+useToVector() Collect as vector std::vector<E>
+useToList() Collect as list std::list<E>
+useToSet() Collect as set (deduplicates) std::set<E>
+useToMap(keyExtractor) Collect as map std::map<K,E>
+useGroup(keyExtractor) Group by key std::unordered_map<K,vector<E>>
+usePartition(size) Partition by size std::vector<vector<E>>
+
+🎨 Output Operations
+
+Method Description Return Type
+useJoin() Join as string Charsequence
+useOut() Output to stdout Charsequence
+useError() Output to stderr Charsequence
+
+🧮 Mathematical Tools
+
+Method Description Return Type
+useDFT() Discrete Fourier Transform vector<complex<double>>
+useIDFT() Inverse Discrete Fourier Transform vector<complex<double>>
+useFFT() Fast Fourier Transform (Cooley-Tukey) vector<complex<double>>
+useIFFT() Inverse Fast Fourier Transform vector<complex<double>>
+useGradient(gradFunc, lr, iter, th) Gradient descent (analytic gradient) vector<double>
+useGradient(costFunc, lr, iter, th, h) Gradient descent (numerical gradient) vector<double>
+
+---
+
+🌊 Layer Six: semantic.h — Intermediate Stream Operations
+
+semantic.h is the core of the entire framework, containing both the collectable and semantic namespaces.
+
+The collectable Namespace
+
+Provides the inheritance hierarchy of collectable objects:
+
+Class Description Underlying Storage
+Collectable<E> Abstract base class, pure virtual source() —
+OrderedCollectable<E> Ordered collection std::map<Timestamp, E>
+UnorderedCollectable<E> Unordered collection std::unordered_map<Timestamp, E>
+Statistics<E, D> Statistical collection (inherits OrderedCollectable) 20+ statistical methods
+WindowCollectable<E> Windowed collection (inherits OrderedCollectable) Supports slide/tumble
+
+Statistics Class Methods
+
+Method Return Type Description
+summate() / summate(mapper) D Sum
+average() / average(mapper) D Mean
+minimum() / minimum(mapper) std::optional<D> Minimum
+maximum() / maximum(mapper) std::optional<D> Maximum
+range() / range(mapper) D Range (max − min)
+variance() / variance(mapper) D Population variance
+standardDeviation() / standardDeviation(mapper) D Population standard deviation
+frequency() / frequency(mapper) std::map<*, complex> Frequency-domain features
+distribute() / distribute(mapper) std::map<*, complex> Spatial distribution features
+median() / median(mapper) std::optional<D> Median
+mode() std::optional<E> Mode
+percentile(p) / percentile(p, mapper) std::optional<D> p-th percentile
+firstQuartile() / firstQuartile(mapper) std::optional<D> First quartile (Q1)
+thirdQuartile() / thirdQuartile(mapper) std::optional<D> Third quartile (Q3)
+interquartileRange() / interquartileRange(mapper) std::optional<D> Interquartile range (Q3−Q1)
+skewness() / skewness(mapper) D Skewness
+kurtosis() / kurtosis(mapper) D Kurtosis
+dft() vector<complex<double>> Discrete Fourier Transform
+idft() vector<complex<double>> Inverse Discrete Fourier Transform
+fft() vector<complex<double>> Fast Fourier Transform
+ifft() vector<complex<double>> Inverse Fast Fourier Transform
+gradient(gradFunc, lr, iter, th) vector<double> Gradient descent (analytic)
+gradient(costFunc, lr, iter, th, h) vector<double> Gradient descent (numerical)
+
+The semantic Namespace
+
+Provides the Semantic<E> class template and its complete specialisation system:
+
+Primary Template Methods:
+
+Category Methods
+🎨 Transformation map, flatMap, flat
+🔍 Filtering filter, takeWhile, dropWhile, distinct
+📏 Quantity Control limit, skip, sub
+📐 Index Operations redirect, reverse, translate, sort
+👀 Observation peek
+⚡ Parallel Declaration parallel
+🔗 Concatenation concatenate
+📤 Terminal Conversion toUnordered, toOrdered, toWindow, toStatistics
+
+Complete Container Specialisations:
+
+Specialisation Description
+Semantic<std::vector<E>> Vector container stream
+Semantic<std::list<E>> List container stream
+Semantic<std::set<E>> Sorted set container stream
+Semantic<std::unordered_set<E>> Unordered set container stream
+Semantic<std::deque<E>> Deque container stream
+Semantic<std::queue<E>> Queue container stream
+Semantic<std::stack<E>> Stack container stream
+Semantic<std::map<K,V>> Map container stream
+Semantic<std::unordered_map<K,V>> Unordered map container stream
+Semantic<std::initializer_list<E>> Initialiser list stream
+Semantic<Semantic<E>> Nested stream flattening
+
+---
+
+🏭 Layer Seven: semantics.h — Stream Builders
+
+sematics.h provides all stream builder factory functions:
+
+📐 Numeric Ranges
+
+Method Description
+useRange(start, end) Generate a numeric stream over [start, end)
+
+📦 Container Construction
+
+Method Description
+useFrom(container) Create a stream from any standard container
+useOf(args...) Create a stream from variadic arguments
+
+📝 Text Processing
+
+Method Description
+useBlob(text) Split a string into a char stream by byte
+useText(text) Treat the string as a whole text stream
+useText(text, delimiter) Split text by delimiter
+useText(istream) Read entire content from an input stream
+
+🌐 Unicode Processing
+
+Method Description
+useSequence(charsequence) Create a codepoint stream from a character sequence
+useSequence(text, encoding) Create a codepoint stream from text with specified encoding
+useCharsequence(charsequence) Treat a character sequence as a whole stream
+useCharsequence(charsequence, delimiter) Split a character sequence by delimiter
+
+---
+
+🧠 Core Concept: An Index-Driven Data World
+
+Semantic-Cpp abstracts data processing as operations on "elements" and their "logical positions (indices)". Understanding this is key to mastering the library.
+
+1. 📐 Basic Index Transformations
+
+Method Description
+redirect(fn) Core method: completely rewrite element indices via a custom function
+reverse() Logically reverse all current indices (internally via redirect)
+translate(offset) Fixed offset
+translate(translator) Dynamic offset function
+
+2. 📊 The "Overriding" Rule of Sorting
+
+⚠️ sort() overrides everything: once called, all prior index operations are overwritten, and elements are reassigned natural-order indices based on their actual values.
+
+· sort() → immediately materialises as OrderedCollectable
+· sort(comparator) → sort with a custom comparator
+
+3. ⚡ Declarative Parallel Processing
+
+· parallel(n) merely declares intent; no threads are started immediately
+· Terminal operations (toUnordered(), count(), etc.) are where parallelism is actually triggered
+· The thread pool automatically handles task distribution and result merging
+
+4. 🎯 How to Choose the Final Data Container?
+
+Conversion Method Underlying Structure Performance Best Use Case
+sort() OrderedCollectable Sorted then materialised Sort-by-value, pagination, time series
+toOrdered() OrderedCollectable Preserves current index order Retaining custom index order
+toUnordered() UnorderedCollectable Average O(1), best performance Fast lookup, dedup, aggregation
+toWindow() WindowCollectable Based on ordered collection Sliding/tumbling window analysis
+toStatistics() Statistics 20+ statistical methods Comprehensive statistical analysis
+
+---
+
+🚀 Quick Start Guide
+
+Installation
+
+Place all header files in your project directory and ensure your compiler supports C++17 or later:
+
+```
+include/
+├── function.h
+├── pool.h
+├── charsequence.h
+├── collector.h
+├── collectors.h
+├── semantic.h
+└── semantics.h
+```
+
 ```cpp
-#include <iostream>
-#include "semantic.h"
+#include "semantics.h"  // Automatically includes other dependencies
+```
 
-int main() {
-    // 1. Build a stream-processing pipeline and declare the desire to use 4 threads for parallel execution.
-    auto dataStream = semantic::useRange(1, 1000)
-        .parallel(4)                         // Declare parallelism; not yet executed
-        .filter([](int x) -> bool {
-            return x % 2 == 0;               // Filter even numbers
-        })
-        .filter([](int x, auto index) -> bool {
-            return index < 5LL;              // Further filter elements whose logical index is less than 5
-        });
+🎯 Basic Example: Experience Indices and Sorting
 
-    // 2. The terminal operation `count()` triggers genuine parallel computation
-    //    The thread pool starts, data is sharded, four threads count concurrently, and results are automatically merged.
-    auto result = dataStream
-        .toUnordered()                       // Convert to unordered collection for parallel processing
-        .count();                            // Count the final number of elements
+```cpp
+auto result = semantic::useRange(0, 10)
+    .map([](int x) -> int { return x * x; })
+    .redirect([](int value, auto index) -> long long { return index * 2; })
+    .reverse()
+    .sort()                              // Forces sort by value, overriding all index ops
+    .toVector();
+// Output: 0 1 4 9 16 25 36 49 64 81
+```
 
-    std::cout << "Number of elements after filtering: " << result << std::endl;
-    return 0;
+⚡ Parallel Processing Example
+
+```cpp
+auto count = semantic::useRange(1, 1000)
+    .parallel(4)
+    .filter([](int x) { return x % 2 == 0; })
+    .toUnordered()
+    .count();
+// Output: Even count: 500
+```
+
+📊 Statistical Analysis Example
+
+```cpp
+auto stats = semantic::useRange(1, 101)
+    .toStatistics<int, double>();
+
+auto avg = stats.average();              // Mean
+auto med = stats.median();               // Median
+auto std = stats.standardDeviation();    // Standard deviation
+auto q1 = stats.firstQuartile();         // First quartile
+auto q3 = stats.thirdQuartile();         // Third quartile
+auto skew = stats.skewness();            // Skewness
+```
+
+🔬 Frequency-Domain Analysis Example
+
+```cpp
+auto freq = data.toUnordered().frequency();
+for (const auto& [element, z] : freq) {
+    auto magnitude = std::abs(z);  // Distribution concentration
+    auto phase = std::arg(z);      // Distribution centre phase
 }
 ```
 
-### Time-Series and Window Analysis Example
+🧮 FFT Transform Example
+
 ```cpp
-#include <iostream>
-#include "semantic.h"
-
-int main() {
-    // Simulate a time-series dataset (e.g. stock prices)
-    auto timeSeries = semantic::useFrom(std::vector<double>{1.1, 2.2, 3.3, 4.4, 5.5});
-
-    // 1. Convert to window view
-    auto windowStats = timeSeries
-        .toWindow()                     // Convert to WindowCollectable
-        .slide(3, 1)                    // Define a sliding window of size 3 with step 1
-                                        // Window 1: {1.1, 2.2, 3.3}
-                                        // Window 2: {2.2, 3.3, 4.4}
-                                        // Window 3: {3.3, 4.4, 5.5}
-        .sub(1, 4)                      // Take windows with indices 1 to 3 (i.e. windows 2 and 3)
-        .map([](auto&& window) -> double { // Process each window
-            // Calculate the average of each window
-            return window
-                .toStatistics<double, double>() // Convert window to Statistics for mathematical operations
-                .average();
-        })
-        .toStatistics<double, double>() // Perform ordered statistics on the sequence of averages
-        .summate();                     // Sum the averages of all selected windows
-
-    std::cout << "Sum of averages of the selected sliding windows: " << windowStats << std::endl;
-    // Output: result of ( (2.2+3.3+4.4)/3 + (3.3+4.4+5.5)/3 )
-    return 0;
-}
+auto spectrum = semantic::useRange(0, 8)
+    .map([](int x) -> std::complex<double> { return {x, 0}; })
+    .toUnordered()
+    .collect(collector::useFFT<double>());
 ```
 
 ---
 
-## Core API Quick Reference
+⚡ Performance Optimisation Tips
 
-### Stream Builders (Stream Sources)
-| Method | Description | Example |
-| :--- | :--- | :--- |
-| `useRange(start, end)` | Generate an integer stream within a numeric range. | `useRange(0, 10)` |
-| `useFrom(container)` | Create a stream from a standard container (e.g. vector, list). | `useFrom(std::vector{1,2,3})` |
-| `useOf(args...)` | Create a stream from a variadic argument list. | `useOf(1, 2, 3, 4, 5)` |
-| `useBlob(text)` | Split a string into a stream by character. | `useBlob("Hello")` |
-| `useBlob(text, start, end)` | Split a string into a stream by character within a range. | `useBlob("Hello", 0, 3)` |
-| `useBlob(istream)` | Split an input stream into a stream by character. | `useBlob(istream)` |
-| `useBlob(istream, start, end)` | Split an input stream into a stream by character within a range. | `useBlob(istream, 0, 3)` |
-| `useText(text)` | Treat the entire text as a single-element stream. | `useText("Hello")` |
-| `useText(text, delimiter)` | Split text into a stream by delimiter. | `useText("Hello", 'e')` |
-
-### Intermediate Operations
-| Method | Description | Notes |
-| :--- | :--- | :--- |
-| `map(transform function)` | Transform elements into another form. | The function may receive `(element)` or `(element, index)`. |
-| `filter(predicate function)` | Filter elements that satisfy the condition. | Predicate may be based on `(element)` or `(element, index)`. |
-| `distinct()` | Remove duplicate elements. | A custom comparator may be supplied. |
-| `limit(n)` | Limit the stream to the first `n` elements. | |
-| `skip(n)` | Skip the first `n` elements of the stream. | |
-| `sub(start, end)` | Obtain a sub-stream of elements whose indices are in the range `[start, end)`. | Similar to a string’s `substr`. |
-
-### Index Operations
-| Method | Description | Key Features |
-| :--- | :--- | :--- |
-| `redirect(redirection function)` | Core method allowing full control over each element’s index. | Function signature: `(element, old index) -> new index`. |
-| `reverse()` | Logically invert the indices of all current elements. | Implemented internally via `redirect`. |
-| `translate(offset)` | Add a fixed offset to all element indices. | |
-| **`sorted()`** | **Force sorting**. Sort elements in ascending order by value, **overriding all existing indices**. | Immediately returns `OrderedCollectable`. |
-| **`sorted(comparator)`** | Force sorting with a custom comparator. | Immediately returns `OrderedCollectable`. |
-
-### Parallel Declaration
-| Method | Description | Execution Timing |
-| :--- | :--- | :--- |
-| `parallel()` | Declare the default parallel strategy (usually number of CPU cores). | Triggered by subsequent **terminal operations**. |
-| `parallel(n)` | Declare the desire to use `n` threads for parallel processing. | Triggered by subsequent **terminal operations**. |
-
-### Terminal Conversions (Trigger Computation)
-| Method | Description | Internal State |
-| :--- | :--- | :--- |
-| `toOrdered()` | Convert to an ordered collectable, preserving the **current index order**. | Materialised as `std::map<Index, Value>`. |
-| `toUnordered()` | Convert to an unordered collectable for maximum performance. | Materialised as `std::unordered_map<Index, Value>`. |
-| `toWindow()` | Convert to a window collectable for sliding/rolling analysis. | Internally based on `toOrdered()`. |
-
-### Terminal Actions (Produce Final Result)
-| Method | Description | Return Type |
-| :--- | :--- | :--- |
-| `anyMatch(predicate)` | Check whether any element satisfies the condition; exits immediately if found. | Boolean |
-| `allMatch(predicate)` | Check whether all elements satisfy the condition; exits as soon as one fails. | Boolean |
-| `noneMatch(predicate)` | Check whether no elements satisfy the condition; exits as soon as one succeeds. | Boolean |
-| `forEach(consumer)` | Iterate over all elements in the stream. | Void |
-| `count()` | Count the total number of elements in the stream. | `Module` (`unsigned long long`) |
-| `average()` | Compute the average of numeric elements. | Average of the element type (e.g. `double`).  Only for Statistics|
-| `findAny()` | Find any element at random. | A random element from the stream. |
-| `findFirst()` | Find the first element. | The first element in the stream. |
-| `findLast()` | Find the last element. | The last element in the stream. |
-| `findAt(none negative index)` | Find the nth element; | The element at the specified index. |
-| `findNegativeAt(negative index)` | Find the the (size + index)th element. | The element at the specified index. |
-| `findMinimum()` / `findMaximum()` | Find the minimum/maximum value in the stream. | `std::optional<ElementType>` |
-| `reduce(accumulator)` | Reduce the stream to a single value (e.g. sum). | Type of the accumulator result. |
-| `reduce(identity, accumulator)` | Reduce the stream to a single value (e.g. sum). | Type of the accumulator result. |
-| `collect(collector)` | Perform complex aggregation with a custom collector. | Type defined by the collector. |
-| `toList()` / `toVector()` | Collect all elements into a list/vector. | `std::vector<E>` |
-| `toSet()` | Collect all elements into a set (deduplicated). | `std::set<ElementType>` |
-| `group(keyExtractor)` | Group into a Map (deduplicated). | `std::map<K, std::vector<E>>` |
-| `toMap(keyExtractor)` | Collect into a Map (deduplicated). | `std::map<K, E>` |
+1. 🎯 Choose the right container:
+   · Equality lookups, unsorted aggregation → toUnordered()
+   · Range queries, sorting, pagination → toOrdered() or sort()
+   · Real-time window analysis → toWindow()
+2. ⚡ Leverage parallelism: use parallel() when data volumes are large or processing is CPU-intensive; avoid blocking I/O in parallel streams
+3. 📐 Optimise operation order: filter early, sort wisely
+4. 🔄 Exploit lazy evaluation: intermediate operations are not executed immediately; takeWhile and limit can terminate early
 
 ---
 
-## Advanced Topics and Best Practices
+📊 Comparison with the C++ Standard Library and Other Alternatives
 
-### Architectural Essence: Lazy Evaluation and Precise Callback Control
-Behind every stream operation is a “generator” that accepts two callback functions:
--   **`accept(element, index)`**: called by downstream operations when they are ready to receive data, “pulling” an element on demand.
--   **`interrupt(element, index)`**: called before processing each element; if it returns `true`, the entire processing chain **terminates immediately**.
-This mechanism ensures data is “pulled on demand” and can be terminated early at any time, avoiding unnecessary computation.
-
-### Performance Optimisation Suggestions
-1.  **Choose the right container**:
-    -   For equality lookups, deduplication, or unsorted aggregation → prefer `toUnordered()`.
-    -   For range queries, sorting, or pagination → use `toOrdered()` or `sorted()`.
-    -   For real-time window analysis → use `toWindow()`.
-2.  **Make good use of parallelism**:
-    -   Parallelism via `parallel()` usually yields benefits when the dataset is large (e.g. >1,000 items) or when processing logic (`map`, `filter`) is computationally expensive.
-    -   Avoid blocking I/O operations inside parallel streams.
-3.  **Optimise operation order**:
-    -   **Filter early (`filter`)**: reduce the data volume with `filter` before applying expensive `map` transformations.
-    -   **Be strategic with sorting**: sorting is costly. If subsequent operations (e.g. `distinct`) do not depend on order, perform them before sorting.
-
-### Custom Collectors
-When the built-in terminal operations are insufficient, you can create custom collectors to implement complex reduction logic.
-```cpp
-// Create a collector that joins numbers into a specially formatted string
-auto myCollector = semantic::collector::useFull<int, std::string, std::string>(
-     []() -> std::string { return ""; }, // Supplier: initial accumulator value
-    [](std::string acc, int val, auto idx) -> std::string { // Accumulator
-        if (!acc.empty()) acc += "|";
-        return acc + "Num(" + std::to_string(val) + ")";
-    },
-    [](std::string a, std::string b) -> std::string { // Combiner (for parallelism)
-        if (a.empty()) return b;
-        if (b.empty()) return a;
-        return a + "|" + b;
-    },
-    [](std::string acc) -> std::string { // Finisher: final processing of the result
-        return "[" + acc + "]";
-    }
-);
-
-auto result = semantic::useRange(1, 5)
-    .toOrdered() // Trigger computation
-    .collect(myCollector); // Use the custom collector
-
-std::cout << result << std::endl; // Output: [Num(1)|Num(2)|Num(3)|Num(4)]
-```
-
-### Text Processing Example
-```cpp
-auto text = semantic::useText("Hello 世界！")
-    .map([](const std::string& text) -> std::string {
-        return "<" + text + ">";
-    })
-    .toOrdered()
-    .join(" "); // Join all characters with spaces
-
-std::cout << text << std::endl;
-// Output: <H><e><l><l><o>< ><世><界><！>
-```
+Feature Semantic-Cpp C++20/23 ranges Hand-written loops
+🎯 Core Paradigm Declarative, index-driven View-driven, functional composition Imperative, procedural
+⚡ Parallel Support Declarative, automatic thread pool Requires combining parallel algorithms Manual implementation
+📐 Sorting & Indices Fine-grained index control Destructive sort, no index abstraction Fully manual
+📊 Statistical Analysis 20+ built-in statistical methods Not built in Requires third-party libraries
+🔬 Frequency-Domain Native DFT/FFT/frequency features Not natively supported Requires third-party libraries
+🧮 Gradient Descent Dual analytic + numerical modes Not built in Requires third-party libraries
+🌐 Unicode Native multi-encoding support Not natively supported Manual handling
+📦 Dependencies Zero external deps, 7 headers Standard library None
 
 ---
 
-### Comparison with the C++ Standard Library and Other Competitors
+📜 Licence and Support
 
-To help you better understand Semantic-Cpp’s design positioning and use cases, the following table compares it with several mainstream data-processing solutions in the C++ community.
-
-| Feature / Library | **Semantic-Cpp** | **C++20/23 `std::ranges` + `std::views`** | **Range-v3 Library** | **Traditional Hand-Written Loops** |
-| :--- | :--- | :--- | :--- | :--- |
-| **Core Paradigm** | **Declarative, index-driven** stream processing. Data is abstracted as an “element + logical index” pipeline, emphasising **order control**. | **Declarative, view-driven** functional composition. Provides adapters (`views::transform`, `views::filter`) for lazy computation. | **Declarative, range-driven** functional composition. The blueprint and predecessor of `std::ranges`, with richer functionality. | **Imperative, procedural** programming. Direct manipulation of iterators and containers. |
-| **Core Design Philosophy** | **Precise control** of data’s logical position and flow order within the pipeline via **indices**, achieving optimal resource utilisation. | Provides composable, lazily evaluated **view adapters** to build efficient generic algorithms. | Provides a complete, composable set of **range algorithms and views**, forming the cornerstone of modern C++ functional programming. | Full control of computation flow and state rests entirely with the developer. |
-| **Parallel Support** | **Declarative parallelism**. `.parallel(n)` declares intent; terminal operations automatically trigger the thread pool. No manual management needed. | C++17/20 provides parallel algorithms (`std::for_each(std::execution::par, ...)`), but they are **not declarative** and must be combined with views. | Does not provide parallel algorithms directly, but can be combined with external libraries such as TBB or HPX. | Requires manual implementation (e.g. `std::thread`, `std::async`, or parallel algorithms); high complexity. |
-| **Sorting & Indexing** | **`sorted()` has the highest priority** and overrides all prior index transformations. Provides fine-grained operations such as `redirect` and `reverse`; a core feature. | Provides sorting algorithms (`std::ranges::sort`), but they are **in-place and destructive**, breaking the view chain. No custom “index” concept. | Similar to `std::ranges`; sorting is destructive. No “index” abstraction. | Developer must implement sorting logic and manage data relationships before and after sorting. |
-| **Window / Sliding Analysis** | **Native support**. `.toWindow()` together with `.slide()`, `.tumble()`, etc., directly builds sliding/rolling windows; first-class citizens for advanced analytics. | Not natively supported. Requires combining multiple views (e.g. `views::slide` in C++23 or `views::adjacent`) and manual handling; code is relatively complex. | Provides components such as `ranges::views::slide` (pre-C++20), but advanced window aggregation still requires manual composition. | Requires hand-written nested loops and state management; code is verbose and error-prone. |
-| **Data Structures** | Clearly mapped to `std::map` (ordered), `std::unordered_map` (unordered), `std::vector`, etc. Terminal operations determine the final structure. | Algorithms operate on ranges without forcing a final container. Use `std::ranges::to` (C++23) or hand-written code to store results. | Similar to `std::ranges`; results are stored via `ranges::to<Container>`. | Entirely chosen and managed by the developer. |
-| **Ease of Use & Expressiveness** | **High**. Fluent chainable style, API modelled on Java Stream; low learning curve. Focuses on “what” rather than “how”. | **Medium**. View composition is powerful, but syntax (pipe operator `\|`, projections `std::identity`) has a learning curve for beginners; compile errors can be complex. | **Medium-High**. Richest set of views and algorithms, but steepest learning curve. | **Low**. Complex logic results in large code volume, unclear intent, and easy introduction of bugs. |
-| **Performance Characteristics** | Optimised by predefined data structures in index-control and window-computation scenarios. Declarative parallelism simplifies concurrent programming. | **Ultimate performance**. Lazy view composition and compile-time optimisations can produce code comparable to or better than hand-written loops (e.g. elimination of intermediate temporaries). | Same as `std::ranges`; performance is one of its core goals. | **Theoretical peak is high**. Experienced developers can achieve extreme micro-optimisation, but implementation and maintenance costs are very high. |
-| **Typical Use Cases** | 1. **Time-series / event stream processing** (logs, sensor data).<br>2. Data transformations requiring **complex order control**.<br>3. **Declarative parallel computation**.<br>4. **Real-time sliding-window analysis**. | 1. **General, high-performance container data transformation and filtering**.<br>2. Building reusable **generic components**.<br>3. Tight integration with the existing STL algorithm and container ecosystem. | 1. Modern range-library functionality on projects unable to use C++20.<br>2. Research and experimentation with the most cutting-edge range proposals. | 1. Performance-critical scenarios with extremely simple logic.<br>2. Special low-level needs that no library can satisfy. |
-| **Dependencies & Integration** | **Zero dependencies, single header**. Extremely simple integration. | Part of the C++20/23 standard library; no additional dependencies. | Requires integration as a third-party library; most feature-rich but adds project dependencies. | None. |
-
-**Summary Recommendations:**
-- **Choose Semantic-Cpp** if your project **strongly depends on fine-grained control of data order/indices**, requires **complex sliding-window analysis**, or you want **declarative parallelism with the smallest cognitive load**. Semantic-Cpp offers a highly abstracted, purpose-built solution.
-- **Choose `std::ranges`** if your project already uses C++20/23 and your needs are **general, high-performance data transformation and querying**, you want seamless integration with the STL ecosystem, and you are comfortable with a moderate learning curve. `std::ranges` is the most standard and future-compatible choice.
-- **Choose Range-v3** if compiler constraints prevent C++20 usage but you still need functionality similar to `std::ranges`.
-- **Choose hand-written loops** only when logic is extremely simple, you require nanosecond-level performance, and library abstractions truly become a bottleneck.
+· 📄 Licence: Released under the MIT licence
+· 🐛 Issues and Feedback: GitHub Issues
+· 💬 Discussions: GitHub Discussions
 
 ---
 
-## Licence and Support
-- **Licence**: This project is released under the MIT licence.
-- **Issues and Feedback**: If you encounter any bugs or have feature suggestions, please submit them on the https://github.com/eloyhere/semantic-cpp/issues page.
-- **Discussion and Exchange**: You may also start a discussion at https://github.com/eloyhere/semantic-cpp/discussions.
-
-**Semantic-Cpp** — Building efficient, clear data-processing pipelines with modern C++. 🚀
+Semantic-Cpp — Build efficient, clear data processing pipelines with modern C++. 🚀

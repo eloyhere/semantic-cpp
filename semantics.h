@@ -8,6 +8,10 @@
 #include <istream>
 #include <sstream>
 #include <fstream>
+#include <random>
+#include <limits>
+#include <cmath>
+#include <unordered_set>
 
 namespace semantic
 {
@@ -24,6 +28,335 @@ auto useRange(const D &start, const D &end) -> Semantic<D>
 			accept(index, index);
 		}
 	});
+}
+
+template <typename D>
+auto useRange(const D &start, const D &end, const D &step) -> Semantic<D>
+{
+	return Semantic<D>([startValue = start, endValue = end, stepValue = step](function::BiConsumer<D, function::Timestamp> accept, function::BiPredicate<D, function::Timestamp> interrupt) -> void {
+		if (stepValue == D{})
+		{
+			return;
+		}
+		if (stepValue > D{})
+		{
+			for (D index = startValue; index < endValue; index += stepValue)
+			{
+				if (interrupt(index, index))
+				{
+					break;
+				}
+				accept(index, index);
+			}
+		}
+		else
+		{
+			for (D index = startValue; index > endValue; index += stepValue)
+			{
+				if (interrupt(index, index))
+				{
+					break;
+				}
+				accept(index, index);
+			}
+		}
+	});
+}
+
+template <typename D>
+auto useRangeClosed(const D &start, const D &end) -> Semantic<D>
+{
+	return Semantic<D>([startValue = std::min(start, end), endValue = std::max(start, end)](function::BiConsumer<D, function::Timestamp> accept, function::BiPredicate<D, function::Timestamp> interrupt) -> void {
+		for (D index = startValue; index <= endValue; index++)
+		{
+			if (interrupt(index, index))
+			{
+				break;
+			}
+			accept(index, index);
+		}
+	});
+}
+
+template <typename D>
+auto useRangeClosed(const D &start, const D &end, const D &step) -> Semantic<D>
+{
+	return Semantic<D>([startValue = start, endValue = end, stepValue = step](function::BiConsumer<D, function::Timestamp> accept, function::BiPredicate<D, function::Timestamp> interrupt) -> void {
+		if (stepValue == D{})
+		{
+			return;
+		}
+		if (stepValue > D{})
+		{
+			for (D index = startValue; index <= endValue; index += stepValue)
+			{
+				if (interrupt(index, index))
+				{
+					break;
+				}
+				accept(index, index);
+			}
+		}
+		else
+		{
+			for (D index = startValue; index >= endValue; index += stepValue)
+			{
+				if (interrupt(index, index))
+				{
+					break;
+				}
+				accept(index, index);
+			}
+		}
+	});
+}
+
+template <typename D>
+auto useInfinite(const D &seed, const function::UnaryOperator<D> &generator) -> Semantic<D>
+{
+	return Semantic<D>([seed, generator](function::BiConsumer<D, function::Timestamp> accept, function::BiPredicate<D, function::Timestamp> interrupt) -> void {
+		D current = seed;
+		function::Timestamp index = 0LL;
+		while (true)
+		{
+			if (interrupt(current, index))
+			{
+				break;
+			}
+			accept(current, index);
+			current = generator(current);
+			index++;
+		}
+	});
+}
+
+template <typename D>
+auto useGenerate(const function::Supplier<D> &supplier) -> Semantic<D>
+{
+	return Semantic<D>([supplier](function::BiConsumer<D, function::Timestamp> accept, function::BiPredicate<D, function::Timestamp> interrupt) -> void {
+		function::Timestamp index = 0LL;
+		while (true)
+		{
+			D value = supplier();
+			if (interrupt(value, index))
+			{
+				break;
+			}
+			accept(value, index);
+			index++;
+		}
+	});
+}
+
+template <typename D>
+auto useGenerate(const function::Supplier<D> &supplier, const function::Module &limit) -> Semantic<D>
+{
+	return Semantic<D>([supplier, limit](function::BiConsumer<D, function::Timestamp> accept, function::BiPredicate<D, function::Timestamp> interrupt) -> void {
+		function::Timestamp index = 0LL;
+		while (index < limit)
+		{
+			D value = supplier();
+			if (interrupt(value, index))
+			{
+				break;
+			}
+			accept(value, index);
+			index++;
+		}
+	});
+}
+
+template <typename D>
+auto useIterate(const D &seed, const function::UnaryOperator<D> &generator) -> Semantic<D>
+{
+	return Semantic<D>([seed, generator](function::BiConsumer<D, function::Timestamp> accept, function::BiPredicate<D, function::Timestamp> interrupt) -> void {
+		D current = seed;
+		function::Timestamp index = 0LL;
+		while (true)
+		{
+			if (interrupt(current, index))
+			{
+				break;
+			}
+			accept(current, index);
+			current = generator(current);
+			index++;
+		}
+	});
+}
+
+template <typename D>
+auto useIterate(const D &seed, const function::UnaryOperator<D> &generator, const function::Module &limit) -> Semantic<D>
+{
+	return Semantic<D>([seed, generator, limit](function::BiConsumer<D, function::Timestamp> accept, function::BiPredicate<D, function::Timestamp> interrupt) -> void {
+		D current = seed;
+		function::Timestamp index = 0LL;
+		while (index < limit)
+		{
+			if (interrupt(current, index))
+			{
+				break;
+			}
+			accept(current, index);
+			current = generator(current);
+			index++;
+		}
+	});
+}
+
+template <typename D>
+auto useRandom() -> Semantic<D>
+{
+	return Semantic<D>([](function::BiConsumer<D, function::Timestamp> accept, function::BiPredicate<D, function::Timestamp> interrupt) -> void {
+		std::random_device device;
+		std::mt19937 generator(device());
+		std::uniform_int_distribution<D> distribution;
+		function::Timestamp index = 0LL;
+		while (true)
+		{
+			D value = distribution(generator);
+			if (interrupt(value, index))
+			{
+				break;
+			}
+			accept(value, index);
+			index++;
+		}
+	});
+}
+
+template <typename D>
+auto useRandom(const D &min, const D &max) -> Semantic<D>
+{
+	return Semantic<D>([minValue = std::min(min, max), maxValue = std::max(min, max)](function::BiConsumer<D, function::Timestamp> accept, function::BiPredicate<D, function::Timestamp> interrupt) -> void {
+		std::random_device device;
+		std::mt19937 generator(device());
+		if constexpr (std::is_integral_v<D>)
+		{
+			std::uniform_int_distribution<D> distribution(minValue, maxValue);
+			function::Timestamp index = 0LL;
+			while (true)
+			{
+				D value = distribution(generator);
+				if (interrupt(value, index))
+				{
+					break;
+				}
+				accept(value, index);
+				index++;
+			}
+		}
+		else
+		{
+			std::uniform_real_distribution<D> distribution(minValue, maxValue);
+			function::Timestamp index = 0LL;
+			while (true)
+			{
+				D value = distribution(generator);
+				if (interrupt(value, index))
+				{
+					break;
+				}
+				accept(value, index);
+				index++;
+			}
+		}
+	});
+}
+
+template <typename D>
+auto useRandom(const D &min, const D &max, const function::Module &count) -> Semantic<D>
+{
+	return Semantic<D>([minValue = std::min(min, max), maxValue = std::max(min, max), count](function::BiConsumer<D, function::Timestamp> accept, function::BiPredicate<D, function::Timestamp> interrupt) -> void {
+		std::random_device device;
+		std::mt19937 generator(device());
+		if constexpr (std::is_integral_v<D>)
+		{
+			std::uniform_int_distribution<D> distribution(minValue, maxValue);
+			function::Timestamp index = 0LL;
+			while (index < count)
+			{
+				D value = distribution(generator);
+				if (interrupt(value, index))
+				{
+					break;
+				}
+				accept(value, index);
+				index++;
+			}
+		}
+		else
+		{
+			std::uniform_real_distribution<D> distribution(minValue, maxValue);
+			function::Timestamp index = 0LL;
+			while (index < count)
+			{
+				D value = distribution(generator);
+				if (interrupt(value, index))
+				{
+					break;
+				}
+				accept(value, index);
+				index++;
+			}
+		}
+	});
+}
+
+template <typename D>
+auto useEmpty() -> Semantic<D>
+{
+	return Semantic<D>([](function::BiConsumer<D, function::Timestamp> accept, function::BiPredicate<D, function::Timestamp> interrupt) -> void {
+		return;
+	});
+}
+
+template <typename D>
+auto useOf(D element) -> Semantic<D>
+{
+	return Semantic<D>([element](function::BiConsumer<D, function::Timestamp> accept, function::BiPredicate<D, function::Timestamp> interrupt) -> void {
+		if (!interrupt(element, 0LL))
+		{
+			accept(element, 0LL);
+		}
+	},
+					   1LL);
+}
+
+template <typename E>
+auto useOf(E element1, E element2) -> Semantic<E>
+{
+	return Semantic<E>([element1, element2](function::BiConsumer<E, function::Timestamp> accept, function::BiPredicate<E, function::Timestamp> interrupt) -> void {
+		if (!interrupt(element1, 0LL))
+		{
+			accept(element1, 0LL);
+		}
+		if (!interrupt(element2, 1LL))
+		{
+			accept(element2, 1LL);
+		}
+	},
+					   2LL);
+}
+
+template <typename E>
+auto useOf(E element1, E element2, E element3) -> Semantic<E>
+{
+	return Semantic<E>([element1, element2, element3](function::BiConsumer<E, function::Timestamp> accept, function::BiPredicate<E, function::Timestamp> interrupt) -> void {
+		if (!interrupt(element1, 0LL))
+		{
+			accept(element1, 0LL);
+		}
+		if (!interrupt(element2, 1LL))
+		{
+			accept(element2, 1LL);
+		}
+		if (!interrupt(element3, 2LL))
+		{
+			accept(element3, 2LL);
+		}
+	},
+					   3LL);
 }
 
 template <typename Container>
@@ -79,6 +412,21 @@ auto useOf(std::initializer_list<E> elements) -> Semantic<E>
 		}
 	},
 					   1LL);
+}
+
+template <typename E>
+auto useRepeat(const E &element, const function::Module &count) -> Semantic<E>
+{
+	return Semantic<E>([element, count](function::BiConsumer<E, function::Timestamp> accept, function::BiPredicate<E, function::Timestamp> interrupt) -> void {
+		for (function::Timestamp index = 0LL; index < count; index++)
+		{
+			if (interrupt(element, index))
+			{
+				break;
+			}
+			accept(element, index);
+		}
+	});
 }
 
 auto useBlob(const std::string &text) -> Semantic<char>
@@ -410,4 +758,4 @@ auto useCharsequence(std::istream &stream, const charsequence::Charsequence &del
 												1LL);
 }
 
-} // namespace semantics
+} // namespace semantic

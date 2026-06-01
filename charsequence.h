@@ -13,6 +13,8 @@
 #include <string_view>
 #include <type_traits>
 #include <mutex>
+#include <charconv>
+#include <array>
 
 namespace charsequence
 {
@@ -29,6 +31,68 @@ enum class charset
 	latin1
 };
 
+inline std::ostream &operator<<(std::ostream &stream, charset cs)
+{
+	switch (cs)
+	{
+	case charset::ascii:
+		stream << "ascii";
+		break;
+	case charset::utf8:
+		stream << "utf8";
+		break;
+	case charset::utf16:
+		stream << "utf16";
+		break;
+	case charset::utf16be:
+		stream << "utf16be";
+		break;
+	case charset::utf16le:
+		stream << "utf16le";
+		break;
+	case charset::utf32:
+		stream << "utf32";
+		break;
+	case charset::utf32be:
+		stream << "utf32be";
+		break;
+	case charset::utf32le:
+		stream << "utf32le";
+		break;
+	case charset::latin1:
+		stream << "latin1";
+		break;
+	}
+	return stream;
+}
+
+inline std::istream &operator>>(std::istream &stream, charset &cs)
+{
+	std::string token;
+	stream >> token;
+	if (token == "ascii")
+		cs = charset::ascii;
+	else if (token == "utf8")
+		cs = charset::utf8;
+	else if (token == "utf16")
+		cs = charset::utf16;
+	else if (token == "utf16be")
+		cs = charset::utf16be;
+	else if (token == "utf16le")
+		cs = charset::utf16le;
+	else if (token == "utf32")
+		cs = charset::utf32;
+	else if (token == "utf32be")
+		cs = charset::utf32be;
+	else if (token == "utf32le")
+		cs = charset::utf32le;
+	else if (token == "latin1")
+		cs = charset::latin1;
+	else
+		stream.setstate(std::ios::failbit);
+	return stream;
+}
+
 inline std::size_t sequenceLength(unsigned char byte, charset encoding)
 {
 	if (encoding == charset::utf8)
@@ -41,7 +105,7 @@ inline std::size_t sequenceLength(unsigned char byte, charset encoding)
 			return 2;
 		if (byte < 0xF0)
 			return 3;
-		if (byte < 0xF8)
+		if (byte < 0xF5)
 			return 4;
 		return 0;
 	}
@@ -198,23 +262,26 @@ inline std::vector<unsigned char> encode(unsigned int codepoint, charset encodin
 	return result;
 }
 
-inline unsigned int decode(const std::vector<unsigned char> &data, std::size_t &index, charset encoding)
+inline unsigned int decode(std::string_view &input, charset encoding)
 {
-	if (index >= data.size())
+	if (input.empty())
 	{
 		return 0xFFFD;
 	}
 
+	const unsigned char *data = reinterpret_cast<const unsigned char *>(input.data());
+	std::size_t dataLength = input.size();
+
 	if (encoding == charset::latin1)
 	{
-		unsigned char byte = data[index];
-		index++;
+		unsigned char byte = data[0];
+		input.remove_prefix(1);
 		return byte;
 	}
 	else if (encoding == charset::ascii)
 	{
-		unsigned char byte = data[index];
-		index++;
+		unsigned char byte = data[0];
+		input.remove_prefix(1);
 		if (byte < 0x80)
 		{
 			return byte;
@@ -226,15 +293,15 @@ inline unsigned int decode(const std::vector<unsigned char> &data, std::size_t &
 	}
 	else if (encoding == charset::utf8)
 	{
-		unsigned char byte = data[index];
+		unsigned char byte = data[0];
 		if (byte < 0x80)
 		{
-			index++;
+			input.remove_prefix(1);
 			return byte;
 		}
 		if (byte < 0xC2)
 		{
-			index++;
+			input.remove_prefix(1);
 			return 0xFFFD;
 		}
 		std::size_t seqLen;
@@ -246,163 +313,163 @@ inline unsigned int decode(const std::vector<unsigned char> &data, std::size_t &
 		{
 			seqLen = 3;
 		}
-		else if (byte < 0xF8)
+		else if (byte < 0xF5)
 		{
 			seqLen = 4;
 		}
 		else
 		{
-			index++;
+			input.remove_prefix(1);
 			return 0xFFFD;
 		}
-		if (index + seqLen > data.size())
+		if (dataLength < seqLen)
 		{
-			index = data.size();
+			input.remove_prefix(dataLength);
 			return 0xFFFD;
 		}
 		unsigned int codepoint;
 		if (seqLen == 2)
 		{
-			if ((data[index + 1] & 0xC0) != 0x80)
+			if ((data[1] & 0xC0) != 0x80)
 			{
-				index += 1;
+				input.remove_prefix(1);
 				return 0xFFFD;
 			}
 			codepoint = (byte & 0x1F) << 6;
-			codepoint |= (data[index + 1] & 0x3F);
+			codepoint |= (data[1] & 0x3F);
 			if (codepoint < 0x80)
 			{
-				index += 2;
+				input.remove_prefix(2);
 				return 0xFFFD;
 			}
 		}
 		else if (seqLen == 3)
 		{
-			if ((data[index + 1] & 0xC0) != 0x80 || (data[index + 2] & 0xC0) != 0x80)
+			if ((data[1] & 0xC0) != 0x80 || (data[2] & 0xC0) != 0x80)
 			{
-				index += 1;
+				input.remove_prefix(1);
 				return 0xFFFD;
 			}
 			codepoint = (byte & 0x0F) << 12;
-			codepoint |= (data[index + 1] & 0x3F) << 6;
-			codepoint |= (data[index + 2] & 0x3F);
+			codepoint |= (data[1] & 0x3F) << 6;
+			codepoint |= (data[2] & 0x3F);
 			if (codepoint < 0x800)
 			{
-				index += 3;
+				input.remove_prefix(3);
 				return 0xFFFD;
 			}
 			if (codepoint >= 0xD800 && codepoint <= 0xDFFF)
 			{
-				index += 3;
+				input.remove_prefix(3);
 				return 0xFFFD;
 			}
 		}
 		else
 		{
-			if ((data[index + 1] & 0xC0) != 0x80 || (data[index + 2] & 0xC0) != 0x80 || (data[index + 3] & 0xC0) != 0x80)
+			if ((data[1] & 0xC0) != 0x80 || (data[2] & 0xC0) != 0x80 || (data[3] & 0xC0) != 0x80)
 			{
-				index += 1;
+				input.remove_prefix(1);
 				return 0xFFFD;
 			}
 			codepoint = (byte & 0x07) << 18;
-			codepoint |= (data[index + 1] & 0x3F) << 12;
-			codepoint |= (data[index + 2] & 0x3F) << 6;
-			codepoint |= (data[index + 3] & 0x3F);
+			codepoint |= (data[1] & 0x3F) << 12;
+			codepoint |= (data[2] & 0x3F) << 6;
+			codepoint |= (data[3] & 0x3F);
 			if (codepoint < 0x10000)
 			{
-				index += 4;
+				input.remove_prefix(4);
 				return 0xFFFD;
 			}
 			if (codepoint > 0x10FFFF)
 			{
-				index += 4;
+				input.remove_prefix(4);
 				return 0xFFFD;
 			}
 		}
-		index += seqLen;
+		input.remove_prefix(seqLen);
 		return codepoint;
 	}
 	else if (encoding == charset::utf16 || encoding == charset::utf16le)
 	{
-		if (index + 1 >= data.size())
+		if (dataLength < 2)
 		{
-			index = data.size();
+			input.remove_prefix(dataLength);
 			return 0xFFFD;
 		}
-		unsigned short unit = data[index] | (data[index + 1] << 8);
+		unsigned short unit = data[0] | (static_cast<unsigned short>(data[1]) << 8);
 		if (unit >= 0xD800 && unit <= 0xDBFF)
 		{
-			if (index + 3 >= data.size())
+			if (dataLength < 4)
 			{
-				index = data.size();
+				input.remove_prefix(dataLength);
 				return 0xFFFD;
 			}
-			unsigned short low = data[index + 2] | (data[index + 3] << 8);
+			unsigned short low = data[2] | (static_cast<unsigned short>(data[3]) << 8);
 			if (low < 0xDC00 || low > 0xDFFF)
 			{
-				index += 2;
+				input.remove_prefix(2);
 				return 0xFFFD;
 			}
 			unsigned int codepoint = 0x10000 + ((unit - 0xD800) << 10) + (low - 0xDC00);
-			index += 4;
+			input.remove_prefix(4);
 			return codepoint;
 		}
 		else if (unit >= 0xDC00 && unit <= 0xDFFF)
 		{
-			index += 2;
+			input.remove_prefix(2);
 			return 0xFFFD;
 		}
 		else
 		{
-			index += 2;
+			input.remove_prefix(2);
 			return unit;
 		}
 	}
 	else if (encoding == charset::utf16be)
 	{
-		if (index + 1 >= data.size())
+		if (dataLength < 2)
 		{
-			index = data.size();
+			input.remove_prefix(dataLength);
 			return 0xFFFD;
 		}
-		unsigned short unit = (data[index] << 8) | data[index + 1];
+		unsigned short unit = (static_cast<unsigned short>(data[0]) << 8) | data[1];
 		if (unit >= 0xD800 && unit <= 0xDBFF)
 		{
-			if (index + 3 >= data.size())
+			if (dataLength < 4)
 			{
-				index = data.size();
+				input.remove_prefix(dataLength);
 				return 0xFFFD;
 			}
-			unsigned short low = (data[index + 2] << 8) | data[index + 3];
+			unsigned short low = (static_cast<unsigned short>(data[2]) << 8) | data[3];
 			if (low < 0xDC00 || low > 0xDFFF)
 			{
-				index += 2;
+				input.remove_prefix(2);
 				return 0xFFFD;
 			}
 			unsigned int codepoint = 0x10000 + ((unit - 0xD800) << 10) + (low - 0xDC00);
-			index += 4;
+			input.remove_prefix(4);
 			return codepoint;
 		}
 		else if (unit >= 0xDC00 && unit <= 0xDFFF)
 		{
-			index += 2;
+			input.remove_prefix(2);
 			return 0xFFFD;
 		}
 		else
 		{
-			index += 2;
+			input.remove_prefix(2);
 			return unit;
 		}
 	}
 	else if (encoding == charset::utf32 || encoding == charset::utf32le)
 	{
-		if (index + 3 >= data.size())
+		if (dataLength < 4)
 		{
-			index = data.size();
+			input.remove_prefix(dataLength);
 			return 0xFFFD;
 		}
-		unsigned int codepoint = data[index] | (data[index + 1] << 8) | (data[index + 2] << 16) | (data[index + 3] << 24);
-		index += 4;
+		unsigned int codepoint = data[0] | (static_cast<unsigned int>(data[1]) << 8) | (static_cast<unsigned int>(data[2]) << 16) | (static_cast<unsigned int>(data[3]) << 24);
+		input.remove_prefix(4);
 		if (codepoint > 0x10FFFF || (codepoint >= 0xD800 && codepoint <= 0xDFFF))
 		{
 			return 0xFFFD;
@@ -411,13 +478,13 @@ inline unsigned int decode(const std::vector<unsigned char> &data, std::size_t &
 	}
 	else if (encoding == charset::utf32be)
 	{
-		if (index + 3 >= data.size())
+		if (dataLength < 4)
 		{
-			index = data.size();
+			input.remove_prefix(dataLength);
 			return 0xFFFD;
 		}
-		unsigned int codepoint = (data[index] << 24) | (data[index + 1] << 16) | (data[index + 2] << 8) | data[index + 3];
-		index += 4;
+		unsigned int codepoint = (static_cast<unsigned int>(data[0]) << 24) | (static_cast<unsigned int>(data[1]) << 16) | (static_cast<unsigned int>(data[2]) << 8) | data[3];
+		input.remove_prefix(4);
 		if (codepoint > 0x10FFFF || (codepoint >= 0xD800 && codepoint <= 0xDFFF))
 		{
 			return 0xFFFD;
@@ -434,70 +501,43 @@ inline std::string convert(std::string_view input, charset from, charset to)
 		return std::string(input);
 	}
 	std::string result;
-	std::vector<unsigned char> bytes(input.begin(), input.end());
-	std::size_t index = 0;
-	while (index < bytes.size())
+	std::string_view remaining = input;
+	while (!remaining.empty())
 	{
-		unsigned int codepoint = decode(bytes, index, from);
+		unsigned int codepoint = decode(remaining, from);
 		auto encoded = encode(codepoint, to);
 		result.insert(result.end(), encoded.begin(), encoded.end());
 	}
 	return result;
 }
 
-inline std::vector<unsigned char> convert(const std::vector<unsigned char> &input, charset from, charset to)
-{
-	if (from == to)
-	{
-		return input;
-	}
-	std::vector<unsigned char> result;
-	std::size_t index = 0;
-	while (index < input.size())
-	{
-		unsigned int codepoint = decode(input, index, from);
-		auto encoded = encode(codepoint, to);
-		result.insert(result.end(), encoded.begin(), encoded.end());
-	}
-	return result;
-}
-
-inline std::vector<char> convert(const std::vector<char> &input, charset from, charset to)
-{
-	std::vector<unsigned char> bytes(input.begin(), input.end());
-	std::vector<unsigned char> converted = convert(bytes, from, to);
-	return std::vector<char>(converted.begin(), converted.end());
-}
-
-inline void convertTo(std::string_view input, charset from, charset to, std::vector<unsigned char> &output)
+inline void convert(std::string_view input, charset from, charset to, std::vector<unsigned char> &output)
 {
 	if (from == to)
 	{
 		output.insert(output.end(), input.begin(), input.end());
 		return;
 	}
-	std::vector<unsigned char> bytes(input.begin(), input.end());
-	std::size_t index = 0;
-	while (index < bytes.size())
+	std::string_view remaining = input;
+	while (!remaining.empty())
 	{
-		unsigned int codepoint = decode(bytes, index, from);
+		unsigned int codepoint = decode(remaining, from);
 		auto encoded = encode(codepoint, to);
 		output.insert(output.end(), encoded.begin(), encoded.end());
 	}
 }
 
-inline void convertToDeque(std::string_view input, charset from, charset to, std::deque<unsigned char> &output)
+inline void convert(std::string_view input, charset from, charset to, std::deque<unsigned char> &output)
 {
 	if (from == to)
 	{
 		output.insert(output.end(), input.begin(), input.end());
 		return;
 	}
-	std::vector<unsigned char> bytes(input.begin(), input.end());
-	std::size_t index = 0;
-	while (index < bytes.size())
+	std::string_view remaining = input;
+	while (!remaining.empty())
 	{
-		unsigned int codepoint = decode(bytes, index, from);
+		unsigned int codepoint = decode(remaining, from);
 		auto encoded = encode(codepoint, to);
 		output.insert(output.end(), encoded.begin(), encoded.end());
 	}
@@ -578,8 +618,6 @@ class Point
 };
 
 class Charsequence;
-class Builder;
-class Buffer;
 
 class PointIterator
 {
@@ -590,7 +628,7 @@ class PointIterator
 	using pointer = const Point *;
 	using reference = const Point &;
 
-	PointIterator(std::vector<Point>::const_iterator iterator) : baseIterator(iterator) {}
+	explicit PointIterator(std::vector<Point>::const_iterator it) : baseIterator(it) {}
 
 	reference operator*() const { return *baseIterator; }
 	pointer operator->() const { return &(*baseIterator); }
@@ -635,7 +673,23 @@ class Charsequence
 	Charsequence(std::string_view source, charset sourceEncoding = charset::utf8, charset targetEncoding = charset::utf8)
 		: pointStorage(), storageEncoding(targetEncoding)
 	{
-		initializeFromBytes(reinterpret_cast<const unsigned char *>(source.data()), source.size(), sourceEncoding, targetEncoding);
+		if (sourceEncoding == targetEncoding)
+		{
+			std::string_view remaining = source;
+			while (!remaining.empty())
+			{
+				pointStorage.push_back(Point(decode(remaining, targetEncoding)));
+			}
+		}
+		else
+		{
+			std::string converted = convert(source, sourceEncoding, targetEncoding);
+			std::string_view remaining = converted;
+			while (!remaining.empty())
+			{
+				pointStorage.push_back(Point(decode(remaining, targetEncoding)));
+			}
+		}
 	}
 
 	Charsequence(std::istream &stream, std::size_t maxLength, charset sourceEncoding = charset::utf8, charset targetEncoding = charset::utf8)
@@ -646,14 +700,46 @@ class Charsequence
 		stream.read(&temp[0], maxLength);
 		std::size_t bytesRead = stream.gcount();
 		temp.resize(bytesRead);
-		initializeFromBytes(reinterpret_cast<const unsigned char *>(temp.data()), temp.size(), sourceEncoding, targetEncoding);
+		if (sourceEncoding == targetEncoding)
+		{
+			std::string_view remaining = temp;
+			while (!remaining.empty())
+			{
+				pointStorage.push_back(Point(decode(remaining, targetEncoding)));
+			}
+		}
+		else
+		{
+			std::string converted = convert(std::string_view(temp), sourceEncoding, targetEncoding);
+			std::string_view remaining = converted;
+			while (!remaining.empty())
+			{
+				pointStorage.push_back(Point(decode(remaining, targetEncoding)));
+			}
+		}
 	}
 
 	Charsequence(std::stringstream &stream, charset sourceEncoding = charset::utf8, charset targetEncoding = charset::utf8)
 		: pointStorage(), storageEncoding(targetEncoding)
 	{
 		std::string temp = stream.str();
-		initializeFromBytes(reinterpret_cast<const unsigned char *>(temp.data()), temp.size(), sourceEncoding, targetEncoding);
+		if (sourceEncoding == targetEncoding)
+		{
+			std::string_view remaining = temp;
+			while (!remaining.empty())
+			{
+				pointStorage.push_back(Point(decode(remaining, targetEncoding)));
+			}
+		}
+		else
+		{
+			std::string converted = convert(std::string_view(temp), sourceEncoding, targetEncoding);
+			std::string_view remaining = converted;
+			while (!remaining.empty())
+			{
+				pointStorage.push_back(Point(decode(remaining, targetEncoding)));
+			}
+		}
 	}
 
 	Charsequence(const Meta *source, std::size_t length, charset sourceEncoding, charset targetEncoding = charset::utf8)
@@ -669,7 +755,23 @@ class Charsequence
 		{
 			temp.push_back(static_cast<char>(source[i].getValue() & 0xFF));
 		}
-		initializeFromBytes(reinterpret_cast<const unsigned char *>(temp.data()), temp.size(), sourceEncoding, targetEncoding);
+		if (sourceEncoding == targetEncoding)
+		{
+			std::string_view remaining = temp;
+			while (!remaining.empty())
+			{
+				pointStorage.push_back(Point(decode(remaining, targetEncoding)));
+			}
+		}
+		else
+		{
+			std::string converted = convert(std::string_view(temp), sourceEncoding, targetEncoding);
+			std::string_view remaining = converted;
+			while (!remaining.empty())
+			{
+				pointStorage.push_back(Point(decode(remaining, targetEncoding)));
+			}
+		}
 	}
 
 	Charsequence(const Point *source, std::size_t length, charset targetEncoding = charset::utf8)
@@ -803,9 +905,9 @@ class Charsequence
 		return true;
 	}
 
-	bool startsWith(std::string_view str) const
+	bool startsWith(std::string_view str, charset strEncoding = charset::utf8) const
 	{
-		Charsequence temp(str, storageEncoding, storageEncoding);
+		Charsequence temp(str, strEncoding, storageEncoding);
 		return startsWith(temp);
 	}
 
@@ -826,9 +928,9 @@ class Charsequence
 		return true;
 	}
 
-	bool endsWith(std::string_view str) const
+	bool endsWith(std::string_view str, charset strEncoding = charset::utf8) const
 	{
-		Charsequence temp(str, storageEncoding, storageEncoding);
+		Charsequence temp(str, strEncoding, storageEncoding);
 		return endsWith(temp);
 	}
 
@@ -837,22 +939,22 @@ class Charsequence
 		return indexOf(other) != static_cast<std::size_t>(-1);
 	}
 
-	bool contains(std::string_view str) const
+	bool contains(std::string_view str, charset strEncoding = charset::utf8) const
 	{
-		Charsequence temp(str, storageEncoding, storageEncoding);
+		Charsequence temp(str, strEncoding, storageEncoding);
 		return contains(temp);
 	}
 
 	std::size_t indexOf(const Charsequence &other, std::size_t fromCodePoint = 0) const
 	{
-		if (fromCodePoint >= pointStorage.size())
-		{
-			return static_cast<std::size_t>(-1);
-		}
 		const auto &otherPoints = other.pointStorage;
 		if (otherPoints.empty())
 		{
 			return 0;
+		}
+		if (fromCodePoint >= pointStorage.size())
+		{
+			return static_cast<std::size_t>(-1);
 		}
 		if (otherPoints.size() > pointStorage.size())
 		{
@@ -875,6 +977,12 @@ class Charsequence
 			}
 		}
 		return static_cast<std::size_t>(-1);
+	}
+
+	std::size_t indexOf(std::string_view str, std::size_t fromCodePoint = 0, charset strEncoding = charset::utf8) const
+	{
+		Charsequence temp(str, strEncoding, storageEncoding);
+		return indexOf(temp, fromCodePoint);
 	}
 
 	std::size_t lastIndexOf(const Charsequence &other, std::size_t fromCodePoint = static_cast<std::size_t>(-1)) const
@@ -920,6 +1028,12 @@ class Charsequence
 		return static_cast<std::size_t>(-1);
 	}
 
+	std::size_t lastIndexOf(std::string_view str, std::size_t fromCodePoint = static_cast<std::size_t>(-1), charset strEncoding = charset::utf8) const
+	{
+		Charsequence temp(str, strEncoding, storageEncoding);
+		return lastIndexOf(temp, fromCodePoint);
+	}
+
 	Charsequence replace(const Charsequence &target, const Charsequence &replacement) const
 	{
 		if (target.pointStorage.empty())
@@ -953,10 +1067,10 @@ class Charsequence
 		return result;
 	}
 
-	Charsequence replace(std::string_view target, std::string_view replacement) const
+	Charsequence replace(std::string_view target, std::string_view replacement, charset targetEncoding = charset::utf8, charset replacementEncoding = charset::utf8) const
 	{
-		Charsequence targetCs(target, storageEncoding, storageEncoding);
-		Charsequence replacementCs(replacement, storageEncoding, storageEncoding);
+		Charsequence targetCs(target, targetEncoding, storageEncoding);
+		Charsequence replacementCs(replacement, replacementEncoding, storageEncoding);
 		return replace(targetCs, replacementCs);
 	}
 
@@ -1002,6 +1116,13 @@ class Charsequence
 		return result;
 	}
 
+	Charsequence replace(std::string_view target, std::string_view replacement, std::size_t maxCount, charset targetEncoding = charset::utf8, charset replacementEncoding = charset::utf8) const
+	{
+		Charsequence targetCs(target, targetEncoding, storageEncoding);
+		Charsequence replacementCs(replacement, replacementEncoding, storageEncoding);
+		return replace(targetCs, replacementCs, maxCount);
+	}
+
 	std::size_t count(const Charsequence &target) const
 	{
 		if (target.pointStorage.empty())
@@ -1021,6 +1142,12 @@ class Charsequence
 			pos = found + target.pointStorage.size();
 		}
 		return result;
+	}
+
+	std::size_t count(std::string_view str, charset strEncoding = charset::utf8) const
+	{
+		Charsequence temp(str, strEncoding, storageEncoding);
+		return count(temp);
 	}
 
 	Charsequence trim() const
@@ -1112,9 +1239,9 @@ class Charsequence
 		return result;
 	}
 
-	std::vector<Charsequence> split(std::string_view delimiter) const
+	std::vector<Charsequence> split(std::string_view delimiter, charset delimiterEncoding = charset::utf8) const
 	{
-		Charsequence delim(delimiter, storageEncoding, storageEncoding);
+		Charsequence delim(delimiter, delimiterEncoding, storageEncoding);
 		return split(delim);
 	}
 
@@ -1132,24 +1259,10 @@ class Charsequence
 		return result;
 	}
 
-	Charsequence toString(charset targetEncoding) const
+	static Charsequence join(const std::vector<Charsequence> &parts, std::string_view separator, charset separatorEncoding = charset::utf8)
 	{
-		if (targetEncoding == storageEncoding)
-		{
-			return *this;
-		}
-		Charsequence result;
-		result.storageEncoding = targetEncoding;
-		for (const auto &point : pointStorage)
-		{
-			auto encoded = encode(point.getValue(), targetEncoding);
-			std::size_t index = 0;
-			while (index < encoded.size())
-			{
-				result.pointStorage.push_back(Point(decode(encoded, index, targetEncoding)));
-			}
-		}
-		return result;
+		Charsequence sep(separator, separatorEncoding);
+		return join(parts, sep);
 	}
 
 	int compare(const Charsequence &other) const
@@ -1175,6 +1288,12 @@ class Charsequence
 			return 1;
 		}
 		return 0;
+	}
+
+	int compare(std::string_view str, charset strEncoding = charset::utf8) const
+	{
+		Charsequence temp(str, strEncoding, storageEncoding);
+		return compare(temp);
 	}
 
 	std::vector<unsigned char> getBytes(charset targetEncoding) const
@@ -1227,7 +1346,7 @@ class Charsequence
 
 	Charsequence operator+(std::string_view str) const
 	{
-		Charsequence temp(str, storageEncoding, storageEncoding);
+		Charsequence temp(str, charset::utf8, storageEncoding);
 		return *this + temp;
 	}
 
@@ -1239,7 +1358,7 @@ class Charsequence
 
 	Charsequence &operator+=(std::string_view other)
 	{
-		Charsequence temp(other, storageEncoding, storageEncoding);
+		Charsequence temp(other, charset::utf8, storageEncoding);
 		return *this += temp;
 	}
 
@@ -1249,6 +1368,17 @@ class Charsequence
 	bool operator<=(const Charsequence &other) const { return compare(other) <= 0; }
 	bool operator>(const Charsequence &other) const { return compare(other) > 0; }
 	bool operator>=(const Charsequence &other) const { return compare(other) >= 0; }
+
+	bool operator==(std::string_view str) const
+	{
+		Charsequence temp(str, charset::utf8, storageEncoding);
+		return compare(temp) == 0;
+	}
+	bool operator!=(std::string_view str) const
+	{
+		Charsequence temp(str, charset::utf8, storageEncoding);
+		return compare(temp) != 0;
+	}
 
 	Point operator[](std::size_t index) const { return at(index); }
 
@@ -1285,7 +1415,7 @@ class Charsequence
 
 	friend Charsequence operator+(std::string_view left, const Charsequence &right)
 	{
-		Charsequence temp(left, right.storageEncoding, right.storageEncoding);
+		Charsequence temp(left, charset::utf8, right.storageEncoding);
 		return temp + right;
 	}
 
@@ -1299,24 +1429,6 @@ class Charsequence
 	static bool isWhitespace(unsigned int codepoint)
 	{
 		return codepoint == ' ' || codepoint == '\t' || codepoint == '\n' || codepoint == '\r' || codepoint == '\v' || codepoint == '\f';
-	}
-
-	void initializeFromBytes(const unsigned char *data, std::size_t length, charset sourceEncoding, charset targetEncoding)
-	{
-		std::vector<unsigned char> bytes;
-		if (sourceEncoding == targetEncoding)
-		{
-			bytes.assign(data, data + length);
-		}
-		else
-		{
-			convertTo(std::string_view(reinterpret_cast<const char *>(data), length), sourceEncoding, targetEncoding, bytes);
-		}
-		std::size_t index = 0;
-		while (index < bytes.size())
-		{
-			pointStorage.push_back(Point(decode(bytes, index, targetEncoding)));
-		}
 	}
 };
 
@@ -1362,7 +1474,7 @@ class Builder
 		}
 		else
 		{
-			convertToDeque(source, sourceEncoding, targetEncoding, storage);
+			convert(source, sourceEncoding, targetEncoding, storage);
 		}
 	}
 
@@ -1408,7 +1520,7 @@ class Builder
 					{
 						break;
 					}
-					if (b >= 0xC0 && b < 0xF8)
+					if (b >= 0xC0 && b < 0xF5)
 					{
 						std::size_t expectedLen = sequenceLength(b, charset::utf8);
 						std::size_t remaining = static_cast<std::size_t>(combined.end() - it);
@@ -1427,17 +1539,18 @@ class Builder
 					safeSize -= trailing;
 				}
 			}
-			auto endIt = combined.begin();
-			std::advance(endIt, safeSize);
 			if (sourceEncoding == targetEncoding)
 			{
+				auto endIt = combined.begin();
+				std::advance(endIt, safeSize);
 				storage.insert(storage.end(), combined.begin(), endIt);
 			}
 			else
 			{
-				std::string temp(combined.begin(), endIt);
-				std::string convertedStr = convert(std::string_view(temp), sourceEncoding, targetEncoding);
-				storage.insert(storage.end(), convertedStr.begin(), convertedStr.end());
+				std::vector<unsigned char> contiguous(combined.begin(), combined.end());
+				contiguous.resize(safeSize);
+				std::string_view tempView(reinterpret_cast<const char *>(contiguous.data()), contiguous.size());
+				convert(tempView, sourceEncoding, targetEncoding, storage);
 			}
 			totalRead += bytesRead;
 		}
@@ -1457,7 +1570,7 @@ class Builder
 		}
 		else
 		{
-			convertToDeque(std::string_view(temp), sourceEncoding, targetEncoding, storage);
+			convert(std::string_view(temp), sourceEncoding, targetEncoding, storage);
 		}
 	}
 
@@ -1468,9 +1581,9 @@ class Builder
 		return *this;
 	}
 
-	Builder &prepend(std::string_view source)
+	Builder &prepend(std::string_view source, charset sourceEncoding = charset::utf8)
 	{
-		Charsequence temp(source, storageEncoding, storageEncoding);
+		Charsequence temp(source, sourceEncoding, storageEncoding);
 		return prepend(temp);
 	}
 
@@ -1508,9 +1621,9 @@ class Builder
 		return *this;
 	}
 
-	Builder &insert(std::size_t position, std::string_view source)
+	Builder &insert(std::size_t position, std::string_view source, charset sourceEncoding = charset::utf8)
 	{
-		Charsequence temp(source, storageEncoding, storageEncoding);
+		Charsequence temp(source, sourceEncoding, storageEncoding);
 		return insert(position, temp);
 	}
 
@@ -1548,26 +1661,30 @@ class Builder
 
 	Builder &insert(std::size_t position, short value)
 	{
-		std::string str = std::to_string(value);
-		return insert(position, std::string_view(str));
+		std::array<char, 32> buf;
+		auto result = std::to_chars(buf.data(), buf.data() + buf.size(), value);
+		return insert(position, std::string_view(buf.data(), result.ptr - buf.data()));
 	}
 
 	Builder &insert(std::size_t position, int value)
 	{
-		std::string str = std::to_string(value);
-		return insert(position, std::string_view(str));
+		std::array<char, 32> buf;
+		auto result = std::to_chars(buf.data(), buf.data() + buf.size(), value);
+		return insert(position, std::string_view(buf.data(), result.ptr - buf.data()));
 	}
 
 	Builder &insert(std::size_t position, long value)
 	{
-		std::string str = std::to_string(value);
-		return insert(position, std::string_view(str));
+		std::array<char, 32> buf;
+		auto result = std::to_chars(buf.data(), buf.data() + buf.size(), value);
+		return insert(position, std::string_view(buf.data(), result.ptr - buf.data()));
 	}
 
 	Builder &insert(std::size_t position, long long value)
 	{
-		std::string str = std::to_string(value);
-		return insert(position, std::string_view(str));
+		std::array<char, 32> buf;
+		auto result = std::to_chars(buf.data(), buf.data() + buf.size(), value);
+		return insert(position, std::string_view(buf.data(), result.ptr - buf.data()));
 	}
 
 	Builder &insert(std::size_t position, float value)
@@ -1596,26 +1713,30 @@ class Builder
 
 	Builder &insert(std::size_t position, unsigned short value)
 	{
-		std::string str = std::to_string(value);
-		return insert(position, std::string_view(str));
+		std::array<char, 32> buf;
+		auto result = std::to_chars(buf.data(), buf.data() + buf.size(), value);
+		return insert(position, std::string_view(buf.data(), result.ptr - buf.data()));
 	}
 
 	Builder &insert(std::size_t position, unsigned int value)
 	{
-		std::string str = std::to_string(value);
-		return insert(position, std::string_view(str));
+		std::array<char, 32> buf;
+		auto result = std::to_chars(buf.data(), buf.data() + buf.size(), value);
+		return insert(position, std::string_view(buf.data(), result.ptr - buf.data()));
 	}
 
 	Builder &insert(std::size_t position, unsigned long value)
 	{
-		std::string str = std::to_string(value);
-		return insert(position, std::string_view(str));
+		std::array<char, 32> buf;
+		auto result = std::to_chars(buf.data(), buf.data() + buf.size(), value);
+		return insert(position, std::string_view(buf.data(), result.ptr - buf.data()));
 	}
 
 	Builder &insert(std::size_t position, unsigned long long value)
 	{
-		std::string str = std::to_string(value);
-		return insert(position, std::string_view(str));
+		std::array<char, 32> buf;
+		auto result = std::to_chars(buf.data(), buf.data() + buf.size(), value);
+		return insert(position, std::string_view(buf.data(), result.ptr - buf.data()));
 	}
 
 	Builder &append(const Charsequence &source)
@@ -1625,9 +1746,9 @@ class Builder
 		return *this;
 	}
 
-	Builder &append(std::string_view source)
+	Builder &append(std::string_view source, charset sourceEncoding = charset::utf8)
 	{
-		Charsequence temp(source, storageEncoding, storageEncoding);
+		Charsequence temp(source, sourceEncoding, storageEncoding);
 		return append(temp);
 	}
 
@@ -1659,26 +1780,30 @@ class Builder
 
 	Builder &append(short value)
 	{
-		std::string str = std::to_string(value);
-		return append(std::string_view(str));
+		std::array<char, 32> buf;
+		auto result = std::to_chars(buf.data(), buf.data() + buf.size(), value);
+		return append(std::string_view(buf.data(), result.ptr - buf.data()));
 	}
 
 	Builder &append(int value)
 	{
-		std::string str = std::to_string(value);
-		return append(std::string_view(str));
+		std::array<char, 32> buf;
+		auto result = std::to_chars(buf.data(), buf.data() + buf.size(), value);
+		return append(std::string_view(buf.data(), result.ptr - buf.data()));
 	}
 
 	Builder &append(long value)
 	{
-		std::string str = std::to_string(value);
-		return append(std::string_view(str));
+		std::array<char, 32> buf;
+		auto result = std::to_chars(buf.data(), buf.data() + buf.size(), value);
+		return append(std::string_view(buf.data(), result.ptr - buf.data()));
 	}
 
 	Builder &append(long long value)
 	{
-		std::string str = std::to_string(value);
-		return append(std::string_view(str));
+		std::array<char, 32> buf;
+		auto result = std::to_chars(buf.data(), buf.data() + buf.size(), value);
+		return append(std::string_view(buf.data(), result.ptr - buf.data()));
 	}
 
 	Builder &append(float value)
@@ -1707,26 +1832,30 @@ class Builder
 
 	Builder &append(unsigned short value)
 	{
-		std::string str = std::to_string(value);
-		return append(std::string_view(str));
+		std::array<char, 32> buf;
+		auto result = std::to_chars(buf.data(), buf.data() + buf.size(), value);
+		return append(std::string_view(buf.data(), result.ptr - buf.data()));
 	}
 
 	Builder &append(unsigned int value)
 	{
-		std::string str = std::to_string(value);
-		return append(std::string_view(str));
+		std::array<char, 32> buf;
+		auto result = std::to_chars(buf.data(), buf.data() + buf.size(), value);
+		return append(std::string_view(buf.data(), result.ptr - buf.data()));
 	}
 
 	Builder &append(unsigned long value)
 	{
-		std::string str = std::to_string(value);
-		return append(std::string_view(str));
+		std::array<char, 32> buf;
+		auto result = std::to_chars(buf.data(), buf.data() + buf.size(), value);
+		return append(std::string_view(buf.data(), result.ptr - buf.data()));
 	}
 
 	Builder &append(unsigned long long value)
 	{
-		std::string str = std::to_string(value);
-		return append(std::string_view(str));
+		std::array<char, 32> buf;
+		auto result = std::to_chars(buf.data(), buf.data() + buf.size(), value);
+		return append(std::string_view(buf.data(), result.ptr - buf.data()));
 	}
 
 	Builder operator+(const Builder &other) const
@@ -1831,15 +1960,15 @@ class Buffer
   public:
 	static constexpr std::size_t defaultCapacity = 4096;
 
-	Buffer() : storage(defaultCapacity), readPosition(0), writePosition(0), elementCount(0), mutex() {}
-	explicit Buffer(std::size_t capacity) : storage(capacity), readPosition(0), writePosition(0), elementCount(0), mutex() {}
+	Buffer() : storage(defaultCapacity), readPosition(0), writePosition(0), elementCount(0) {}
+	explicit Buffer(std::size_t capacity) : storage(capacity > 0 ? capacity : defaultCapacity), readPosition(0), writePosition(0), elementCount(0) {}
 
-	Buffer(std::string_view source) : storage(source.size() > 0 ? source.size() : defaultCapacity), readPosition(0), writePosition(0), elementCount(0), mutex()
+	Buffer(std::string_view source) : storage(source.size() > 0 ? source.size() : defaultCapacity), readPosition(0), writePosition(0), elementCount(0)
 	{
 		write(source);
 	}
 
-	Buffer(std::istream &stream, std::size_t maxLength) : storage(maxLength > 0 ? maxLength : defaultCapacity), readPosition(0), writePosition(0), elementCount(0), mutex()
+	Buffer(std::istream &stream, std::size_t maxLength) : storage(maxLength > 0 ? maxLength : defaultCapacity), readPosition(0), writePosition(0), elementCount(0)
 	{
 		std::string temp;
 		temp.resize(maxLength);
@@ -1849,7 +1978,7 @@ class Buffer
 		write(std::string_view(temp));
 	}
 
-	Buffer(std::stringstream &stream) : storage(defaultCapacity), readPosition(0), writePosition(0), elementCount(0), mutex()
+	Buffer(std::stringstream &stream) : storage(defaultCapacity), readPosition(0), writePosition(0), elementCount(0)
 	{
 		std::string temp = stream.str();
 		if (temp.size() > 0)
@@ -1859,8 +1988,12 @@ class Buffer
 		write(std::string_view(temp));
 	}
 
-	Buffer(const Buffer &other) : storage(), readPosition(0), writePosition(0), elementCount(0), mutex()
+	Buffer(const Buffer &other) : storage(), readPosition(0), writePosition(0), elementCount(0)
 	{
+		if (this == &other)
+		{
+			return;
+		}
 		std::lock_guard<std::mutex> lock(other.mutex);
 		storage = other.storage;
 		readPosition = other.readPosition;
@@ -1868,8 +2001,12 @@ class Buffer
 		elementCount = other.elementCount;
 	}
 
-	Buffer(Buffer &&other) noexcept : storage(), readPosition(0), writePosition(0), elementCount(0), mutex()
+	Buffer(Buffer &&other) noexcept : storage(), readPosition(0), writePosition(0), elementCount(0)
 	{
+		if (this == &other)
+		{
+			return;
+		}
 		std::lock_guard<std::mutex> lock(other.mutex);
 		storage = std::move(other.storage);
 		readPosition = other.readPosition;
@@ -1886,9 +2023,7 @@ class Buffer
 		{
 			return *this;
 		}
-		std::lock(mutex, other.mutex);
-		std::lock_guard<std::mutex> lockThis(mutex, std::adopt_lock);
-		std::lock_guard<std::mutex> lockOther(other.mutex, std::adopt_lock);
+		std::scoped_lock lock(mutex, other.mutex);
 		storage = other.storage;
 		readPosition = other.readPosition;
 		writePosition = other.writePosition;
@@ -1902,9 +2037,7 @@ class Buffer
 		{
 			return *this;
 		}
-		std::unique_lock<std::mutex> lockThis(mutex, std::defer_lock);
-		std::unique_lock<std::mutex> lockOther(other.mutex, std::defer_lock);
-		std::lock(lockThis, lockOther);
+		std::scoped_lock lock(mutex, other.mutex);
 		storage = std::move(other.storage);
 		readPosition = other.readPosition;
 		writePosition = other.writePosition;
@@ -1922,7 +2055,11 @@ class Buffer
 		{
 			return 0;
 		}
-		ensureCapacity(length);
+		std::size_t availableSpace = storage.size() - elementCount;
+		if (length > availableSpace)
+		{
+			ensureCapacity(elementCount + length);
+		}
 		std::size_t written = 0;
 		while (written < length)
 		{
@@ -1976,26 +2113,30 @@ class Buffer
 
 	std::size_t write(short value)
 	{
-		std::string str = std::to_string(value);
-		return write(std::string_view(str));
+		std::array<char, 32> buf;
+		auto result = std::to_chars(buf.data(), buf.data() + buf.size(), value);
+		return write(std::string_view(buf.data(), result.ptr - buf.data()));
 	}
 
 	std::size_t write(int value)
 	{
-		std::string str = std::to_string(value);
-		return write(std::string_view(str));
+		std::array<char, 32> buf;
+		auto result = std::to_chars(buf.data(), buf.data() + buf.size(), value);
+		return write(std::string_view(buf.data(), result.ptr - buf.data()));
 	}
 
 	std::size_t write(long value)
 	{
-		std::string str = std::to_string(value);
-		return write(std::string_view(str));
+		std::array<char, 32> buf;
+		auto result = std::to_chars(buf.data(), buf.data() + buf.size(), value);
+		return write(std::string_view(buf.data(), result.ptr - buf.data()));
 	}
 
 	std::size_t write(long long value)
 	{
-		std::string str = std::to_string(value);
-		return write(std::string_view(str));
+		std::array<char, 32> buf;
+		auto result = std::to_chars(buf.data(), buf.data() + buf.size(), value);
+		return write(std::string_view(buf.data(), result.ptr - buf.data()));
 	}
 
 	std::size_t write(float value)
@@ -2024,26 +2165,30 @@ class Buffer
 
 	std::size_t write(unsigned short value)
 	{
-		std::string str = std::to_string(value);
-		return write(std::string_view(str));
+		std::array<char, 32> buf;
+		auto result = std::to_chars(buf.data(), buf.data() + buf.size(), value);
+		return write(std::string_view(buf.data(), result.ptr - buf.data()));
 	}
 
 	std::size_t write(unsigned int value)
 	{
-		std::string str = std::to_string(value);
-		return write(std::string_view(str));
+		std::array<char, 32> buf;
+		auto result = std::to_chars(buf.data(), buf.data() + buf.size(), value);
+		return write(std::string_view(buf.data(), result.ptr - buf.data()));
 	}
 
 	std::size_t write(unsigned long value)
 	{
-		std::string str = std::to_string(value);
-		return write(std::string_view(str));
+		std::array<char, 32> buf;
+		auto result = std::to_chars(buf.data(), buf.data() + buf.size(), value);
+		return write(std::string_view(buf.data(), result.ptr - buf.data()));
 	}
 
 	std::size_t write(unsigned long long value)
 	{
-		std::string str = std::to_string(value);
-		return write(std::string_view(str));
+		std::array<char, 32> buf;
+		auto result = std::to_chars(buf.data(), buf.data() + buf.size(), value);
+		return write(std::string_view(buf.data(), result.ptr - buf.data()));
 	}
 
 	std::size_t prepend(const char *input, std::size_t length)
@@ -2053,11 +2198,27 @@ class Buffer
 		{
 			return 0;
 		}
-		ensureCapacity(length);
-		for (std::size_t i = length; i > 0; --i)
+		std::size_t availableSpace = storage.size() - elementCount;
+		if (length > availableSpace)
 		{
-			readPosition = (readPosition + storage.size() - 1) % storage.size();
-			storage[readPosition] = static_cast<unsigned char>(input[i - 1]);
+			ensureCapacity(elementCount + length);
+		}
+		std::size_t spaceBeforeRead = readPosition;
+		if (spaceBeforeRead == 0)
+		{
+			spaceBeforeRead = storage.size();
+		}
+		std::size_t firstChunk = std::min(length, spaceBeforeRead);
+		std::size_t secondChunk = length - firstChunk;
+		if (firstChunk > 0)
+		{
+			readPosition = (readPosition + storage.size() - firstChunk) % storage.size();
+			std::memcpy(&storage[readPosition], input + secondChunk, firstChunk);
+		}
+		if (secondChunk > 0)
+		{
+			readPosition = (readPosition + storage.size() - secondChunk) % storage.size();
+			std::memcpy(&storage[readPosition], input, secondChunk);
 		}
 		elementCount += length;
 		return length;
@@ -2260,34 +2421,7 @@ class Buffer
 	std::vector<unsigned char> data() const
 	{
 		std::lock_guard<std::mutex> lock(mutex);
-		std::vector<unsigned char> result;
-		result.reserve(elementCount);
-		std::size_t remaining = elementCount;
-		std::size_t pos = readPosition;
-		while (remaining > 0)
-		{
-			std::size_t available = storage.size() - pos;
-			std::size_t chunk = std::min(remaining, available);
-			result.insert(result.end(), storage.begin() + pos, storage.begin() + pos + chunk);
-			pos = (pos + chunk) % storage.size();
-			remaining -= chunk;
-		}
-		return result;
-	}
-
-	const unsigned char *unsafeData() const noexcept
-	{
-		return storage.data() + readPosition;
-	}
-
-	std::size_t unsafeSize() const noexcept
-	{
-		return elementCount;
-	}
-
-	bool unsafeIsContiguous() const noexcept
-	{
-		return readPosition + elementCount <= storage.size();
+		return dataUnsafe();
 	}
 
 	std::size_t size() const
@@ -2357,20 +2491,21 @@ class Buffer
 		Buffer result;
 		if (this == &other)
 		{
-			std::lock_guard<std::mutex> lock(mutex);
-			auto data = peekAllUnsafe();
-			result.writeDataUnsafe(reinterpret_cast<const char *>(data.data()), data.size());
-			result.writeDataUnsafe(reinterpret_cast<const char *>(data.data()), data.size());
+			std::vector<unsigned char> d;
+			{
+				std::scoped_lock lock(mutex);
+				d = dataUnsafe();
+			}
+			result.write(reinterpret_cast<const char *>(d.data()), d.size());
+			result.write(reinterpret_cast<const char *>(d.data()), d.size());
 		}
 		else
 		{
-			std::lock(mutex, other.mutex);
-			std::lock_guard<std::mutex> lockThis(mutex, std::adopt_lock);
-			std::lock_guard<std::mutex> lockOther(other.mutex, std::adopt_lock);
-			auto thisData = peekAllUnsafe();
-			auto otherData = other.peekAllUnsafe();
-			result.writeDataUnsafe(reinterpret_cast<const char *>(thisData.data()), thisData.size());
-			result.writeDataUnsafe(reinterpret_cast<const char *>(otherData.data()), otherData.size());
+			std::scoped_lock lock(mutex, other.mutex);
+			auto thisData = dataUnsafe();
+			auto otherData = other.dataUnsafe();
+			result.write(reinterpret_cast<const char *>(thisData.data()), thisData.size());
+			result.write(reinterpret_cast<const char *>(otherData.data()), otherData.size());
 		}
 		return result;
 	}
@@ -2378,10 +2513,12 @@ class Buffer
 	Buffer operator+(std::string_view str) const
 	{
 		Buffer result;
-		std::lock_guard<std::mutex> lockThis(mutex);
-		auto thisData = peekAllUnsafe();
-		result.writeDataUnsafe(reinterpret_cast<const char *>(thisData.data()), thisData.size());
-		result.writeDataUnsafe(str.data(), str.size());
+		{
+			std::lock_guard<std::mutex> lockThis(mutex);
+			auto thisData = dataUnsafe();
+			result.write(reinterpret_cast<const char *>(thisData.data()), thisData.size());
+		}
+		result.write(str.data(), str.size());
 		return result;
 	}
 
@@ -2389,18 +2526,18 @@ class Buffer
 	{
 		if (this == &other)
 		{
-			std::lock_guard<std::mutex> lock(mutex);
-			auto data = peekAllUnsafe();
-			writeDataUnsafe(reinterpret_cast<const char *>(data.data()), data.size());
-			writeDataUnsafe(reinterpret_cast<const char *>(data.data()), data.size());
+			std::vector<unsigned char> d;
+			{
+				std::lock_guard<std::mutex> lock(mutex);
+				d = dataUnsafe();
+			}
+			write(d);
 		}
 		else
 		{
-			std::lock(mutex, other.mutex);
-			std::lock_guard<std::mutex> lockThis(mutex, std::adopt_lock);
-			std::lock_guard<std::mutex> lockOther(other.mutex, std::adopt_lock);
-			auto otherData = other.peekAllUnsafe();
-			writeDataUnsafe(reinterpret_cast<const char *>(otherData.data()), otherData.size());
+			std::scoped_lock lock(mutex, other.mutex);
+			auto otherData = other.dataUnsafe();
+			writeUnsafe(reinterpret_cast<const char *>(otherData.data()), otherData.size());
 		}
 		return *this;
 	}
@@ -2481,7 +2618,10 @@ class Buffer
 	{
 		std::lock_guard<std::mutex> lock(mutex);
 		output.resize(elementCount);
-		readDataUnsafe(output.data(), elementCount);
+		if (elementCount > 0)
+		{
+			readDataUnsafe(output.data(), elementCount);
+		}
 		readPosition = 0;
 		writePosition = 0;
 		elementCount = 0;
@@ -2490,8 +2630,8 @@ class Buffer
 
 	friend std::ostream &operator<<(std::ostream &stream, const Buffer &buffer)
 	{
-		auto data = buffer.data();
-		stream.write(reinterpret_cast<const char *>(data.data()), data.size());
+		auto d = buffer.data();
+		stream.write(reinterpret_cast<const char *>(d.data()), d.size());
 		return stream;
 	}
 
@@ -2505,8 +2645,8 @@ class Buffer
 
 	friend std::stringstream &operator<<(std::stringstream &stream, const Buffer &buffer)
 	{
-		auto data = buffer.data();
-		stream.write(reinterpret_cast<const char *>(data.data()), data.size());
+		auto d = buffer.data();
+		stream.write(reinterpret_cast<const char *>(d.data()), d.size());
 		return stream;
 	}
 
@@ -2522,10 +2662,12 @@ class Buffer
 	friend Buffer operator+(std::string_view left, const Buffer &right)
 	{
 		Buffer result;
-		std::lock_guard<std::mutex> lockRight(right.mutex);
-		auto rightData = right.peekAllUnsafe();
-		result.writeDataUnsafe(left.data(), left.size());
-		result.writeDataUnsafe(reinterpret_cast<const char *>(rightData.data()), rightData.size());
+		{
+			std::lock_guard<std::mutex> lockRight(right.mutex);
+			auto rightData = right.dataUnsafe();
+			result.write(left.data(), left.size());
+			result.write(reinterpret_cast<const char *>(rightData.data()), rightData.size());
+		}
 		return result;
 	}
 
@@ -2536,11 +2678,15 @@ class Buffer
 	std::size_t elementCount;
 	mutable std::mutex mutex;
 
-	void writeDataUnsafe(const char *input, std::size_t length)
+	void writeUnsafe(const char *input, std::size_t length)
 	{
 		if (!input || length == 0)
 			return;
-		ensureCapacity(length);
+		std::size_t availableSpace = storage.size() - elementCount;
+		if (length > availableSpace)
+		{
+			ensureCapacity(elementCount + length);
+		}
 		std::size_t written = 0;
 		while (written < length)
 		{
@@ -2570,9 +2716,8 @@ class Buffer
 		}
 	}
 
-	void ensureCapacity(std::size_t additional)
+	void ensureCapacity(std::size_t required)
 	{
-		std::size_t required = elementCount + additional;
 		if (required <= storage.size())
 		{
 			return;
@@ -2601,10 +2746,10 @@ class Buffer
 		}
 		storage = std::move(newStorage);
 		readPosition = 0;
-		writePosition = elementCount;
+		writePosition = elementCount % storage.size();
 	}
 
-	std::vector<unsigned char> peekAllUnsafe() const
+	std::vector<unsigned char> dataUnsafe() const
 	{
 		std::vector<unsigned char> result;
 		result.reserve(elementCount);
@@ -2650,7 +2795,7 @@ struct hash<charsequence::Charsequence>
 	size_t operator()(const charsequence::Charsequence &sequence) const noexcept
 	{
 		const auto &points = sequence.getPoints();
-		size_t seed = points.size();
+		size_t seed = 0;
 		for (const auto &point : points)
 		{
 			size_t value = hash<unsigned int>()(point.getValue());
@@ -2666,7 +2811,7 @@ struct hash<charsequence::Builder>
 	size_t operator()(const charsequence::Builder &builder) const noexcept
 	{
 		auto bytes = builder.getBytes();
-		size_t seed = bytes.size();
+		size_t seed = 0;
 		for (auto byte : bytes)
 		{
 			seed ^= hash<unsigned char>()(byte) + 0x9e3779b9 + (seed << 6) + (seed >> 2);
@@ -2680,9 +2825,9 @@ struct hash<charsequence::Buffer>
 {
 	size_t operator()(const charsequence::Buffer &buffer) const noexcept
 	{
-		auto data = buffer.data();
-		size_t seed = data.size();
-		for (auto byte : data)
+		auto d = buffer.data();
+		size_t seed = 0;
+		for (auto byte : d)
 		{
 			seed ^= hash<unsigned char>()(byte) + 0x9e3779b9 + (seed << 6) + (seed >> 2);
 		}

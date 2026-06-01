@@ -881,37 +881,132 @@ auto useError(const charsequence::Charsequence &prefix, const charsequence::Char
 }
 
 template <typename E>
-auto useFrequency() -> Collector<E, std::map<E, function::Module>, std::map<E, function::Module>>
+auto useFrequency() -> Collector<E, std::unordered_map<E, std::complex<double>>, std::map<E, std::complex<double>>>
 {
-	return useFull<E, std::map<E, function::Module>, std::map<E, function::Module>>(
-		[]() -> std::map<E, function::Module> { return std::map<E, function::Module>(); },
-		[](std::map<E, function::Module> accumulatorValue, E element, function::Timestamp index) -> std::map<E, function::Module> {
-			accumulatorValue[element]++;
+	return useFull<E, std::unordered_map<E, std::complex<double>>, std::map<E, std::complex<double>>>(
+		[]() -> std::unordered_map<E, std::complex<double>> {
+			return std::unordered_map<E, std::complex<double>>();
+		},
+		[](std::unordered_map<E, std::complex<double>> accumulatorValue, E element, function::Timestamp index) -> std::unordered_map<E, std::complex<double>> {
+			double angle = 2.0 * pi * static_cast<double>(index);
+			accumulatorValue[element] += std::complex<double>(std::cos(angle), std::sin(angle));
 			return accumulatorValue;
 		},
-		[](std::map<E, function::Module> a, std::map<E, function::Module> b) -> std::map<E, function::Module> {
-			for (const auto &[key, count] : b)
-				a[key] += count;
+		[](std::unordered_map<E, std::complex<double>> a, std::unordered_map<E, std::complex<double>> b) -> std::unordered_map<E, std::complex<double>> {
+			for (auto &[key, value] : b)
+				a[key] += value;
 			return a;
 		},
-		[](std::map<E, function::Module> accumulatorValue) -> std::map<E, function::Module> { return accumulatorValue; });
+		[](std::unordered_map<E, std::complex<double>> accumulatorValue) -> std::map<E, std::complex<double>> {
+			return std::map<E, std::complex<double>>(accumulatorValue.begin(), accumulatorValue.end());
+		});
 }
 
 template <typename E, typename D>
-auto useFrequency(const function::Function<E, D> &mapper) -> Collector<E, std::map<D, function::Module>, std::map<D, function::Module>>
+auto useFrequency(const function::Function<E, D> &mapper) -> Collector<E, std::unordered_map<D, std::complex<double>>, std::map<D, std::complex<double>>>
 {
-	return useFull<E, std::map<D, function::Module>, std::map<D, function::Module>>(
-		[]() -> std::map<D, function::Module> { return std::map<D, function::Module>(); },
-		[mapper](std::map<D, function::Module> accumulatorValue, E element, function::Timestamp index) -> std::map<D, function::Module> {
-			accumulatorValue[mapper(element)]++;
+	return useFull<E, std::unordered_map<D, std::complex<double>>, std::map<D, std::complex<double>>>(
+		[]() -> std::unordered_map<D, std::complex<double>> {
+			return std::unordered_map<D, std::complex<double>>();
+		},
+		[mapper](std::unordered_map<D, std::complex<double>> accumulatorValue, E element, function::Timestamp index) -> std::unordered_map<D, std::complex<double>> {
+			D key = mapper(element);
+			double angle = 2.0 * pi * static_cast<double>(index);
+			accumulatorValue[key] += std::complex<double>(std::cos(angle), std::sin(angle));
 			return accumulatorValue;
 		},
-		[](std::map<D, function::Module> a, std::map<D, function::Module> b) -> std::map<D, function::Module> {
-			for (const auto &[key, count] : b)
-				a[key] += count;
+		[](std::unordered_map<D, std::complex<double>> a, std::unordered_map<D, std::complex<double>> b) -> std::unordered_map<D, std::complex<double>> {
+			for (auto &[key, value] : b)
+				a[key] += value;
 			return a;
 		},
-		[](std::map<D, function::Module> accumulatorValue) -> std::map<D, function::Module> { return accumulatorValue; });
+		[](std::unordered_map<D, std::complex<double>> accumulatorValue) -> std::map<D, std::complex<double>> {
+			return std::map<D, std::complex<double>>(accumulatorValue.begin(), accumulatorValue.end());
+		});
+}
+
+template <typename E>
+auto useDistribution() -> Collector<E, std::unordered_map<E, std::vector<function::Timestamp>>, std::map<E, std::complex<double>>>
+{
+	return useFull<E, std::unordered_map<E, std::vector<function::Timestamp>>, std::map<E, std::complex<double>>>(
+		[]() -> std::unordered_map<E, std::vector<function::Timestamp>> {
+			return std::unordered_map<E, std::vector<function::Timestamp>>();
+		},
+		[](std::unordered_map<E, std::vector<function::Timestamp>> accumulatorValue, E element, function::Timestamp index) -> std::unordered_map<E, std::vector<function::Timestamp>> {
+			accumulatorValue[element].push_back(index);
+			return accumulatorValue;
+		},
+		[](std::unordered_map<E, std::vector<function::Timestamp>> a, std::unordered_map<E, std::vector<function::Timestamp>> b) -> std::unordered_map<E, std::vector<function::Timestamp>> {
+			for (auto &[key, indices] : b)
+			{
+				auto &target = a[key];
+				target.insert(target.end(), indices.begin(), indices.end());
+			}
+			return a;
+		},
+		[](std::unordered_map<E, std::vector<function::Timestamp>> accumulatorValue) -> std::map<E, std::complex<double>> {
+			std::map<E, std::complex<double>> result;
+			function::Module totalSize = 0;
+			for (const auto &[key, indices] : accumulatorValue)
+				totalSize += indices.size();
+			if (totalSize == 0)
+				return result;
+			for (auto &[key, indices] : accumulatorValue)
+			{
+				std::complex<double> sum(0.0, 0.0);
+				for (function::Timestamp index : indices)
+				{
+					double distanceToHead = static_cast<double>(index);
+					double distanceToTail = static_cast<double>(totalSize - 1 - index);
+					double angle = 2.0 * pi * (distanceToHead - distanceToTail) / static_cast<double>(totalSize);
+					sum += std::complex<double>(std::cos(angle), std::sin(angle));
+				}
+				result[key] = sum;
+			}
+			return result;
+		});
+}
+
+template <typename E, typename D>
+auto useDistribution(const function::Function<E, D> &mapper) -> Collector<E, std::unordered_map<D, std::vector<function::Timestamp>>, std::map<D, std::complex<double>>>
+{
+	return useFull<E, std::unordered_map<D, std::vector<function::Timestamp>>, std::map<D, std::complex<double>>>(
+		[]() -> std::unordered_map<D, std::vector<function::Timestamp>> {
+			return std::unordered_map<D, std::vector<function::Timestamp>>();
+		},
+		[mapper](std::unordered_map<D, std::vector<function::Timestamp>> accumulatorValue, E element, function::Timestamp index) -> std::unordered_map<D, std::vector<function::Timestamp>> {
+			accumulatorValue[mapper(element)].push_back(index);
+			return accumulatorValue;
+		},
+		[](std::unordered_map<D, std::vector<function::Timestamp>> a, std::unordered_map<D, std::vector<function::Timestamp>> b) -> std::unordered_map<D, std::vector<function::Timestamp>> {
+			for (auto &[key, indices] : b)
+			{
+				auto &target = a[key];
+				target.insert(target.end(), indices.begin(), indices.end());
+			}
+			return a;
+		},
+		[](std::unordered_map<D, std::vector<function::Timestamp>> accumulatorValue) -> std::map<D, std::complex<double>> {
+			std::map<D, std::complex<double>> result;
+			function::Module totalSize = 0;
+			for (const auto &[key, indices] : accumulatorValue)
+				totalSize += indices.size();
+			if (totalSize == 0)
+				return result;
+			for (auto &[key, indices] : accumulatorValue)
+			{
+				std::complex<double> sum(0.0, 0.0);
+				for (function::Timestamp index : indices)
+				{
+					double distanceToHead = static_cast<double>(index);
+					double distanceToTail = static_cast<double>(totalSize - 1 - index);
+					double angle = 2.0 * pi * (distanceToHead - distanceToTail) / static_cast<double>(totalSize);
+					sum += std::complex<double>(std::cos(angle), std::sin(angle));
+				}
+				result[key] = sum;
+			}
+			return result;
+		});
 }
 
 template <typename E>
@@ -978,6 +1073,134 @@ auto usePartitionBy(KeyExtractor &&keyExtractor) -> Collector<E, std::map<functi
 			for (auto &[key, vec] : accumulatorValue)
 				result.push_back(std::move(vec));
 			return result;
+		});
+}
+
+template <typename E, typename D>
+auto useMedian() -> Collector<E, std::vector<D>, std::optional<D>>
+{
+	return useFull<E, std::vector<D>, std::optional<D>>(
+		[]() -> std::vector<D> { return std::vector<D>(); },
+		[](std::vector<D> accumulatorValue, E element, function::Timestamp index) -> std::vector<D> {
+			accumulatorValue.push_back(static_cast<D>(element));
+			return accumulatorValue;
+		},
+		[](std::vector<D> a, std::vector<D> b) -> std::vector<D> {
+			a.insert(a.end(), b.begin(), b.end());
+			return a;
+		},
+		[](std::vector<D> accumulatorValue) -> std::optional<D> {
+			if (accumulatorValue.empty())
+				return std::nullopt;
+			std::sort(accumulatorValue.begin(), accumulatorValue.end());
+			if (accumulatorValue.size() % 2 == 1)
+				return std::optional<D>(accumulatorValue[accumulatorValue.size() / 2]);
+			return std::optional<D>((accumulatorValue[accumulatorValue.size() / 2 - 1] + accumulatorValue[accumulatorValue.size() / 2]) / static_cast<D>(2));
+		});
+}
+
+template <typename E, typename D>
+auto useMedian(const function::Function<E, D> &mapper) -> Collector<E, std::vector<D>, std::optional<D>>
+{
+	return useFull<E, std::vector<D>, std::optional<D>>(
+		[]() -> std::vector<D> { return std::vector<D>(); },
+		[mapper](std::vector<D> accumulatorValue, E element, function::Timestamp index) -> std::vector<D> {
+			accumulatorValue.push_back(mapper(element));
+			return accumulatorValue;
+		},
+		[](std::vector<D> a, std::vector<D> b) -> std::vector<D> {
+			a.insert(a.end(), b.begin(), b.end());
+			return a;
+		},
+		[](std::vector<D> accumulatorValue) -> std::optional<D> {
+			if (accumulatorValue.empty())
+				return std::nullopt;
+			std::sort(accumulatorValue.begin(), accumulatorValue.end());
+			if (accumulatorValue.size() % 2 == 1)
+				return std::optional<D>(accumulatorValue[accumulatorValue.size() / 2]);
+			return std::optional<D>((accumulatorValue[accumulatorValue.size() / 2 - 1] + accumulatorValue[accumulatorValue.size() / 2]) / static_cast<D>(2));
+		});
+}
+
+template <typename E>
+auto useMode() -> Collector<E, std::unordered_map<E, std::complex<double>>, std::optional<E>>
+{
+	return useFull<E, std::unordered_map<E, std::complex<double>>, std::optional<E>>(
+		[]() -> std::unordered_map<E, std::complex<double>> { return std::unordered_map<E, std::complex<double>>(); },
+		[](std::unordered_map<E, std::complex<double>> accumulatorValue, E element, function::Timestamp index) -> std::unordered_map<E, std::complex<double>> {
+			double angle = 2.0 * pi * static_cast<double>(index);
+			accumulatorValue[element] += std::complex<double>(std::cos(angle), std::sin(angle));
+			return accumulatorValue;
+		},
+		[](std::unordered_map<E, std::complex<double>> a, std::unordered_map<E, std::complex<double>> b) -> std::unordered_map<E, std::complex<double>> {
+			for (auto &[key, value] : b)
+				a[key] += value;
+			return a;
+		},
+		[](std::unordered_map<E, std::complex<double>> accumulatorValue) -> std::optional<E> {
+			if (accumulatorValue.empty())
+				return std::nullopt;
+			auto modeIter = std::max_element(accumulatorValue.begin(), accumulatorValue.end(),
+											 [](const auto &a, const auto &b) {
+												 return std::abs(a.second) < std::abs(b.second);
+											 });
+			if (std::abs(modeIter->second) == 0.0)
+				return std::nullopt;
+			return std::optional<E>(modeIter->first);
+		});
+}
+
+template <typename E, typename D>
+auto usePercentile(double p) -> Collector<E, std::vector<D>, std::optional<D>>
+{
+	return useFull<E, std::vector<D>, std::optional<D>>(
+		[]() -> std::vector<D> { return std::vector<D>(); },
+		[](std::vector<D> accumulatorValue, E element, function::Timestamp index) -> std::vector<D> {
+			accumulatorValue.push_back(static_cast<D>(element));
+			return accumulatorValue;
+		},
+		[](std::vector<D> a, std::vector<D> b) -> std::vector<D> {
+			a.insert(a.end(), b.begin(), b.end());
+			return a;
+		},
+		[p](std::vector<D> accumulatorValue) -> std::optional<D> {
+			if (accumulatorValue.empty() || p < 0.0 || p > 100.0)
+				return std::nullopt;
+			std::sort(accumulatorValue.begin(), accumulatorValue.end());
+			double rank = p / 100.0 * static_cast<double>(accumulatorValue.size() - 1);
+			std::size_t lowerIndex = static_cast<std::size_t>(std::floor(rank));
+			std::size_t upperIndex = static_cast<std::size_t>(std::ceil(rank));
+			if (lowerIndex == upperIndex)
+				return std::optional<D>(accumulatorValue[lowerIndex]);
+			double fraction = rank - static_cast<double>(lowerIndex);
+			return std::optional<D>(accumulatorValue[lowerIndex] + fraction * (accumulatorValue[upperIndex] - accumulatorValue[lowerIndex]));
+		});
+}
+
+template <typename E, typename D>
+auto usePercentile(double p, const function::Function<E, D> &mapper) -> Collector<E, std::vector<D>, std::optional<D>>
+{
+	return useFull<E, std::vector<D>, std::optional<D>>(
+		[]() -> std::vector<D> { return std::vector<D>(); },
+		[mapper](std::vector<D> accumulatorValue, E element, function::Timestamp index) -> std::vector<D> {
+			accumulatorValue.push_back(mapper(element));
+			return accumulatorValue;
+		},
+		[](std::vector<D> a, std::vector<D> b) -> std::vector<D> {
+			a.insert(a.end(), b.begin(), b.end());
+			return a;
+		},
+		[p](std::vector<D> accumulatorValue) -> std::optional<D> {
+			if (accumulatorValue.empty() || p < 0.0 || p > 100.0)
+				return std::nullopt;
+			std::sort(accumulatorValue.begin(), accumulatorValue.end());
+			double rank = p / 100.0 * static_cast<double>(accumulatorValue.size() - 1);
+			std::size_t lowerIndex = static_cast<std::size_t>(std::floor(rank));
+			std::size_t upperIndex = static_cast<std::size_t>(std::ceil(rank));
+			if (lowerIndex == upperIndex)
+				return std::optional<D>(accumulatorValue[lowerIndex]);
+			double fraction = rank - static_cast<double>(lowerIndex);
+			return std::optional<D>(accumulatorValue[lowerIndex] + fraction * (accumulatorValue[upperIndex] - accumulatorValue[lowerIndex]));
 		});
 }
 
@@ -1454,4 +1677,241 @@ auto useGradient(const std::function<double(const std::vector<E> &)> &costFuncti
 		});
 }
 
+template <typename E, typename D>
+auto useStandardDeviation() -> Collector<E, std::pair<D, std::vector<D>>, D>
+{
+	return useFull<E, std::pair<D, std::vector<D>>, D>(
+		[]() -> std::pair<D, std::vector<D>> { return std::make_pair(D{}, std::vector<D>()); },
+		[](std::pair<D, std::vector<D>> accumulatorValue, E element, function::Timestamp index) -> std::pair<D, std::vector<D>> {
+			D value = static_cast<D>(element);
+			accumulatorValue.first += value;
+			accumulatorValue.second.push_back(value);
+			return accumulatorValue;
+		},
+		[](std::pair<D, std::vector<D>> a, std::pair<D, std::vector<D>> b) -> std::pair<D, std::vector<D>> {
+			a.first += b.first;
+			a.second.insert(a.second.end(), b.second.begin(), b.second.end());
+			return a;
+		},
+		[](std::pair<D, std::vector<D>> accumulatorValue) -> D {
+			if (accumulatorValue.second.empty())
+				return D{};
+			D mean = accumulatorValue.first / static_cast<D>(accumulatorValue.second.size());
+			D sumOfSquares = D{};
+			for (const D &value : accumulatorValue.second)
+			{
+				D diff = value - mean;
+				sumOfSquares += diff * diff;
+			}
+			D variance = sumOfSquares / static_cast<D>(accumulatorValue.second.size());
+			return static_cast<D>(std::sqrt(static_cast<double>(variance)));
+		});
+}
+
+template <typename E, typename D>
+auto useStandardDeviation(const function::Function<E, D> &mapper) -> Collector<E, std::pair<D, std::vector<D>>, D>
+{
+	return useFull<E, std::pair<D, std::vector<D>>, D>(
+		[]() -> std::pair<D, std::vector<D>> { return std::make_pair(D{}, std::vector<D>()); },
+		[mapper](std::pair<D, std::vector<D>> accumulatorValue, E element, function::Timestamp index) -> std::pair<D, std::vector<D>> {
+			D value = mapper(element);
+			accumulatorValue.first += value;
+			accumulatorValue.second.push_back(value);
+			return accumulatorValue;
+		},
+		[](std::pair<D, std::vector<D>> a, std::pair<D, std::vector<D>> b) -> std::pair<D, std::vector<D>> {
+			a.first += b.first;
+			a.second.insert(a.second.end(), b.second.begin(), b.second.end());
+			return a;
+		},
+		[](std::pair<D, std::vector<D>> accumulatorValue) -> D {
+			if (accumulatorValue.second.empty())
+				return D{};
+			D mean = accumulatorValue.first / static_cast<D>(accumulatorValue.second.size());
+			D sumOfSquares = D{};
+			for (const D &value : accumulatorValue.second)
+			{
+				D diff = value - mean;
+				sumOfSquares += diff * diff;
+			}
+			D variance = sumOfSquares / static_cast<D>(accumulatorValue.second.size());
+			return static_cast<D>(std::sqrt(static_cast<double>(variance)));
+		});
+}
+
+template <typename E, typename D>
+auto useSkewness() -> Collector<E, std::vector<D>, D>
+{
+	return useFull<E, std::vector<D>, D>(
+		[]() -> std::vector<D> { return std::vector<D>(); },
+		[](std::vector<D> accumulatorValue, E element, function::Timestamp index) -> std::vector<D> {
+			accumulatorValue.push_back(static_cast<D>(element));
+			return accumulatorValue;
+		},
+		[](std::vector<D> a, std::vector<D> b) -> std::vector<D> {
+			a.insert(a.end(), b.begin(), b.end());
+			return a;
+		},
+		[](std::vector<D> accumulatorValue) -> D {
+			if (accumulatorValue.size() < 3)
+				return D{};
+			D n = static_cast<D>(accumulatorValue.size());
+			D mean = D{};
+			for (const D &val : accumulatorValue)
+				mean += val;
+			mean /= n;
+			D variance = D{};
+			for (const D &val : accumulatorValue)
+			{
+				D diff = val - mean;
+				variance += diff * diff;
+			}
+			variance /= n;
+			if (variance == D{})
+				return D{};
+			D stdDev = static_cast<D>(std::sqrt(static_cast<double>(variance)));
+			D sumOfCubes = D{};
+			for (const D &val : accumulatorValue)
+			{
+				D diff = val - mean;
+				sumOfCubes += diff * diff * diff;
+			}
+			return (n / ((n - 1) * (n - 2))) * (sumOfCubes / (stdDev * stdDev * stdDev));
+		});
+}
+
+template <typename E, typename D>
+auto useSkewness(const function::Function<E, D> &mapper) -> Collector<E, std::vector<D>, D>
+{
+	return useFull<E, std::vector<D>, D>(
+		[]() -> std::vector<D> { return std::vector<D>(); },
+		[mapper](std::vector<D> accumulatorValue, E element, function::Timestamp index) -> std::vector<D> {
+			accumulatorValue.push_back(mapper(element));
+			return accumulatorValue;
+		},
+		[](std::vector<D> a, std::vector<D> b) -> std::vector<D> {
+			a.insert(a.end(), b.begin(), b.end());
+			return a;
+		},
+		[](std::vector<D> accumulatorValue) -> D {
+			if (accumulatorValue.size() < 3)
+				return D{};
+			D n = static_cast<D>(accumulatorValue.size());
+			D mean = D{};
+			for (const D &val : accumulatorValue)
+				mean += val;
+			mean /= n;
+			D variance = D{};
+			for (const D &val : accumulatorValue)
+			{
+				D diff = val - mean;
+				variance += diff * diff;
+			}
+			variance /= n;
+			if (variance == D{})
+				return D{};
+			D stdDev = static_cast<D>(std::sqrt(static_cast<double>(variance)));
+			D sumOfCubes = D{};
+			for (const D &val : accumulatorValue)
+			{
+				D diff = val - mean;
+				sumOfCubes += diff * diff * diff;
+			}
+			return (n / ((n - 1) * (n - 2))) * (sumOfCubes / (stdDev * stdDev * stdDev));
+		});
+}
+
+template <typename E, typename D>
+auto useKurtosis() -> Collector<E, std::vector<D>, D>
+{
+	return useFull<E, std::vector<D>, D>(
+		[]() -> std::vector<D> { return std::vector<D>(); },
+		[](std::vector<D> accumulatorValue, E element, function::Timestamp index) -> std::vector<D> {
+			accumulatorValue.push_back(static_cast<D>(element));
+			return accumulatorValue;
+		},
+		[](std::vector<D> a, std::vector<D> b) -> std::vector<D> {
+			a.insert(a.end(), b.begin(), b.end());
+			return a;
+		},
+		[](std::vector<D> accumulatorValue) -> D {
+			if (accumulatorValue.size() < 4)
+				return D{};
+			D n = static_cast<D>(accumulatorValue.size());
+			D mean = D{};
+			for (const D &val : accumulatorValue)
+				mean += val;
+			mean /= n;
+			D variance = D{};
+			for (const D &val : accumulatorValue)
+			{
+				D diff = val - mean;
+				variance += diff * diff;
+			}
+			variance /= n;
+			if (variance == D{})
+				return D{};
+			D sumOfQuads = D{};
+			for (const D &val : accumulatorValue)
+			{
+				D diff = val - mean;
+				sumOfQuads += diff * diff * diff * diff;
+			}
+			D s4 = variance * variance;
+			D num = n * (n + 1) * (n - 1) * sumOfQuads;
+			D denom = (n - 2) * (n - 3) * s4 * n * n;
+			if (denom == D{})
+				return D{};
+			D kurt = num / denom;
+			D adjustment = 3.0 * (n - 1) * (n - 1) / ((n - 2) * (n - 3));
+			return kurt - adjustment;
+		});
+}
+
+template <typename E, typename D>
+auto useKurtosis(const function::Function<E, D> &mapper) -> Collector<E, std::vector<D>, D>
+{
+	return useFull<E, std::vector<D>, D>(
+		[]() -> std::vector<D> { return std::vector<D>(); },
+		[mapper](std::vector<D> accumulatorValue, E element, function::Timestamp index) -> std::vector<D> {
+			accumulatorValue.push_back(mapper(element));
+			return accumulatorValue;
+		},
+		[](std::vector<D> a, std::vector<D> b) -> std::vector<D> {
+			a.insert(a.end(), b.begin(), b.end());
+			return a;
+		},
+		[](std::vector<D> accumulatorValue) -> D {
+			if (accumulatorValue.size() < 4)
+				return D{};
+			D n = static_cast<D>(accumulatorValue.size());
+			D mean = D{};
+			for (const D &val : accumulatorValue)
+				mean += val;
+			mean /= n;
+			D variance = D{};
+			for (const D &val : accumulatorValue)
+			{
+				D diff = val - mean;
+				variance += diff * diff;
+			}
+			variance /= n;
+			if (variance == D{})
+				return D{};
+			D sumOfQuads = D{};
+			for (const D &val : accumulatorValue)
+			{
+				D diff = val - mean;
+				sumOfQuads += diff * diff * diff * diff;
+			}
+			D s4 = variance * variance;
+			D num = n * (n + 1) * (n - 1) * sumOfQuads;
+			D denom = (n - 2) * (n - 3) * s4 * n * n;
+			if (denom == D{})
+				return D{};
+			D kurt = num / denom;
+			D adjustment = 3.0 * (n - 1) * (n - 1) / ((n - 2) * (n - 3));
+			return kurt - adjustment;
+		});
+}
 } // namespace collector

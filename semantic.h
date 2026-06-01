@@ -105,8 +105,16 @@ class Collectable
 
 	auto findAt(const function::Timestamp &index) const -> std::optional<E>
 	{
-		collector::Collector<E, std::optional<E>, std::optional<E>> collectorValue = collector::useFindAt<E>(index);
-		return collectorValue.collect(this->source(), this->concurrent);
+		if (index >= 0LL)
+		{
+			collector::Collector<E, std::optional<E>, std::optional<E>> collectorValue = collector::useFindAt<E>(index);
+			return collectorValue.collect(this->source(), this->concurrent);
+		}
+		else
+		{
+			collector::Collector<E, std::pair<std::vector<E>, function::Module>, std::optional<E>> collectorValue = collector::useFindNegativeAt<E>(index);
+			return collectorValue.collect(this->source(), this->concurrent);
+		}
 	}
 
 	auto findFirst() const -> std::optional<E>
@@ -352,19 +360,27 @@ class Statistics : public OrderedCollectable<E>
 	auto operator=(const Statistics<E, D> &other) -> Statistics<E, D> &
 	{
 		if (this != &other)
-		{
 			OrderedCollectable<E>::operator=(other);
-		}
 		return *this;
 	}
 
 	auto operator=(Statistics<E, D> &&other) noexcept -> Statistics<E, D> &
 	{
 		if (this != &other)
-		{
 			OrderedCollectable<E>::operator=(std::move(other));
-		}
 		return *this;
+	}
+
+	auto summate() const -> D
+	{
+		collector::Collector<E, D, D> collectorValue = collector::useSummate<E, D>();
+		return collectorValue.collect(this->source(), this->concurrent);
+	}
+
+	auto summate(const function::Function<E, D> &mapper) const -> D
+	{
+		collector::Collector<E, D, D> collectorValue = collector::useSummate<E, D>(mapper);
+		return collectorValue.collect(this->source(), this->concurrent);
 	}
 
 	auto average() const -> D
@@ -379,6 +395,30 @@ class Statistics : public OrderedCollectable<E>
 		return collectorValue.collect(this->source(), this->concurrent);
 	}
 
+	auto minimum() const -> std::optional<D>
+	{
+		collector::Collector<E, std::optional<D>, std::optional<D>> collectorValue = collector::useMinimum<E, D>();
+		return collectorValue.collect(this->source(), this->concurrent);
+	}
+
+	auto minimum(const function::Function<E, D> &mapper) const -> std::optional<D>
+	{
+		collector::Collector<E, std::optional<D>, std::optional<D>> collectorValue = collector::useMinimum<E, D>(mapper);
+		return collectorValue.collect(this->source(), this->concurrent);
+	}
+
+	auto maximum() const -> std::optional<D>
+	{
+		collector::Collector<E, std::optional<D>, std::optional<D>> collectorValue = collector::useMaximum<E, D>();
+		return collectorValue.collect(this->source(), this->concurrent);
+	}
+
+	auto maximum(const function::Function<E, D> &mapper) const -> std::optional<D>
+	{
+		collector::Collector<E, std::optional<D>, std::optional<D>> collectorValue = collector::useMaximum<E, D>(mapper);
+		return collectorValue.collect(this->source(), this->concurrent);
+	}
+
 	auto range() const -> D
 	{
 		collector::Collector<E, std::pair<D, D>, D> collectorValue = collector::useRange<E, D>();
@@ -388,6 +428,186 @@ class Statistics : public OrderedCollectable<E>
 	auto range(const function::Function<E, D> &mapper) const -> D
 	{
 		collector::Collector<E, std::pair<D, D>, D> collectorValue = collector::useRange<E, D>(mapper);
+		return collectorValue.collect(this->source(), this->concurrent);
+	}
+
+	auto variance() const -> D
+	{
+		collector::Collector<E, std::pair<D, std::vector<D>>, D> collectorValue = collector::useVariance<E, D>();
+		return collectorValue.collect(this->source(), this->concurrent);
+	}
+
+	auto variance(const function::Function<E, D> &mapper) const -> D
+	{
+		collector::Collector<E, std::pair<D, std::vector<D>>, D> collectorValue = collector::useVariance<E, D>(mapper);
+		return collectorValue.collect(this->source(), this->concurrent);
+	}
+
+	auto standardDeviation() const -> D
+	{
+		collector::Collector<E, std::pair<D, std::vector<D>>, D> collectorValue = collector::useStandardDeviation<E, D>();
+		return collectorValue.collect(this->source(), this->concurrent);
+	}
+
+	auto standardDeviation(const function::Function<E, D> &mapper) const -> D
+	{
+		collector::Collector<E, std::pair<D, std::vector<D>>, D> collectorValue = collector::useStandardDeviation<E, D>(mapper);
+		return collectorValue.collect(this->source(), this->concurrent);
+	}
+
+	auto frequency() const -> std::map<E, std::complex<double>>
+	{
+		collector::Collector<E, std::unordered_map<E, std::complex<double>>, std::map<E, std::complex<double>>> collectorValue = collector::useFrequency<E>();
+		return collectorValue.collect(this->source(), this->concurrent);
+	}
+
+	auto frequency(const function::Function<E, D> &mapper) const -> std::map<D, std::complex<double>>
+	{
+		collector::Collector<E, std::unordered_map<D, std::complex<double>>, std::map<D, std::complex<double>>> collectorValue = collector::useFrequency<E, D>(mapper);
+		return collectorValue.collect(this->source(), this->concurrent);
+	}
+
+	auto distribute() const -> std::map<E, std::complex<double>>
+	{
+		collector::Collector<E, std::unordered_map<E, std::vector<function::Timestamp>>, std::map<E, std::complex<double>>> collectorValue = collector::useDistribution<E>();
+		return collectorValue.collect(this->source(), this->concurrent);
+	}
+
+	auto distribute(const function::Function<E, D> &mapper) const -> std::map<D, std::complex<double>>
+	{
+		collector::Collector<E, std::unordered_map<D, std::vector<function::Timestamp>>, std::map<D, std::complex<double>>> collectorValue = collector::useDistribution<E, D>(mapper);
+		return collectorValue.collect(this->source(), this->concurrent);
+	}
+
+	auto median() const -> std::optional<D>
+	{
+		collector::Collector<E, std::vector<D>, std::optional<D>> collectorValue = collector::useMedian<E, D>();
+		return collectorValue.collect(this->source(), this->concurrent);
+	}
+
+	auto median(const function::Function<E, D> &mapper) const -> std::optional<D>
+	{
+		collector::Collector<E, std::vector<D>, std::optional<D>> collectorValue = collector::useMedian<E, D>(mapper);
+		return collectorValue.collect(this->source(), this->concurrent);
+	}
+
+	auto mode() const -> std::optional<E>
+	{
+		collector::Collector<E, std::unordered_map<E, std::complex<double>>, std::optional<E>> collectorValue = collector::useMode<E>();
+		return collectorValue.collect(this->source(), this->concurrent);
+	}
+
+	auto percentile(double p) const -> std::optional<D>
+	{
+		collector::Collector<E, std::vector<D>, std::optional<D>> collectorValue = collector::usePercentile<E, D>(p);
+		return collectorValue.collect(this->source(), this->concurrent);
+	}
+
+	auto percentile(double p, const function::Function<E, D> &mapper) const -> std::optional<D>
+	{
+		collector::Collector<E, std::vector<D>, std::optional<D>> collectorValue = collector::usePercentile<E, D>(p, mapper);
+		return collectorValue.collect(this->source(), this->concurrent);
+	}
+
+	auto firstQuartile() const -> std::optional<D>
+	{
+		return percentile(25.0);
+	}
+
+	auto firstQuartile(const function::Function<E, D> &mapper) const -> std::optional<D>
+	{
+		return percentile(25.0, mapper);
+	}
+
+	auto thirdQuartile() const -> std::optional<D>
+	{
+		return percentile(75.0);
+	}
+
+	auto thirdQuartile(const function::Function<E, D> &mapper) const -> std::optional<D>
+	{
+		return percentile(75.0, mapper);
+	}
+
+	auto interquartileRange() const -> std::optional<D>
+	{
+		auto q1 = firstQuartile();
+		auto q3 = thirdQuartile();
+		if (q1.has_value() && q3.has_value())
+			return std::optional<D>(q3.value() - q1.value());
+		return std::nullopt;
+	}
+
+	auto interquartileRange(const function::Function<E, D> &mapper) const -> std::optional<D>
+	{
+		auto q1 = firstQuartile(mapper);
+		auto q3 = thirdQuartile(mapper);
+		if (q1.has_value() && q3.has_value())
+			return std::optional<D>(q3.value() - q1.value());
+		return std::nullopt;
+	}
+
+	auto skewness() const -> D
+	{
+		collector::Collector<E, std::vector<D>, D> collectorValue = collector::useSkewness<E, D>();
+		return collectorValue.collect(this->source(), this->concurrent);
+	}
+
+	auto skewness(const function::Function<E, D> &mapper) const -> D
+	{
+		collector::Collector<E, std::vector<D>, D> collectorValue = collector::useSkewness<E, D>(mapper);
+		return collectorValue.collect(this->source(), this->concurrent);
+	}
+
+	auto kurtosis() const -> D
+	{
+		collector::Collector<E, std::vector<D>, D> collectorValue = collector::useKurtosis<E, D>();
+		return collectorValue.collect(this->source(), this->concurrent);
+	}
+
+	auto kurtosis(const function::Function<E, D> &mapper) const -> D
+	{
+		collector::Collector<E, std::vector<D>, D> collectorValue = collector::useKurtosis<E, D>(mapper);
+		return collectorValue.collect(this->source(), this->concurrent);
+	}
+
+	auto dft() const -> std::vector<std::complex<double>>
+	{
+		collector::Collector<E, std::vector<std::complex<double>>, std::vector<std::complex<double>>> collectorValue = collector::useDFT<E>();
+		return collectorValue.collect(this->source(), this->concurrent);
+	}
+
+	auto idft() const -> std::vector<std::complex<double>>
+	{
+		collector::Collector<E, std::vector<std::complex<double>>, std::vector<std::complex<double>>> collectorValue = collector::useIDFT<E>();
+		return collectorValue.collect(this->source(), this->concurrent);
+	}
+
+	auto fft() const -> std::vector<std::complex<double>>
+	{
+		collector::Collector<E, std::vector<std::complex<double>>, std::vector<std::complex<double>>> collectorValue = collector::useFFT<E>();
+		return collectorValue.collect(this->source(), this->concurrent);
+	}
+
+	auto ifft() const -> std::vector<std::complex<double>>
+	{
+		collector::Collector<E, std::vector<std::complex<double>>, std::vector<std::complex<double>>> collectorValue = collector::useIFFT<E>();
+		return collectorValue.collect(this->source(), this->concurrent);
+	}
+
+	auto gradient(const std::function<std::vector<double>(const std::vector<E> &)> &gradientFunction,
+				  double learningRate, std::size_t maxIterations, double convergenceThreshold) const -> std::vector<double>
+	{
+		collector::Collector<E, std::vector<double>, std::vector<double>> collectorValue =
+			collector::useGradient<E>(gradientFunction, learningRate, maxIterations, convergenceThreshold);
+		return collectorValue.collect(this->source(), this->concurrent);
+	}
+
+	auto gradient(const std::function<double(const std::vector<E> &)> &costFunction,
+				  double learningRate, std::size_t maxIterations, double convergenceThreshold, double numericalH) const -> std::vector<double>
+	{
+		collector::Collector<E, std::vector<double>, std::vector<double>> collectorValue =
+			collector::useGradient<E>(costFunction, learningRate, maxIterations, convergenceThreshold, numericalH);
 		return collectorValue.collect(this->source(), this->concurrent);
 	}
 };

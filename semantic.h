@@ -1,3195 +1,5381 @@
 #pragma once
+#include "function.h"
+#include "collector.h"
+#include "collectors.h"
+#include "charsequence.h"
+#include <memory>
+#include <functional>
+#include <unordered_set>
 #include <set>
-#include <map>
-#include <list>
-#include <cmath>
-#include <array>
+#include <vector>
 #include <deque>
+#include <list>
+#include <array>
+#include <forward_list>
 #include <stack>
 #include <queue>
-#include <mutex>
-#include <string>
-#include <vector>
-#include <future>
-#include <thread>
-#include <memory>
-#include <random>
-#include <numeric>
-#include <iostream>
+#include <map>
+#include <unordered_map>
 #include <optional>
 #include <algorithm>
-#include <forward_list>
-#include <unordered_map>
-#include <unordered_set>
-#include <initializer_list>
-namespace pool {
-    class ThreadPool;
+#include <type_traits>
+
+namespace semantic
+{
+template <typename E>
+class Semantic;
+}
+
+namespace collectable
+{
+template <typename E>
+class Collectable
+{
+  protected:
+	function::Module concurrent;
+
+  public:
+	Collectable(const function::Module &concurrent) : concurrent(concurrent) {}
+
+	virtual ~Collectable() = default;
+
+	template <typename Predicate>
+	auto anyMatch(Predicate &&predicate) const -> bool
+	{
+		collector::Collector<E, bool, bool> collectorValue = collector::useAnyMatch<E, Predicate>(std::forward<Predicate>(predicate));
+		return collectorValue.collect(this->source(), this->concurrent);
+	}
+
+	template <typename Predicate>
+	auto allMatch(Predicate &&predicate) const -> bool
+	{
+		collector::Collector<E, bool, bool> collectorValue = collector::useAllMatch<E, Predicate>(std::forward<Predicate>(predicate));
+		return collectorValue.collect(this->source(), this->concurrent);
+	}
+
+	template <typename A, typename R>
+	auto collect(const function::Supplier<R> &identity, const function::BiFunction<A, E, A> &accumulator, const function::BiFunction<A, A, A> &combiner, const function::Function<A, R> &finisher) const -> R
+	{
+		collector::Collector<E, A, R> collectorValue = collector::useCollect<E, A, R>(identity, accumulator, combiner, finisher);
+		return collectorValue.collect(this->source(), this->concurrent);
+	}
+
+	template <typename A, typename R>
+	auto collect(const function::Supplier<R> &identity, const function::TriPredicate<E, function::Timestamp, A> &interrupt, const function::BiFunction<A, E, A> &accumulator, const function::BiFunction<A, A, A> &combiner, const function::Function<A, R> &finisher) const -> R
+	{
+		collector::Collector<E, A, R> collectorValue = collector::useCollect<E, A, R>(identity, interrupt, accumulator, combiner, finisher);
+		return collectorValue.collect(this->source(), this->concurrent);
+	}
+
+	auto count() const -> function::Module
+	{
+		collector::Collector<E, function::Module, function::Module> collectorValue = collector::useCount<E>();
+		return collectorValue.collect(this->source(), this->concurrent);
+	}
+
+	auto error() const -> void
+	{
+		collector::Collector<E, charsequence::Charsequence, charsequence::Charsequence> collectorValue = collector::useError<E>();
+		collectorValue.collect(this->source(), this->concurrent);
+	}
+
+	auto error(const charsequence::Charsequence &delimiter) const -> void
+	{
+		collector::Collector<E, charsequence::Charsequence, charsequence::Charsequence> collectorValue = collector::useError<E>(delimiter);
+		collectorValue.collect(this->source(), this->concurrent);
+	}
+
+	auto error(const charsequence::Charsequence &prefix, const charsequence::Charsequence &delimiter, const charsequence::Charsequence &suffix) const -> void
+	{
+		collector::Collector<E, charsequence::Charsequence, charsequence::Charsequence> collectorValue = collector::useError<E>(prefix, delimiter, suffix);
+		collectorValue.collect(this->source(), this->concurrent);
+	}
+
+	auto empty() const -> bool
+	{
+		collector::Collector<E, function::Module, function::Module> collectorValue = collector::useCount<E>();
+		return collectorValue.collect(this->source(), this->concurrent) == 0;
+	}
+
+	auto findAny() const -> std::optional<E>
+	{
+		collector::Collector<E, std::optional<E>, std::optional<E>> collectorValue = collector::useFindAny<E>();
+		return collectorValue.collect(this->source(), this->concurrent);
+	}
+
+	auto findAt(const function::Timestamp &index) const -> std::optional<E>
+	{
+		collector::Collector<E, std::optional<E>, std::optional<E>> collectorValue = collector::useFindAt<E>(index);
+		return collectorValue.collect(this->source(), this->concurrent);
+	}
+
+	auto findFirst() const -> std::optional<E>
+	{
+		collector::Collector<E, std::optional<E>, std::optional<E>> collectorValue = collector::useFindFirst<E>();
+		return collectorValue.collect(this->source(), this->concurrent);
+	}
+
+	auto findLast() const -> std::optional<E>
+	{
+		collector::Collector<E, std::vector<E>, std::optional<E>> collectorValue = collector::useFindLast<E>();
+		return collectorValue.collect(this->source(), this->concurrent);
+	}
+
+	auto findMaximum() const -> std::optional<E>
+	{
+		collector::Collector<E, std::optional<E>, std::optional<E>> collectorValue = collector::useFindMaximum<E>();
+		return collectorValue.collect(this->source(), this->concurrent);
+	}
+
+	auto findMaximum(const function::Comparator<E> &comparator) const -> std::optional<E>
+	{
+		collector::Collector<E, std::optional<E>, std::optional<E>> collectorValue = collector::useFindMaximum<E>(comparator);
+		return collectorValue.collect(this->source(), this->concurrent);
+	}
+
+	auto findMinimum() const -> std::optional<E>
+	{
+		collector::Collector<E, std::optional<E>, std::optional<E>> collectorValue = collector::useFindMinimum<E>();
+		return collectorValue.collect(this->source(), this->concurrent);
+	}
+
+	auto findMinimum(const function::Comparator<E> &comparator) const -> std::optional<E>
+	{
+		collector::Collector<E, std::optional<E>, std::optional<E>> collectorValue = collector::useFindMinimum<E>(comparator);
+		return collectorValue.collect(this->source(), this->concurrent);
+	}
+
+	template <typename Consumer>
+	auto forEach(Consumer &&consumer) const -> void
+	{
+		collector::Collector<E, function::Module, function::Module> collectorValue = collector::useForEach<E, Consumer>(std::forward<Consumer>(consumer));
+		collectorValue.collect(this->source(), this->concurrent);
+	}
+
+	template <typename K, typename KeyExtractor>
+	auto group(KeyExtractor &&keyExtractor) const -> std::unordered_map<K, std::vector<E>>
+	{
+		collector::Collector<E, std::unordered_map<K, std::vector<E>>, std::unordered_map<K, std::vector<E>>> collectorValue = collector::useGroup<E, K, KeyExtractor>(std::forward<KeyExtractor>(keyExtractor));
+		return collectorValue.collect(this->source(), this->concurrent);
+	}
+
+	auto join() const -> charsequence::Charsequence
+	{
+		collector::Collector<E, charsequence::Charsequence, charsequence::Charsequence> collectorValue = collector::useJoin<E>();
+		return collectorValue.collect(this->source(), this->concurrent);
+	}
+
+	auto join(const charsequence::Charsequence &delimiter) const -> charsequence::Charsequence
+	{
+		collector::Collector<E, charsequence::Charsequence, charsequence::Charsequence> collectorValue = collector::useJoin<E>(delimiter);
+		return collectorValue.collect(this->source(), this->concurrent);
+	}
+
+	auto join(const charsequence::Charsequence &prefix, const charsequence::Charsequence &delimiter, const charsequence::Charsequence &suffix) const -> charsequence::Charsequence
+	{
+		collector::Collector<E, charsequence::Charsequence, charsequence::Charsequence> collectorValue = collector::useJoin<E>(prefix, delimiter, suffix);
+		return collectorValue.collect(this->source(), this->concurrent);
+	}
+
+	auto noneMatch(const function::BiPredicate<E, function::Timestamp> &predicate) const -> bool
+	{
+		collector::Collector<E, bool, bool> collectorValue = collector::useNoneMatch<E>(predicate);
+		return collectorValue.collect(this->source(), this->concurrent);
+	}
+
+	auto out() const -> charsequence::Charsequence
+	{
+		collector::Collector<E, charsequence::Charsequence, charsequence::Charsequence> collectorValue = collector::useOut<E>();
+		return collectorValue.collect(this->source(), this->concurrent);
+	}
+
+	auto out(const charsequence::Charsequence &delimiter) const -> charsequence::Charsequence
+	{
+		collector::Collector<E, charsequence::Charsequence, charsequence::Charsequence> collectorValue = collector::useOut<E>(delimiter);
+		return collectorValue.collect(this->source(), this->concurrent);
+	}
+
+	auto out(const charsequence::Charsequence &prefix, const charsequence::Charsequence &delimiter, const charsequence::Charsequence &suffix) const -> charsequence::Charsequence
+	{
+		collector::Collector<E, charsequence::Charsequence, charsequence::Charsequence> collectorValue = collector::useOut<E>(prefix, delimiter, suffix);
+		return collectorValue.collect(this->source(), this->concurrent);
+	}
+
+	auto partition(const function::Module &size) const -> std::vector<std::vector<E>>
+	{
+		collector::Collector<E, std::vector<std::vector<E>>, std::vector<std::vector<E>>> collectorValue = collector::usePartition<E>(size);
+		return collectorValue.collect(this->source(), this->concurrent);
+	}
+
+	template <typename KeyExtractor>
+	auto partitionBy(KeyExtractor &&keyExtractor) const -> std::vector<std::vector<E>>
+	{
+		collector::Collector<E, std::map<function::Timestamp, std::vector<E>>, std::vector<std::vector<E>>> collectorValue = collector::usePartitionBy<E, KeyExtractor>(std::forward<KeyExtractor>(keyExtractor));
+		return collectorValue.collect(this->source(), this->concurrent);
+	}
+
+	auto reduce(const function::BiFunction<E, E, E> &accumulator) const -> std::optional<E>
+	{
+		collector::Collector<E, std::optional<E>, std::optional<E>> collectorValue = collector::useReduce<E>(accumulator);
+		return collectorValue.collect(this->source(), this->concurrent);
+	}
+
+	auto reduce(const E &identity, const function::BiFunction<E, E, E> &accumulator) const -> E
+	{
+		collector::Collector<E, E, E> collectorValue = collector::useReduce<E>(identity, accumulator);
+		return collectorValue.collect(this->source(), this->concurrent);
+	}
+
+	template <typename R>
+	auto reduce(const R &identity, const function::BiFunction<R, E, R> &accumulator, const function::BiFunction<R, R, R> &combiner) const -> R
+	{
+		collector::Collector<E, R, R> collectorValue = collector::useReduce<E, R>(identity, accumulator, combiner);
+		return collectorValue.collect(this->source(), this->concurrent);
+	}
+
+	virtual auto source() const -> function::Generator<E> = 0;
+
+	auto toList() const -> std::list<E>
+	{
+		collector::Collector<E, std::list<E>, std::list<E>> collectorValue = collector::useToList<E>();
+		return collectorValue.collect(this->source(), this->concurrent);
+	}
+
+	template <typename K, typename KeyExtractor>
+	auto toMap(KeyExtractor &&keyExtractor) const -> std::map<K, E>
+	{
+		collector::Collector<E, std::map<K, E>, std::map<K, E>> collectorValue = collector::useToMap<E, K, KeyExtractor>(std::forward<KeyExtractor>(keyExtractor));
+		return collectorValue.collect(this->source(), this->concurrent);
+	}
+
+	template <typename K, typename V, typename KeyExtractor, typename ValueExtractor>
+	auto toMap(KeyExtractor &&keyExtractor, ValueExtractor &&valueExtractor) const -> std::map<K, V>
+	{
+		collector::Collector<E, std::map<K, V>, std::map<K, V>> collectorValue = collector::useToMap<E, K, V, KeyExtractor, ValueExtractor>(std::forward<KeyExtractor>(keyExtractor), std::forward<ValueExtractor>(valueExtractor));
+		return collectorValue.collect(this->source(), this->concurrent);
+	}
+
+	auto toSet() const -> std::set<E>
+	{
+		collector::Collector<E, std::set<E>, std::set<E>> collectorValue = collector::useToSet<E>();
+		return collectorValue.collect(this->source(), this->concurrent);
+	}
+
+	auto toVector() const -> std::vector<E>
+	{
+		collector::Collector<E, std::vector<E>, std::vector<E>> collectorValue = collector::useToVector<E>();
+		return collectorValue.collect(this->source(), this->concurrent);
+	}
 };
-namespace collector {
 
-    template<typename E, typename A, typename R>
-    class Collector;
+template <typename E>
+class OrderedCollectable : public Collectable<E>
+{
+  protected:
+	std::map<function::Timestamp, E> buffer;
 
+  public:
+	OrderedCollectable(const function::Generator<E> &generator) : Collectable<E>(1)
+	{
+		std::set<std::pair<function::Timestamp, E>> tempBuffer;
+		generator([&tempBuffer](E element, function::Timestamp index) -> void { tempBuffer.insert(std::make_pair(index, element)); }, [](E element, function::Timestamp index) -> bool { return false; });
+		for (const auto &pair : tempBuffer)
+		{
+			function::Timestamp index = pair.first < 0 ? (tempBuffer.size() - (std::abs(pair.first) % tempBuffer.size())) : (pair.first % tempBuffer.size());
+			this->buffer.insert(std::make_pair(index, pair.second));
+		}
+	}
+
+	OrderedCollectable(const function::Generator<E> &generator, const function::Module &concurrent) : Collectable<E>(concurrent)
+	{
+		std::set<std::pair<function::Timestamp, E>> tempBuffer;
+		generator([&tempBuffer](E element, function::Timestamp index) -> void { tempBuffer.insert(std::make_pair(index, element)); }, [](E element, function::Timestamp index) -> bool { return false; });
+		for (const auto &pair : tempBuffer)
+		{
+			function::Timestamp index = pair.first < 0 ? (tempBuffer.size() - (std::abs(pair.first) % tempBuffer.size())) : (pair.first % tempBuffer.size());
+			this->buffer.insert(std::make_pair(index, pair.second));
+		}
+	}
+
+	OrderedCollectable(const function::Generator<E> &generator, const function::Comparator<E> &comparator) : Collectable<E>(1)
+	{
+		auto comp = [comparator](const std::pair<function::Timestamp, E> &a, const std::pair<function::Timestamp, E> &b) -> bool {
+			return comparator(a.second, b.second) < 0;
+		};
+		std::set<std::pair<function::Timestamp, E>, decltype(comp)> tempBuffer(comp);
+		generator([&tempBuffer](E element, function::Timestamp index) -> void { tempBuffer.insert(std::make_pair(index, element)); }, [](E element, function::Timestamp index) -> bool { return false; });
+		for (const auto &pair : tempBuffer)
+		{
+			function::Timestamp index = pair.first < 0 ? (tempBuffer.size() - (std::abs(pair.first) % tempBuffer.size())) : (pair.first % tempBuffer.size());
+			this->buffer.insert(std::make_pair(index, pair.second));
+		}
+	}
+
+	OrderedCollectable(const function::Generator<E> &generator, const function::Comparator<E> &comparator, const function::Module &concurrent) : Collectable<E>(concurrent)
+	{
+		auto comp = [comparator](const std::pair<function::Timestamp, E> &a, const std::pair<function::Timestamp, E> &b) -> bool {
+			return comparator(a.second, b.second) < 0;
+		};
+		std::set<std::pair<function::Timestamp, E>, decltype(comp)> tempBuffer(comp);
+		generator([&tempBuffer](E element, function::Timestamp index) -> void { tempBuffer.insert(std::make_pair(index, element)); }, [](E element, function::Timestamp index) -> bool { return false; });
+		for (const auto &pair : tempBuffer)
+		{
+			function::Timestamp index = pair.first < 0 ? (tempBuffer.size() - (std::abs(pair.first) % tempBuffer.size())) : (pair.first % tempBuffer.size());
+			this->buffer.insert(std::make_pair(index, pair.second));
+		}
+	}
+
+	virtual auto source() const -> function::Generator<E> override
+	{
+		return [buffer = this->buffer](function::BiConsumer<E, function::Timestamp> accept, function::BiPredicate<E, function::Timestamp> interrupt) -> void {
+			for (const auto &pair : buffer)
+			{
+				if (interrupt(pair.second, pair.first))
+				{
+					break;
+				}
+				accept(pair.second, pair.first);
+			}
+		};
+	}
 };
-namespace collectable {
 
-    template<typename E>
-    class Collectable;
+template <typename E, typename D>
+class Statistics : public OrderedCollectable<E>
+{
+  public:
+	Statistics(const function::Module &concurrent) : OrderedCollectable<E>(concurrent) {}
+	Statistics(const function::Generator<E> &generator, const function::Module &concurrent) : OrderedCollectable<E>(generator, concurrent) {}
+	Statistics(const Statistics<E, D> &other) : OrderedCollectable<E>(other) {}
+	Statistics(Statistics<E, D> &&other) noexcept : OrderedCollectable<E>(std::move(other)) {}
 
-    template<typename E>
-    class OrderedCollectable;
+	auto operator=(const Statistics<E, D> &other) -> Statistics<E, D> &
+	{
+		if (this != &other)
+		{
+			OrderedCollectable<E>::operator=(other);
+		}
+		return *this;
+	}
 
-    template<typename E, typename D>
-    class Statistics;
+	auto operator=(Statistics<E, D> &&other) noexcept -> Statistics<E, D> &
+	{
+		if (this != &other)
+		{
+			OrderedCollectable<E>::operator=(std::move(other));
+		}
+		return *this;
+	}
 
-    template<typename E>
-    class WindowCollectable;
+	auto average() const -> D
+	{
+		collector::Collector<E, std::pair<D, function::Module>, D> collectorValue = collector::useAverage<E, D>();
+		return collectorValue.collect(this->source(), this->concurrent);
+	}
 
-    template<typename E>
-    class UnorderedCollectable;
+	auto average(const function::Function<E, D> &mapper) const -> D
+	{
+		collector::Collector<E, std::pair<D, function::Module>, D> collectorValue = collector::useAverage<E, D>(mapper);
+		return collectorValue.collect(this->source(), this->concurrent);
+	}
+
+	auto range() const -> D
+	{
+		collector::Collector<E, std::pair<D, D>, D> collectorValue = collector::useRange<E, D>();
+		return collectorValue.collect(this->source(), this->concurrent);
+	}
+
+	auto range(const function::Function<E, D> &mapper) const -> D
+	{
+		collector::Collector<E, std::pair<D, D>, D> collectorValue = collector::useRange<E, D>(mapper);
+		return collectorValue.collect(this->source(), this->concurrent);
+	}
 };
-namespace semantic {
 
-    template<typename E>
-    class Semantic;
+template <typename E>
+class WindowCollectable : public OrderedCollectable<E>
+{
+  public:
+	WindowCollectable(const function::Module &concurrent) : OrderedCollectable<E>(concurrent) {}
+	WindowCollectable(const function::Generator<E> &generator, const function::Module &concurrent) : OrderedCollectable<E>(generator, concurrent) {}
+	WindowCollectable(const WindowCollectable<E> &other) : OrderedCollectable<E>(other) {}
+	WindowCollectable(WindowCollectable<E> &&other) noexcept : OrderedCollectable<E>(std::move(other)) {}
 
-    template <typename D>
-    auto useRange(const D& start, const D& end) -> Semantic<D>;
+	auto operator=(const WindowCollectable<E> &other) -> WindowCollectable<E> &
+	{
+		if (this != &other)
+		{
+			OrderedCollectable<E>::operator=(other);
+		}
+		return *this;
+	}
 
-    template <typename Container>
-    auto useFrom(Container container) -> Semantic<typename Container::value_type>;
+	auto operator=(WindowCollectable<E> &&other) noexcept -> WindowCollectable<E> &
+	{
+		if (this != &other)
+		{
+			OrderedCollectable<E>::operator=(std::move(other));
+		}
+		return *this;
+	}
+
+	auto slide(const function::Module &size, const function::Timestamp &step) const -> semantic::Semantic<semantic::Semantic<E>>;
+
+	auto tumble(const function::Module &size) const -> semantic::Semantic<semantic::Semantic<E>>
+	{
+		return this->slide(size, size);
+	}
 };
-namespace functional {
-    typedef long long Timestamp;
 
-    typedef unsigned long long Module;
+template <typename E>
+class UnorderedCollectable : public Collectable<E>
+{
+  protected:
+	std::unordered_map<function::Timestamp, E> buffer;
 
-    using Runnable = std::function<void()>;
+  public:
+	UnorderedCollectable(const function::Generator<E> &generator) : Collectable<E>(1)
+	{
+		generator([this](E element, function::Timestamp index) -> void { this->buffer.insert(std::make_pair(index, element)); }, [](E element, function::Timestamp index) -> bool { return false; });
+	}
 
-    template <typename R>
-    using Supplier = std::function<R()>;
+	UnorderedCollectable(const function::Generator<E> &generator, const function::Module &concurrent) : Collectable<E>(concurrent)
+	{
+		generator([this](E element, function::Timestamp index) -> void { this->buffer.insert(std::make_pair(index, element)); }, [](E element, function::Timestamp index) -> bool { return false; });
+	}
 
-    template <typename T, typename R>
-    using Function = std::function<R(T)>;
+	UnorderedCollectable &operator=(const UnorderedCollectable &other)
+	{
+		if (this != &other)
+		{
+			Collectable<E>::operator=(other);
+			buffer = other.buffer;
+		}
+		return *this;
+	}
 
-    template <typename T, typename U, typename R>
-    using BiFunction = std::function<R(T, U)>;
+	UnorderedCollectable &operator=(UnorderedCollectable &&other) noexcept
+	{
+		if (this != &other)
+		{
+			Collectable<E>::operator=(std::move(other));
+			buffer = std::move(other.buffer);
+		}
+		return *this;
+	}
 
-    template <typename T, typename U, typename V, typename R>
-    using TriFunction = std::function<R(T, U, V)>;
-
-    template <typename T>
-    using Consumer = std::function<void(T)>;
-
-    template <typename T, typename U>
-    using BiConsumer = std::function<void(T, U)>;
-
-    template <typename T, typename U, typename V>
-    using TriConsumer = std::function<void(T, U, V)>;
-
-    template <typename T>
-    using Predicate = std::function<bool(T)>;
-
-    template <typename T, typename U>
-    using BiPredicate = std::function<bool(T, U)>;
-
-    template <typename T, typename U, typename V>
-    using TriPredicate = std::function<bool(T, U, V)>;
-
-    template <typename T>
-    using Comparator = std::function<Timestamp(T)>;
-
-    template <typename T>
-    using Generator = BiConsumer<BiConsumer<T, Timestamp>, BiPredicate<T, Timestamp>>;
-
-    template <typename D>
-    D randomly(const D& start, const D& end) {
-        try {
-            static std::random_device random;
-            static std::mt19937_64 generator(random());
-
-            D maximum = std::max(start, end);
-            D minimum = std::min(start, end);
-
-            if constexpr (std::is_integral<D>::value) {
-                std::uniform_int_distribution<D> distribution(minimum, maximum);
-                return distribution(generator);
-            }
-            else {
-                std::uniform_real_distribution<D> distribution(minimum, maximum);
-                return distribution(generator);
-            }
-        }
-        catch (const std::exception& exception) {
-            std::cerr << exception.what() << '\n';
-            return 0;
-        }
-    }
-
-    bool randomly() {
-        try {
-            static std::random_device device;
-            static std::mt19937 generator(device());
-            std::bernoulli_distribution distribution(0.5);
-            return distribution(generator);
-        }
-        catch (const std::exception& exception) {
-            std::cerr << exception.what() << '\n';
-        }
-        return 0;
-    }
+	virtual auto source() const -> function::Generator<E> override
+	{
+		return [buffer = this->buffer](function::BiConsumer<E, function::Timestamp> accept, function::BiPredicate<E, function::Timestamp> interrupt) -> void {
+			for (const auto &pair : buffer)
+			{
+				if (interrupt(pair.second, pair.first))
+				{
+					break;
+				}
+				accept(pair.second, pair.first);
+			}
+		};
+	}
 };
-namespace pool {
 
-    using Timestamp = functional::Timestamp;
-    using Module = functional::Module;
+} // namespace collectable
 
-    using Runnable = functional::Runnable;
+namespace semantic
+{
+template <typename E>
+class Semantic
+{
+  private:
+	std::unique_ptr<function::Generator<E>> generator;
+	function::Module concurrent;
 
-    template<typename R>
-    using Supplier = functional::Supplier<R>;
+  public:
+	using Element = E;
 
-    class ThreadPool {
-    private:
-        std::vector<std::thread> workers;
-        std::queue<Runnable> tasks;
-        std::mutex mutex;
-        std::atomic<bool> active{ true };
-        std::condition_variable condition;
-    public:
-        ThreadPool(const ThreadPool&) = delete;
-        ThreadPool& operator=(const ThreadPool&) = delete;
-        ThreadPool(ThreadPool&&) = delete;
-        ThreadPool& operator=(ThreadPool&&) = delete;
-        ~ThreadPool() {
-            if (active.load()) {
-                shutdown();
-            }
-        }
-        explicit ThreadPool(const Module& size = std::thread::hardware_concurrency()) {
-            for (Module i = 0; i < size; ++i) {
-                this->increase();
-            }
-        }
+	Semantic(Semantic<E> &&other) noexcept = default;
 
-        void increase() {
-            this->workers.emplace_back([this] {
-                while (this->active.load() || this->tasks.size() > 0) {
-                    Runnable task;
+	Semantic(const function::Generator<E> &generator) : generator(std::make_unique<function::Generator<E>>(generator)), concurrent(1) {}
+
+	Semantic(const function::Generator<E> &generator, const function::Module &concurrent) : generator(std::make_unique<function::Generator<E>>(generator)), concurrent(concurrent) {}
+
+	Semantic(const Semantic<E> &other) : generator(std::make_unique<function::Generator<E>>(*other.generator)), concurrent(other.concurrent) {}
+
+	Semantic<E> &operator=(const Semantic<E> &other)
+	{
+		if (this != &other)
+		{
+			generator = std::make_unique<function::Generator<E>>(*other.generator);
+			concurrent = other.concurrent;
+		}
+		return *this;
+	}
+
+	Semantic<E> &operator=(Semantic<E> &&other) noexcept = default;
+
+	auto source() const -> function::Generator<E>
+	{
+		return [generator = *(this->generator)](function::BiConsumer<E, function::Timestamp> accept, function::BiPredicate<E, function::Timestamp> interrupt) -> void {
+			bool stop = false;
+			generator([&accept, &stop](E element, function::Timestamp index) -> void {
+                if (!stop)
+                {
+                    accept(element, index);
+                } }, [&interrupt, &stop](E element, function::Timestamp index) -> bool {
+                if (interrupt(element, index))
+                {
+                    stop = true;
+                    return true;
+                }
+                return false; });
+		};
+	}
+
+	auto getConcurrent() const -> function::Module
+	{
+		return concurrent;
+	}
+
+	template <typename Mapper>
+	auto map(Mapper &&mapper) const -> Semantic<decltype(std::declval<Mapper>()(std::declval<E>()))>
+	{
+		using R = decltype(std::declval<Mapper>()(std::declval<E>()));
+		return Semantic<R>([generator = *(this->generator), mapper = std::forward<Mapper>(mapper)](function::BiConsumer<R, function::Timestamp> accept, function::BiPredicate<R, function::Timestamp> interrupt) -> void {
+			bool stop = false;
+			auto capturedInterrupt = interrupt;
+			generator([&accept, &stop, &mapper](E element, function::Timestamp index) -> void {
+                if (stop) return;
+                if constexpr (std::is_invocable_r_v<R, Mapper, E, function::Timestamp>)
+                {
+                    accept(std::invoke(mapper, element, index), index);
+                }
+                else if constexpr (std::is_invocable_r_v<R, Mapper, E>)
+                {
+                    accept(std::invoke(mapper, element), index);
+                }
+                else
+                {
+                    static_assert(std::is_invocable_r_v<R, Mapper, E, function::Timestamp> || std::is_invocable_r_v<R, Mapper, E>, "Mapper must be callable as either (E, Timestamp) -> R or (E) -> R");
+                } }, [&capturedInterrupt, &stop](E element, function::Timestamp index) -> bool {
+                if (capturedInterrupt(element, index)) { stop = true; return true; }
+                return false; });
+		},
+						   this->concurrent);
+	}
+
+	template <typename Predicate>
+	auto filter(Predicate &&predicate) const -> Semantic<E>
+	{
+		return Semantic<E>([generator = *(this->generator), predicate = std::forward<Predicate>(predicate)](function::BiConsumer<E, function::Timestamp> accept, function::BiPredicate<E, function::Timestamp> interrupt) -> void {
+			function::Timestamp count = 0LL;
+			bool stop = false;
+			auto capturedInterrupt = interrupt;
+			generator([&accept, &count, &stop, predicate](E element, function::Timestamp index) -> void {
+                if (stop) return;
+                bool matches = false;
+                if constexpr (std::is_invocable_r_v<bool, Predicate, E, function::Timestamp>)
+                {
+                    matches = std::invoke(predicate, element, index);
+                }
+                else if constexpr (std::is_invocable_r_v<bool, Predicate, E>)
+                {
+                    matches = std::invoke(predicate, element);
+                }
+                else
+                {
+                    static_assert(std::is_invocable_r_v<bool, Predicate, E, function::Timestamp> || std::is_invocable_r_v<bool, Predicate, E>, "Predicate must be callable as either (E, Timestamp) -> bool or (E) -> bool");
+                }
+                if (matches)
+                {
+                    accept(element, count);
+                    count++;
+                } }, [&capturedInterrupt, &stop, &count](E element, function::Timestamp index) -> bool {
+                if (capturedInterrupt(element, count)) { stop = true; return true; }
+                return false; });
+		},
+						   this->concurrent);
+	}
+
+	template <typename Predicate>
+	auto takeWhile(Predicate &&predicate) const -> Semantic<E>
+	{
+		return Semantic<E>([generator = *(this->generator), predicate = std::forward<Predicate>(predicate)](function::BiConsumer<E, function::Timestamp> accept, function::BiPredicate<E, function::Timestamp> interrupt) -> void {
+			bool stop = false;
+			auto capturedInterrupt = interrupt;
+			generator([&accept, &stop, predicate](E element, function::Timestamp index) -> void {
+                if (stop) return;
+                bool matches = false;
+                if constexpr (std::is_invocable_r_v<bool, Predicate, E, function::Timestamp>)
+                {
+                    matches = std::invoke(predicate, element, index);
+                }
+                else if constexpr (std::is_invocable_r_v<bool, Predicate, E>)
+                {
+                    matches = std::invoke(predicate, element);
+                }
+                if (matches)
+                {
+                    accept(element, index);
+                }
+                else
+                {
+                    stop = true;
+                } }, [&capturedInterrupt, &stop](E element, function::Timestamp index) -> bool {
+                if (capturedInterrupt(element, index)) { stop = true; return true; }
+                return stop; });
+		},
+						   this->concurrent);
+	}
+
+	template <typename Predicate>
+	auto dropWhile(Predicate &&predicate) const -> Semantic<E>
+	{
+		return Semantic<E>([generator = *(this->generator), predicate = std::forward<Predicate>(predicate)](function::BiConsumer<E, function::Timestamp> accept, function::BiPredicate<E, function::Timestamp> interrupt) -> void {
+			bool dropping = true;
+			function::Timestamp count = 0LL;
+			bool stop = false;
+			auto capturedInterrupt = interrupt;
+			generator([&accept, &dropping, &count, &stop, predicate](E element, function::Timestamp index) -> void {
+                if (stop) return;
+                if (dropping)
+                {
+                    bool matches = false;
+                    if constexpr (std::is_invocable_r_v<bool, Predicate, E, function::Timestamp>)
                     {
-                        try {
-                            std::unique_lock<std::mutex> lock(this->mutex);
-                            this->condition.wait(lock, [this] {
-                                return !this->tasks.empty() || !this->active.load();
-                                });
-                            if (!active.load() && this->tasks.empty()) {
-                                break;
-                            }
-                            if (!this->tasks.empty()) {
-                                task = std::move(this->tasks.front());
-                                this->tasks.pop();
-                            }
-                        }
-                        catch (const std::exception& exception) {
-                            throw exception;
-                        }
+                        matches = std::invoke(predicate, element, index);
                     }
-                    try {
-                        task();
+                    else if constexpr (std::is_invocable_r_v<bool, Predicate, E>)
+                    {
+                        matches = std::invoke(predicate, element);
                     }
-                    catch (const std::exception& exception) {
-                        throw exception;
+                    if (!matches)
+                    {
+                        dropping = false;
+                        accept(element, count);
+                        count++;
                     }
                 }
-                });
-        }
-
-        void decrease() {
-            if (!this->workers.empty()) {
+                else
                 {
-                    try {
-                        std::lock_guard<std::mutex> lock(this->mutex);
-                        this->tasks.emplace([] {});
-                    }
-                    catch (const std::exception& exception) {
-                        std::cerr << exception.what() << '\n';
-                    }
-                }
-                try {
-                    this->condition.notify_one();
-                    if (this->workers.back().joinable()) {
-                        this->workers.back().join();
-                    }
-                    this->workers.pop_back();
-                }
-                catch (const std::exception& exception) {
-                    std::cerr << exception.what() << '\n';
-                }
-            }
-        }
+                    accept(element, count);
+                    count++;
+                } }, [&capturedInterrupt, &stop, &count](E element, function::Timestamp index) -> bool {
+                if (capturedInterrupt(element, count)) { stop = true; return true; }
+                return false; });
+		},
+						   this->concurrent);
+	}
 
-        void boot() {
-            if (!this->active.exchange(true)) {
-                try {
-                    this->condition.notify_all();
-                }
-                catch (const std::exception& exception) {
-                    std::cerr << exception.what() << '\n';
-                }
-            }
-        }
-
-        void shutdown() {
-            if (this->active.exchange(false)) {
+	auto limit(const function::Module &n) const -> Semantic<E>
+	{
+		return Semantic<E>([generator = *(this->generator), n](function::BiConsumer<E, function::Timestamp> accept, function::BiPredicate<E, function::Timestamp> interrupt) -> void {
+			function::Module count = 0;
+			bool stop = false;
+			auto capturedInterrupt = interrupt;
+			generator([&accept, &count, &stop, n](E element, function::Timestamp index) -> void {
+                if (stop) return;
+                if (count < n)
                 {
-                    try {
-                        std::unique_lock<std::mutex> lock(this->mutex);
-                        this->condition.wait(lock, [this] {
-                            return this->tasks.empty();
-                            });
-                    }
-                    catch (const std::exception& exception) {
-                        std::cerr << exception.what() << '\n';
-                    }
+                    accept(element, count);
+                    count++;
                 }
-                try {
-                    this->condition.notify_all();
-                    for (std::thread& worker : this->workers) {
-                        if (worker.joinable()) {
-                            worker.join();
-                        }
-                    }
+                if (count >= n)
+                {
+                    stop = true;
+                } }, [&capturedInterrupt, &stop, &count](E element, function::Timestamp index) -> bool {
+                if (capturedInterrupt(element, count)) { stop = true; return true; }
+                return stop; });
+		},
+						   this->concurrent);
+	}
+
+	auto skip(const function::Module &n) const -> Semantic<E>
+	{
+		return Semantic<E>([generator = *(this->generator), n](function::BiConsumer<E, function::Timestamp> accept, function::BiPredicate<E, function::Timestamp> interrupt) -> void {
+			function::Module count = 0;
+			bool stop = false;
+			auto capturedInterrupt = interrupt;
+			generator([&accept, &count, &stop, n](E element, function::Timestamp index) -> void {
+                if (stop) return;
+                if (count >= n)
+                {
+                    accept(element, count);
                 }
-                catch (const std::exception& exception) {
-                    std::cerr << exception.what() << '\n';
-                }
-            }
-        }
+                count++; }, [&capturedInterrupt, &stop, &count](E element, function::Timestamp index) -> bool {
+                if (capturedInterrupt(element, count)) { stop = true; return true; }
+                return false; });
+		},
+						   this->concurrent);
+	}
 
-        auto submit(const Runnable& task) -> std::future<void> {
-            if (!this->active.load()) {
-                throw std::runtime_error("ThreadPool is not active.");
-            }
-            std::shared_ptr<std::packaged_task<void()>> packaged_task = std::make_shared<std::packaged_task<void()>>(task);
-            std::future<void> result = packaged_task->get_future();
-            {
-                std::lock_guard<std::mutex> lock(this->mutex);
-                this->tasks.emplace([packaged_task]() {
-                    (*packaged_task)();
-                    });
-            }
-            this->condition.notify_one();
-            return result;
-        }
+	auto distinct() const -> Semantic<E>
+	{
+		return Semantic<E>([generator = *(this->generator)](function::BiConsumer<E, function::Timestamp> accept, function::BiPredicate<E, function::Timestamp> interrupt) -> void {
+			std::unordered_set<E> seen;
+			function::Timestamp count = 0LL;
+			bool stop = false;
+			auto capturedInterrupt = interrupt;
+			generator([&accept, &seen, &count, &stop](E element, function::Timestamp index) -> void {
+                if (stop) return;
+                if (seen.find(element) == seen.end())
+                {
+                    seen.insert(element);
+                    accept(element, count);
+                    count++;
+                } }, [&capturedInterrupt, &stop, &count](E element, function::Timestamp index) -> bool {
+                if (capturedInterrupt(element, count)) { stop = true; return true; }
+                return false; });
+		},
+						   this->concurrent);
+	}
 
-        template<typename R>
-        auto submit(const Supplier<R>& task) -> std::future<R> {
-            if (!this->active.load()) {
-                throw std::runtime_error("ThreadPool is not active");
-            }
-            std::shared_ptr<std::packaged_task<R()>> packaged_task = std::make_shared<std::packaged_task<R()>>(task);
-            std::future<R> result = packaged_task->get_future();
-            {
-                std::lock_guard<std::mutex> lock(this->mutex);
-                this->tasks.emplace([packaged_task]() {
-                    (*packaged_task)();
-                    });
-            }
-            this->condition.notify_one();
-            return result;
-        }
-    };
+	auto distinct(const function::Comparator<E> &comparator) const -> Semantic<E>
+	{
+		return Semantic<E>([generator = *(this->generator), comparator](function::BiConsumer<E, function::Timestamp> accept, function::BiPredicate<E, function::Timestamp> interrupt) -> void {
+			std::set<E, function::Comparator<E>> seen(comparator);
+			function::Timestamp count = 0LL;
+			bool stop = false;
+			auto capturedInterrupt = interrupt;
+			generator([&accept, &seen, &count, &stop](E element, function::Timestamp index) -> void {
+                if (stop) return;
+                if (seen.find(element) == seen.end())
+                {
+                    seen.insert(element);
+                    accept(element, count);
+                    count++;
+                } }, [&capturedInterrupt, &stop, &count](E element, function::Timestamp index) -> bool {
+                if (capturedInterrupt(element, count)) { stop = true; return true; }
+                return false; });
+		},
+						   this->concurrent);
+	}
 
-    inline ThreadPool pool;
-};
-
-namespace collector {
-
-    template<typename A>
-    using Identity = functional::Supplier<A>;
-
-    template<typename E, typename A>
-    using Interrupt = functional::TriPredicate<E, functional::Timestamp, A>;
-
-    template <typename A, typename E>
-    using Accumulator = functional::TriFunction<A, E, functional::Timestamp, A>;
-
-    template<typename A>
-    using Combiner = functional::BiFunction<A, A, A>;
-
-    template<typename A, typename R>
-    using Finisher = functional::Function<A, R>;
-
-    template<typename E, typename A, typename R>
-    class Collector {
-    private:
-        std::unique_ptr<Identity<A>> identity;
-        std::unique_ptr<Interrupt<E, A>> interrupt;
-        std::unique_ptr<Accumulator<A, E>> accumulator;
-        std::unique_ptr<Combiner<A>> combiner;
-        std::unique_ptr<Finisher<A, R>> finisher;
-    public:
-        Collector(const Identity<A>& identity, const Interrupt<E, A>& interrupt, const Accumulator<A, E>& accumulator, const Combiner<A>& combiner, const Finisher<A, R>& finisher) : identity(std::make_unique<Identity<A>>(identity)), interrupt(std::make_unique<Interrupt<E, A>>(interrupt)), accumulator(std::make_unique<Accumulator<A, E>>(accumulator)), combiner(std::make_unique<Combiner<A>>(combiner)), finisher(std::make_unique<Finisher<A, R>>(finisher)) {}
-        Collector(Identity<A>&& identity, Interrupt<E, A>&& interrupt, Accumulator<A, E>&& accumulator, Combiner<A>&& combiner, Finisher<A, R>&& finisher) : identity(std::make_unique<Identity<A>>(std::move(identity))), interrupt(std::make_unique<Interrupt<E, A>>(std::move(interrupt))), accumulator(std::make_unique<Accumulator<A, E>>(std::move(accumulator))), combiner(std::make_unique<Combiner<A>>(std::move(combiner))), finisher(std::make_unique<Finisher<A, R>>(std::move(finisher))) {}
-        Collector(Collector<E, A, R>&& other) noexcept : identity(std::move(other.identity)), interrupt(std::move(other.interrupt)), accumulator(std::move(other.accumulator)), combiner(std::move(other.combiner)), finisher(std::move(other.finisher)) {}
-        Collector<E, A, R>& operator=(Collector<E, A, R>&& other) noexcept {
-            if (this != &other) {
-                this->identity = std::move(other.identity);
-                this->interrupt = std::move(other.interrupt);
-                this->accumulator = std::move(other.accumulator);
-                this->combiner = std::move(other.combiner);
-                this->finisher = std::move(other.finisher);
-            }
-            return *this;
-        }
-        ~Collector() = default;
-
-        auto collect(const functional::Generator<E>& generator, const functional::Module& concurrent) const -> R {
-            if (concurrent < 2) {
-                try {
-                    A identity = (*(this->identity))();
-                    generator([&identity, this](E element, functional::Timestamp index)-> void {
-                        identity = (*(this->accumulator))(identity, element, index);
-                        }, [&identity, this](E element, functional::Timestamp index)-> bool {
-                            return (*(this->interrupt))(element, index, identity);
-                            });
-                        return (*(this->finisher))(identity);
-                }
-                catch (const std::exception& exception) {
-                    throw exception;
-                }
-            }
-            std::vector<std::future<A>> futures;
-            futures.reserve(concurrent);
-            for (functional::Module thread = 0; thread < concurrent; thread++) {
-                futures.emplace_back(pool::pool.submit<A>([this, thread, &generator, concurrent]()-> A {
-                    try {
-                        A identity = (*(this->identity))();
-                        generator([thread, &identity, concurrent, this](E element, functional::Timestamp index)-> void {
-                            if (index % concurrent == thread) {
-                                identity = (*(this->accumulator))(identity, element, index);
-                            }
-                            }, [&identity, this](E element, functional::Timestamp index)-> bool {
-                                return (*(this->interrupt))(element, index, identity);
-                                });
-                            return identity;
-                    }
-                    catch (const std::exception& exception) {
-                        throw exception;
-                    }
-                    }));
-            }
-            A identity = (*(this->identity))();
-            for (std::future<A>& future : futures) {
-                identity = (*(this->combiner))(identity, future.get());
-            }
-            return (*(this->finisher))(identity);
-        }
-
-        auto collect(const std::vector<E>& container, const functional::Module& concurrent) const -> R {
-            if (concurrent < 2) {
-                try {
-                    A identity = (*(this->identity))();
-                    functional::Timestamp index = 0;
-                    for (const E& element : container) {
-                        if ((*(this->interrupt))(element, index, identity)) {
-                            break;
-                        }
-                        identity = (*(this->accumulator))(identity, element, index);
-                        index++;
-                    }
-                    return (*(this->finisher))(identity);
-                }
-                catch (const std::exception& exception) {
-                    std::cerr << exception.what() << '\n';
-                }
-            }
-            std::vector<std::future<A>> futures;
-            futures.reserve(concurrent);
-            for (functional::Module thread = 0; thread < concurrent; thread++) {
-                futures.emplace_back(pool::pool.submit<A>([this, &container, thread, concurrent]()-> A {
-                    A identity = (*(this->identity))();
-                    functional::Module index = 0;
-                    for (const E& element : container) {
-                        if ((*(this->interrupt))(element, index, identity)) {
-                            break;
-                        }
-                        if (index % concurrent == thread) {
-                            identity = (*(this->accumulator))(identity, element, index);
-                        }
-                        index++;
-                    }
-                    return identity;
-                    }));
-            }
-            A identity = (*(this->identity))();
-            for (std::future<A>& future : futures) {
-                identity = (*(this->combiner))(identity, future.get());
-            }
-            return (*(this->finisher))(identity);
-        }
-
-        auto collect(const std::set<E>& container, const functional::Module& concurrent) const -> R {
-            if (concurrent < 2) {
-                try {
-                    A identity = (*(this->identity))();
-                    functional::Timestamp index = 0;
-                    for (const E& element : container) {
-                        if ((*(this->interrupt))(element, index, identity)) {
-                            break;
-                        }
-                        identity = (*(this->accumulator))(identity, element, index);
-                        index++;
-                    }
-                    return (*(this->finisher))(identity);
-                }
-                catch (const std::exception& exception) {
-                    throw exception;
-                }
-            }
-            std::vector<std::future<A>> futures;
-            futures.reserve(concurrent);
-            for (functional::Module thread = 0; thread < concurrent; thread++) {
-                futures.emplace_back(pool::pool.submit<A>([this, &container, thread, concurrent]()-> A {
-                    try {
-                        A identity = (*(this->identity))();
-                        functional::Module index = 0;
-                        for (const E& element : container) {
-                            if ((*(this->interrupt))(element, index, identity)) {
-                                break;
-                            }
-                            if (index % concurrent == thread) {
-                                identity = (*(this->accumulator))(identity, element, index);
-                            }
-                            index++;
-                        }
-                        return identity;
-                    }
-                    catch (const std::exception& exception) {
-                        throw exception;
-                    }
-                    }));
-            }
-            A identity = (*(this->identity))();
-            for (std::future<A>& future : futures) {
-                identity = (*(this->combiner))(identity, future.get());
-            }
-            return (*(this->finisher))(identity);
-        }
-
-        auto collect(const std::unordered_set<E>& container, const functional::Module& concurrent) const -> R {
-            if (concurrent < 2) {
-                try {
-                    A identity = (*(this->identity))();
-                    functional::Timestamp index = 0;
-                    for (const E& element : container) {
-                        if ((*(this->interrupt))(element, index, identity)) {
-                            break;
-                        }
-                        identity = (*(this->accumulator))(identity, element, index);
-                        index++;
-                    }
-                    return (*(this->finisher))(identity);
-                }
-                catch (const std::exception& exception) {
-                    throw exception;
-                }
-            }
-            std::vector<std::future<A>> futures;
-            futures.reserve(concurrent);
-            for (functional::Module thread = 0; thread < concurrent; thread++) {
-                futures.emplace_back(pool::pool.submit<A>([this, &container, thread, concurrent]()-> A {
-                    try {
-                        A identity = (*(this->identity))();
-                        functional::Module index = 0;
-                        for (const E& element : container) {
-                            if ((*(this->interrupt))(element, index, identity)) {
-                                break;
-                            }
-                            if (index % concurrent == thread) {
-                                identity = (*(this->accumulator))(identity, element, index);
-                            }
-                            index++;
-                        }
-                        return identity;
-                    }
-                    catch (const std::exception& exception) {
-                        throw exception;
-                    }
-                    }));
-            }
-            A identity = (*(this->identity))();
-            for (std::future<A>& future : futures) {
-                identity = (*(this->combiner))(identity, future.get());
-            }
-            return (*(this->finisher))(identity);
-        }
-
-        auto collect(const std::list<E>& container, const functional::Module& concurrent) const -> R {
-            if (concurrent < 2) {
-                try {
-                    A identity = (*(this->identity))();
-                    functional::Timestamp index = 0;
-                    for (const E& element : container) {
-                        if ((*(this->interrupt))(element, index, identity)) {
-                            break;
-                        }
-                        identity = (*(this->accumulator))(identity, element, index);
-                        index++;
-                    }
-                    return (*(this->finisher))(identity);
-                }
-                catch (const std::exception& exception) {
-                    throw exception;
-                }
-            }
-            std::vector<std::future<A>> futures;
-            futures.reserve(concurrent);
-            for (functional::Module thread = 0; thread < concurrent; thread++) {
-                futures.emplace_back(pool::pool.submit<A>([this, &container, thread, concurrent]()-> A {
-                    A identity = (*(this->identity))();
-                    functional::Module index = 0;
-                    for (const E& element : container) {
-                        if ((*(this->interrupt))(element, index, identity)) {
-                            break;
-                        }
-                        if (index % concurrent == thread) {
-                            identity = (*(this->accumulator))(identity, element, index);
-                        }
-                        index++;
-                    }
-                    return identity;
-                    }));
-            }
-            A identity = (*(this->identity))();
-            for (std::future<A>& future : futures) {
-                identity = (*(this->combiner))(identity, future.get());
-            }
-            return (*(this->finisher))(identity);
-        }
-
-        auto collect(const std::initializer_list<E>& container, const functional::Module& concurrent) const -> R {
-            if (concurrent < 2) {
-                try {
-                    A identity = (*(this->identity))();
-                    functional::Timestamp index = 0;
-                    for (const E& element : container) {
-                        if ((*(this->interrupt))(element, index, identity)) {
-                            break;
-                        }
-                        identity = (*(this->accumulator))(identity, element, index);
-                        index++;
-                    }
-                    return (*(this->finisher))(identity);
-                }
-                catch (const std::exception& exception) {
-                    throw exception;
-                }
-            }
-            std::vector<std::future<A>> futures;
-            futures.reserve(concurrent);
-            for (functional::Module thread = 0; thread < concurrent; thread++) {
-                futures.emplace_back(pool::pool.submit<A>([this, &container, thread, concurrent]()-> A {
-                    A identity = (*(this->identity))();
-                    functional::Module index = 0;
-                    for (const E& element : container) {
-                        if ((*(this->interrupt))(element, index, identity)) {
-                            break;
-                        }
-                        if (index % concurrent == thread) {
-                            identity = (*(this->accumulator))(identity, element, index);
-                        }
-                        index++;
-                    }
-                    return identity;
-                    }));
-            }
-            A identity = (*(this->identity))();
-            for (std::future<A>& future : futures) {
-                identity = (*(this->combiner))(identity, future.get());
-            }
-            return (*(this->finisher))(identity);
-        }
-    };
-
-
-    template<typename E, typename A, typename R>
-    auto useFull(const Identity<A>& identity, const Accumulator<A, E>& accumulator, const Combiner<A>& combiner, const Finisher<A, R>& finisher) -> Collector<E, A, R> {
-        const Interrupt<E, A>& interrupt = [](const E element, const functional::Timestamp& index, const A& accumulator)-> bool {
-            return false;
-            };
-        return  Collector<E, A, R>(identity, interrupt, accumulator, combiner, finisher);
-    }
-
-    template<typename E, typename A, typename R>
-    auto useShortable(const Identity<A>& identity, const Interrupt<E, A>& interrupt, const Accumulator<A, E>& accumulator, const Combiner<A>& combiner, const Finisher<A, R>& finisher) -> Collector<E, A, R> {
-        return  Collector<E, A, R>(identity, interrupt, accumulator, combiner, finisher);
-    }
-
-    template<typename E, typename Predicate>
-    auto useAllMatch(Predicate&& predicate) -> Collector<E, bool, bool> {
-        return useShortable<E, bool, bool>(
-            []()->bool {
-                return true;
-            },
-            [predicate](E element, functional::Timestamp index, bool accumulator)-> bool {
-                return !accumulator;
-            },
-            [predicate](bool accumulator, E element, functional::Timestamp index)-> bool {
-                if constexpr (std::is_invocable_r_v<bool, Predicate, E, functional::Timestamp>) {
-                    return accumulator && std::invoke(predicate, element, index);
-                }
-                else if (std::is_invocable_r_v<bool, Predicate, E>) {
-                    return accumulator && std::invoke(predicate, element);
-                }
-                return false;
-            },
-            [](bool a, bool b)-> bool {
-                return a && b;
-            },
-            [](bool accumulator)-> bool {
-                return accumulator;
-            }
-        );
-    }
-
-    template<typename E, typename Predicate>
-    auto useAnyMatch(Predicate&& predicate) -> Collector<E, bool, bool> {
-        return useShortable<E, bool, bool>(
-            []()->bool {
-                return false;
-            },
-            [predicate](E element, functional::Timestamp index, bool accumulator)-> bool {
-                return accumulator;
-            },
-            [predicate](bool accumulator, E element, functional::Timestamp index)-> bool {
-                if constexpr (std::is_invocable_r_v<bool, Predicate, E, functional::Timestamp>) {
-                    return accumulator || std::invoke(predicate, element, index);
-                }
-                else if constexpr (std::is_invocable_r_v<bool, Predicate, E>) {
-                    return accumulator || std::invoke(predicate, element);
-                }
-                return false;
-            },
-            [](bool a, bool b)-> bool {
-                return a || b;
-            },
-            [](bool accumulator)-> bool {
-                return accumulator;
-            }
-        );
-    }
-
-    template<typename E, typename Predicate>
-    auto useNoneMatch(Predicate&& predicate) -> Collector<E, bool, bool> {
-        return useShortable<E, bool, bool>(
-            []()->bool {
-                return true;
-            },
-            [predicate](E element, functional::Timestamp index, bool accumulator)-> bool {
-                return !accumulator;
-            },
-            [predicate](bool accumulator, E element, functional::Timestamp index)-> bool {
-                if constexpr (std::is_invocable_r_v<bool, Predicate, E, functional::Timestamp>) {
-                    return accumulator && !std::invoke(predicate, element, index);
-                }
-                else if constexpr (std::is_invocable_r_v<bool, Predicate, E>) {
-                    return accumulator && !std::invoke(predicate, element);
-                }
-                return false;
-            },
-            [](bool a, bool b)-> bool {
-                return a && b;
-            },
-            [](bool accumulator)-> bool {
-                return accumulator;
-            }
-        );
-    }
-
-    template<typename E, typename Consumer>
-    auto useForEach(Consumer&& consumer) -> Collector<E, functional::Module, functional::Module> {
-        return useFull<E, functional::Module, functional::Module>(
-            []()-> functional::Module {
-                return 0;
-            },
-            [consumer](const functional::Module& accumulator, const E& element, const functional::Timestamp& index)-> functional::Module {
-                if constexpr (std::is_invocable_r_v<void, Consumer, E, functional::Timestamp>) {
+	template <typename Consumer>
+	auto peek(Consumer &&consumer) const -> Semantic<E>
+	{
+		return Semantic<E>([generator = *(this->generator), consumer = std::forward<Consumer>(consumer)](function::BiConsumer<E, function::Timestamp> accept, function::BiPredicate<E, function::Timestamp> interrupt) -> void {
+			bool stop = false;
+			auto capturedInterrupt = interrupt;
+			generator([&accept, &stop, &consumer](E element, function::Timestamp index) -> void {
+                if (stop) return;
+                if constexpr (std::is_invocable_r_v<void, Consumer, E, function::Timestamp>)
+                {
                     std::invoke(consumer, element, index);
-                    return accumulator + 1;
                 }
-                else if constexpr (std::is_invocable_r_v<void, Consumer, E>) {
+                else if constexpr (std::is_invocable_r_v<void, Consumer, E>)
+                {
                     std::invoke(consumer, element);
-                    return accumulator + 1;
                 }
-                return accumulator;
-            },
-            [](const functional::Module& a, const functional::Module& b)-> functional::Module {
-                return a + b;
-            },
-            [](const functional::Module& identity)-> functional::Module {
-                return identity;
-            }
-        );
-    }
+                accept(element, index); }, [&capturedInterrupt, &stop](E element, function::Timestamp index) -> bool {
+                if (capturedInterrupt(element, index)) { stop = true; return true; }
+                return false; });
+		},
+						   this->concurrent);
+	}
 
-    template<typename E, typename A, typename R>
-    auto useCollect(const Identity<R>& identity, const Accumulator<A, E>& accumulator, const  Combiner<A>& combiner, const Finisher<A, R>& finisher) -> Collector<E, A, R> {
-        return useFull<E, A, R>(identity, accumulator, combiner, finisher);
-    }
+	template <typename Flatten>
+	auto flat(Flatten &&flatten) const -> Semantic<E>
+	{
+		return Semantic<E>([generator = *(this->generator), flatten = std::forward<Flatten>(flatten)](function::BiConsumer<E, function::Timestamp> accept, function::BiPredicate<E, function::Timestamp> interrupt) -> void {
+			function::Timestamp count = 0LL;
+			bool stop = false;
+			auto capturedInterrupt = interrupt;
+			generator([&accept, &count, &stop, flatten, capturedInterrupt](E element, function::Timestamp index) -> void {
+                if (stop) return;
+                if constexpr (std::is_invocable_r_v<Semantic<E>, Flatten, E, function::Timestamp>)
+                {
+                    Semantic<E> inner = std::invoke(flatten, element, index);
+                    inner.source()([&accept, &count](E innerElement, function::Timestamp innerIndex) -> void {
+                        accept(innerElement, count);
+                        count++;
+                    }, [capturedInterrupt, &stop, &count](E innerElement, function::Timestamp innerIndex) -> bool {
+                        if (capturedInterrupt(innerElement, count)) { stop = true; return true; }
+                        return false;
+                    });
+                }
+                else if constexpr (std::is_invocable_r_v<Semantic<E>, Flatten, E>)
+                {
+                    Semantic<E> inner = std::invoke(flatten, element);
+                    inner.source()([&accept, &count](E innerElement, function::Timestamp innerIndex) -> void {
+                        accept(innerElement, count);
+                        count++;
+                    }, [capturedInterrupt, &stop, &count](E innerElement, function::Timestamp innerIndex) -> bool {
+                        if (capturedInterrupt(innerElement, count)) { stop = true; return true; }
+                        return false;
+                    });
+                }
+                else
+                {
+                    static_assert(std::is_invocable_r_v<Semantic<E>, Flatten, E, function::Timestamp> || std::is_invocable_r_v<Semantic<E>, Flatten, E>, "Flatten must be callable as either (E, Timestamp) -> Semantic<E> or (E) -> Semantic<E>");
+                } }, [&stop](E element, function::Timestamp index) -> bool { return stop; });
+		},
+						   this->concurrent);
+	}
 
-    template<typename E, typename A, typename R>
-    Collector<E, A, R> useCollect(const Identity<R>& identity, const Interrupt<E, A>& interrupt, const Accumulator<A, E>& accumulator, const  Combiner<A>& combiner, const Finisher<A, R>& finisher) {
-        return useShortable<E, A, R>(identity, interrupt, accumulator, combiner, finisher);
-    }
+	template <typename R, typename Flatten>
+	auto flatMap(Flatten &&flatten) const -> Semantic<R>
+	{
+		return Semantic<R>([generator = *(this->generator), flatten = std::forward<Flatten>(flatten)](function::BiConsumer<R, function::Timestamp> accept, function::BiPredicate<R, function::Timestamp> interrupt) -> void {
+			function::Timestamp count = 0LL;
+			bool stop = false;
+			auto capturedInterrupt = interrupt;
+			generator([&accept, &count, &stop, flatten, capturedInterrupt](E element, function::Timestamp index) -> void {
+                if (stop) return;
+                if constexpr (std::is_invocable_r_v<Semantic<R>, Flatten, E, function::Timestamp>)
+                {
+                    Semantic<R> inner = std::invoke(flatten, element, index);
+                    inner.source()([&accept, &count](R innerElement, function::Timestamp innerIndex) -> void {
+                        accept(innerElement, count);
+                        count++;
+                    }, [capturedInterrupt, &stop, &count](R innerElement, function::Timestamp innerIndex) -> bool {
+                        if (capturedInterrupt(innerElement, count)) { stop = true; return true; }
+                        return false;
+                    });
+                }
+                else if constexpr (std::is_invocable_r_v<Semantic<R>, Flatten, E>)
+                {
+                    Semantic<R> inner = std::invoke(flatten, element);
+                    inner.source()([&accept, &count](R innerElement, function::Timestamp innerIndex) -> void {
+                        accept(innerElement, count);
+                        count++;
+                    }, [capturedInterrupt, &stop, &count](R innerElement, function::Timestamp innerIndex) -> bool {
+                        if (capturedInterrupt(innerElement, count)) { stop = true; return true; }
+                        return false;
+                    });
+                }
+                else
+                {
+                    static_assert(std::is_invocable_r_v<Semantic<R>, Flatten, E, function::Timestamp> || std::is_invocable_r_v<Semantic<R>, Flatten, E>, "Flatten must be callable as either (E, Timestamp) -> Semantic<R> or (E) -> Semantic<R>");
+                } }, [&stop](E element, function::Timestamp index) -> bool { return stop; });
+		},
+						   this->concurrent);
+	}
 
-    template<typename E>
-    auto useCount() -> Collector<E, functional::Module, functional::Module> {
-        Collector< E, functional::Module, functional::Module> collector = useFull<E, functional::Module, functional::Module>(
-            []()-> functional::Module {
-                return 0LL;
-            },
-            [](functional::Module accumulator, E element, functional::Timestamp index)-> functional::Module {
-                return accumulator + 1;
-            },
-            [](functional::Module a, functional::Module b)-> functional::Module {
-                return a + b;
-            },
-            [](functional::Module accumulator)-> functional::Module {
-                return accumulator;
-            }
-        );
-        return collector;
-    }
+	auto parallel() const -> Semantic<E>
+	{
+		return Semantic<E>(this->source(), this->concurrent + 1);
+	}
 
-    template<typename E>
-    auto useError() -> Collector<E, std::string, std::string> {
-        return useFull<E, std::string, std::string>(
-            []()-> std::string {
-                return "";
-            },
-            [](std::string accumulator, E element, functional::Timestamp index)-> std::string {
-                if constexpr (std::is_same_v<E, std::string>) {
-                    if (accumulator.length() > 0) {
-                        return accumulator + "," + element;
-                    }
-                    return element;
-                }
-                else {
-                    if (accumulator.length() > 0) {
-                        return accumulator + "," + std::to_string(element);
-                    }
-                    return std::to_string(element);
-                }
-            },
-            [](std::string a, std::string b)-> std::string {
-                return a + "," + b;
-            },
-            [](std::string accumulator)-> std::string {
-                std::string result = "[" + accumulator + "]";
-                std::cerr << result << '\n';
-                return result;
-            }
-        );
-    }
+	auto parallel(const function::Module &concurrent) const -> Semantic<E>
+	{
+		return Semantic<E>(this->source(), std::max(concurrent, 1ULL));
+	}
 
-    template<typename E>
-    auto useError(const std::string& delimiter) -> Collector<E, std::string, std::string> {
-        return useFull<E, std::string, std::string>(
-            []()-> std::string {
-                return "";
-            },
-            [delimiter](std::string accumulator, E element, functional::Timestamp index)-> std::string {
-                if constexpr (std::is_same_v<E, std::string>) {
-                    if (accumulator.length() > 0) {
-                        return accumulator + delimiter + element;
-                    }
-                    return element;
-                }
-                else {
-                    if (accumulator.length() > 0) {
-                        return accumulator + delimiter + std::to_string(element);
-                    }
-                    return std::to_string(element);
-                }
-            },
-            [](std::string a, std::string b)-> std::string {
-                return a + "," + b;
-            },
-            [](std::string accumulator)-> std::string {
-                std::string result = "[" + accumulator + "]";
-                std::cerr << result << '\n';
-                return result;
-            }
-        );
-    }
+	auto reverse() const -> Semantic<E>
+	{
+		return Semantic<E>([generator = *(this->generator)](function::BiConsumer<E, function::Timestamp> accept, function::BiPredicate<E, function::Timestamp> interrupt) -> void {
+			bool stop = false;
+			auto capturedInterrupt = interrupt;
+			generator([&accept, &stop](E element, function::Timestamp index) -> void {
+                if (stop) return;
+                accept(element, -index); }, [&capturedInterrupt, &stop](E element, function::Timestamp index) -> bool {
+                if (capturedInterrupt(element, -index)) { stop = true; return true; }
+                return false; });
+		},
+						   this->concurrent);
+	}
 
-    template<typename E>
-    auto useError(const std::string& prefix, const std::string& delimiter, const std::string suffix) -> Collector<E, std::string, std::string> {
-        return useFull<E, std::string, std::string>(
-            []()->std::string {
-                return "";
-            },
-            [delimiter](std::string accumulator, E element, functional::Timestamp index)-> std::string {
-                if constexpr (std::is_same_v<E, std::string>) {
-                    if (accumulator.length() > 1) {
-                        return accumulator + delimiter + element;
-                    }
-                    return element;
-                }
-                else {
-                    if (accumulator.length() > 1) {
-                        return accumulator + delimiter + std::to_string(element);
-                    }
-                    return std::to_string(element);
-                }
-            },
-            [delimiter](std::string a, std::string b)-> std::string {
-                return a + delimiter + b;
-            },
-            [prefix, suffix](std::string accumulator)-> std::string {
-                std::string result = accumulator + suffix;
-                std::cerr << result << '\n';
-                return result;
-            }
-        );
-    }
+	auto translate(const function::Timestamp &offset) const -> Semantic<E>
+	{
+		return Semantic<E>([generator = *(this->generator), offset](function::BiConsumer<E, function::Timestamp> accept, function::BiPredicate<E, function::Timestamp> interrupt) -> void {
+			bool stop = false;
+			auto capturedInterrupt = interrupt;
+			generator([&accept, &stop, offset](E element, function::Timestamp index) -> void {
+                if (stop) return;
+                accept(element, index + offset); }, [&capturedInterrupt, &stop, offset](E element, function::Timestamp index) -> bool {
+                if (capturedInterrupt(element, index + offset)) { stop = true; return true; }
+                return false; });
+		},
+						   this->concurrent);
+	}
 
-    template<typename E>
-    auto useFindAny() -> Collector<E, std::optional<E>, std::optional<E>> {
-        return useShortable<E, std::optional<E>, std::optional<E >>(
-            []()-> std::optional<E> {
-                return std::nullopt;
-            },
-            [](E element, functional::Timestamp index, std::optional<E> accumulator)-> bool {
-                return accumulator.has_value();
-            },
-            [](std::optional<E> accumulator, E element, functional::Timestamp index)-> std::optional<E> {
-                if (functional::randomly()) {
-                    return std::optional<E>(element);
-                }
-                return std::nullopt;
-            },
-            [](std::optional<E> a, std::optional<E> b)-> std::optional<E> {
-                if (a.has_value()) {
-                    return a;
-                }
-                if (b.has_value()) {
-                    return b;
-                }
-                return std::nullopt;
-            },
-            [](std::optional<E> accumulator)-> std::optional<E> {
-                return accumulator;
-            }
-        );
-    }
+	auto translate(const function::BiFunction<E, function::Timestamp, function::Timestamp> &translator) const -> Semantic<E>
+	{
+		return Semantic<E>([generator = *(this->generator), translator](function::BiConsumer<E, function::Timestamp> accept, function::BiPredicate<E, function::Timestamp> interrupt) -> void {
+			bool stop = false;
+			auto capturedInterrupt = interrupt;
+			generator([&accept, &stop, translator](E element, function::Timestamp index) -> void {
+                if (stop) return;
+                accept(element, translator(element, index)); }, [&capturedInterrupt, &stop, translator](E element, function::Timestamp index) -> bool {
+                if (capturedInterrupt(element, translator(element, index))) { stop = true; return true; }
+                return false; });
+		},
+						   this->concurrent);
+	}
 
-    template<typename E>
-    auto useFindAt(const functional::Timestamp& index) -> Collector<E, std::optional<E>, std::optional<E>> {
-        if (index < 0LL) {
-            throw "use \"useFindNegativeAt\" for negative index.";
-        }
-        const functional::Timestamp target = index;
-        return useShortable < E, std::optional<E>, std::optional<E>>(
-            []()-> std::optional<E> {
-                return std::nullopt;
-            },
-            [](E element, functional::Timestamp index, std::optional<E> accumulator)-> bool {
-                return accumulator.has_value();
-            },
-            [](std::optional<E> accumulator, E element, functional::Timestamp index)-> std::optional<E> {
-                if (target == index) {
-                    return std::optional<E>(element);
-                }
-                return accumulator;
-            },
-            [](std::optional<E> a, std::optional<E> b)-> std::optional<E> {
-                if (a.has_value()) {
-                    return a;
-                }
-                if (b.has_value()) {
-                    return b;
-                }
-                return std::nullopt;
-            },
-            [](std::optional<E> accumulator)-> std::optional<E> {
-                return accumulator;
-            });
-    }
+	auto redirect(const function::BiFunction<E, function::Timestamp, E> &redirector) const -> Semantic<E>
+	{
+		return Semantic<E>([generator = *(this->generator), redirector](function::BiConsumer<E, function::Timestamp> accept, function::BiPredicate<E, function::Timestamp> interrupt) -> void {
+			bool stop = false;
+			auto capturedInterrupt = interrupt;
+			generator([&accept, &stop, &redirector](E element, function::Timestamp index) -> void {
+                if (stop) return;
+                accept(redirector(element, index), index); }, [&capturedInterrupt, &stop, &redirector](E element, function::Timestamp index) -> bool {
+                if (capturedInterrupt(redirector(element, index), index)) { stop = true; return true; }
+                return false; });
+		},
+						   this->concurrent);
+	}
 
-    template<typename E>
-    auto useFindNegativeAt(const functional::Timestamp& index) -> Collector<E, std::vector<E>, std::optional<E>> {
-        if (index > -1LL) {
-            throw "use \"useFindAt\" for none-negative index.";
-        }
-        return useFull<E, std::vector<E>, std::optional<E>>(
-            []()-> std::vector<E> {
-                return std::vector<E>();
-            },
-            [](std::vector<E> accumulator, E element, functional::Timestamp index)-> std::vector<E> {
-                accumulator.push_back(element);
-                return accumulator;
-            },
-            [](std::vector<E> a, std::vector<E> b)-> std::vector<E> {
-                if (a.has_value()) {
-                    return a;
+	auto sub(const function::Module &start, const function::Module &end) const -> Semantic<E>
+	{
+		return Semantic<E>([generator = *(this->generator), start, end](function::BiConsumer<E, function::Timestamp> accept, function::BiPredicate<E, function::Timestamp> interrupt) -> void {
+			function::Module count = 0;
+			bool stop = false;
+			auto capturedInterrupt = interrupt;
+			generator([&accept, &count, &stop, start, end](E element, function::Timestamp index) -> void {
+                if (stop) return;
+                if (count >= start && count < end)
+                {
+                    accept(element, count);
                 }
-                if (b.has_value()) {
-                    return b;
-                }
-                return std::nullopt;
-            },
-            [](std::optional<E> accumulator)-> std::optional<E> {
-                return accumulator;
-            });
-    }
+                count++;
+                if (count >= end)
+                {
+                    stop = true;
+                } }, [&capturedInterrupt, &stop, &count](E element, function::Timestamp index) -> bool {
+                if (capturedInterrupt(element, count)) { stop = true; return true; }
+                return stop; });
+		},
+						   this->concurrent);
+	}
 
-    template<typename E>
-    auto useFindFirst() -> Collector<E, std::optional<E>, std::optional<E>> {
-        return useShortable<E, std::optional<E>, std::optional<E >>(
-            []()-> std::optional<E> {
-                return std::nullopt;
-            },
-            [](E element, functional::Timestamp index, std::optional<E> accumulator)-> bool {
-                return accumulator.has_value();
-            },
-            [](std::optional<E> accumulator, E element, functional::Timestamp index)-> std::optional<E> {
-                if (accumulator.has_value()) {
-                    return accumulator;
-                }
-                return std::optional<E>(element);
-            },
-            [](std::optional<E> a, std::optional<E> b)-> std::optional<E> {
-                if (a.has_value()) {
-                    return a;
-                }
-                if (b.has_value()) {
-                    return b;
-                }
-                return std::nullopt;
-            },
-            [](std::optional<E> accumulator)-> std::optional<E> {
-                return accumulator;
-            });
-    }
+	template <typename Container>
+	auto concatenate(Container &&container) const -> Semantic<E>
+	{
+		if constexpr (std::is_same_v<std::decay_t<Container>, Semantic<E>>)
+		{
+			return Semantic<E>([generator = *(this->generator), other = std::forward<Container>(container)](function::BiConsumer<E, function::Timestamp> accept, function::BiPredicate<E, function::Timestamp> interrupt) -> void {
+				function::Timestamp count = 0LL;
+				bool stop = false;
+				auto capturedInterrupt = interrupt;
+				generator([&accept, &count, &stop](E element, function::Timestamp index) -> void {
+                if (stop) return;
+                accept(element, count);
+                count++; }, [&capturedInterrupt, &stop, &count](E element, function::Timestamp index) -> bool {
+                if (capturedInterrupt(element, count)) { stop = true; return true; }
+                return false; });
+				if (!stop)
+				{
+					other.source()([&accept, &count, &stop](E element, function::Timestamp index) -> void {
+                    if (stop) return;
+                    accept(element, count);
+                    count++; }, [&capturedInterrupt, &stop, &count](E element, function::Timestamp index) -> bool {
+                    if (capturedInterrupt(element, count)) { stop = true; return true; }
+                    return false; });
+				}
+			},
+							   this->concurrent);
+		}
+		else
+		{
+			return Semantic<E>([generator = *(this->generator), elements = std::forward<Container>(container)](function::BiConsumer<E, function::Timestamp> accept, function::BiPredicate<E, function::Timestamp> interrupt) -> void {
+				function::Timestamp count = 0LL;
+				bool stop = false;
+				auto capturedInterrupt = interrupt;
+				generator([&accept, &count, &stop](E element, function::Timestamp index) -> void {
+                if (stop) return;
+                accept(element, count);
+                count++; }, [&capturedInterrupt, &stop, &count](E element, function::Timestamp index) -> bool {
+                if (capturedInterrupt(element, count)) { stop = true; return true; }
+                return false; });
+				if (!stop)
+				{
+					for (const auto &element : elements)
+					{
+						if (stop)
+							break;
+						accept(element, count);
+						count++;
+					}
+				}
+			},
+							   this->concurrent);
+		}
+	}
 
-    template<typename E>
-    auto useFindLast() -> Collector<E, std::vector<E>, std::optional<E>> {
-        return useFull<E, std::vector<E>, std::optional<E >>(
-            []()-> std::vector<E> {
-                return std::vector<E>();
-            },
-            [](std::vector<E> accumulator, E element, functional::Timestamp index)-> std::vector<E> {
-                accumulator.push_back(element);
-                return accumulator;
-            },
-            [](std::vector<E> a, std::vector<E> b)-> std::vector<E> {
-                for (const E& element : b) {
-                    a.push_back(element);
-                }
-                return a;
-            },
-            [](std::vector<E> accumulator)-> std::optional<E> {
-                if (accumulator.empty()) {
-                    return std::nullopt;
-                }
-                return std::optional<E>(accumulator[accumulator.size() - 1]);
-            });
-    }
+	auto toUnordered() const -> collectable::UnorderedCollectable<E>
+	{
+		return collectable::UnorderedCollectable<E>(this->source(), this->concurrent);
+	}
 
-    template<typename E>
-    auto useFindMaximum() -> Collector<E, std::optional<E>, std::optional<E>> {
-        return useFull<E, std::optional<E>, std::optional<E>>(
-            []()-> std::optional<E> {
-                return std::nullopt;
-            },
-            [](std::optional<E> accumulator, E element, functional::Timestamp index)-> std::optional<E> {
-                try {
-                    if (accumulator.has_value()) {
-                        if (element > accumulator.value()) {
-                            return std::optional<E>(element);
-                        }
-                        return accumulator;
-                    }
-                    return std::optional<E>(element);
-                }
-                catch (...) {
-                    return std::nullopt;
-                }
-            },
-            [](std::optional<E> a, std::optional<E> b)-> std::optional<E> {
-                try {
-                    if (a.has_value()) {
-                        if (b.has_value()) {
-                            return a.value() > b.value() ? a : b;
-                        }
-                        return a;
-                    }
-                    if (b.has_value()) {
-                        return b;
-                    }
-                    return std::nullopt;
-                }
-                catch (...) {
-                    return std::nullopt;
-                }
-            },
-            [](std::optional<E> accumulator)-> std::optional<E> {
-                return accumulator;
-            }
-        );
-    }
+	auto toOrdered() const -> collectable::OrderedCollectable<E>
+	{
+		return collectable::OrderedCollectable<E>(this->source(), this->concurrent);
+	}
 
-    template<typename E>
-    auto useFindMaximum(const functional::Comparator<E>& comparator) -> Collector<E, std::optional<E>, std::optional<E>> {
-        return useFull<E, std::optional<E>, std::optional<E>>(
-            []()-> std::optional<E> {
-                return std::nullopt;
-            },
-            [comparator](std::optional<E> accumulator, E element, functional::Timestamp index)-> std::optional<E> {
-                if (accumulator.has_value()) {
-                    if (comparator(element, accumulator.value()) > 0) {
-                        return std::optional<E>(element);
-                    }
-                    return accumulator;
-                }
-                return std::optional<E>(element);
-            },
-            [comparator](std::optional<E> a, std::optional<E> b)-> std::optional<E> {
-                if (a.has_value()) {
-                    if (b.has_value()) {
-                        return comparator(a.value(), b.value()) > 0 ? a : b;
-                    }
-                    return a;
-                }
-                if (b.has_value()) {
-                    return b;
-                }
-                return std::nullopt;
-            },
-            [](std::optional<E> accumulator)-> std::optional<E> {
-                return accumulator;
-            });
-    }
+	auto toWindow() const -> collectable::WindowCollectable<E>
+	{
+		return collectable::WindowCollectable<E>(this->source(), this->concurrent);
+	}
 
-    template<typename E>
-    auto useFindMinimum() -> Collector<E, std::optional<E>, std::optional<E>> {
-        return useFull<E, std::optional<E>, std::optional<E>>(
-            []()-> std::optional<E> {
-                return std::nullopt;
-            },
-            [](std::optional<E> accumulator, E element, functional::Timestamp index)-> std::optional<E> {
-                try {
-                    if (accumulator.has_value()) {
-                        if (element < accumulator.value()) {
-                            return std::optional<E>(element);
-                        }
-                        return accumulator;
-                    }
-                    return std::optional<E>(element);
-                }
-                catch (...) {
-                    return std::nullopt;
-                }
-            },
-            [](std::optional<E> a, std::optional<E> b)-> std::optional<E> {
-                try {
-                    if (a.has_value()) {
-                        if (b.has_value()) {
-                            return a.value() < b.value() ? a : b;
-                        }
-                        return a;
-                    }
-                    if (b.has_value()) {
-                        return b;
-                    }
-                    return std::nullopt;
-                }
-                catch (...) {
-                    return std::nullopt;
-                }
-            },
-            [](std::optional<E> accumulator)-> std::optional<E> {
-                return accumulator;
-            }
-        );
-    }
-
-    template<typename E>
-    auto useFindMinimum(const functional::Comparator<E>& comparator) -> Collector<E, std::optional<E>, std::optional<E>> {
-        return useFull<E, std::optional<E>, std::optional<E>>(
-            []()-> std::optional<E> {
-                return std::nullopt;
-            },
-            [comparator](std::optional<E> accumulator, E element, functional::Timestamp index)-> std::optional<E> {
-                if (accumulator.has_value()) {
-                    if (comparator(element, accumulator.value()) < 0) {
-                        return std::optional<E>(element);
-                    }
-                    return accumulator;
-                }
-                return std::optional<E>(element);
-            },
-            [comparator](std::optional<E> a, std::optional<E> b)-> std::optional<E> {
-                if (a.has_value()) {
-                    if (b.has_value()) {
-                        return comparator(a.value(), b.value()) < 0 ? a : b;
-                    }
-                    return a;
-                }
-                if (b.has_value()) {
-                    return b;
-                }
-                return std::nullopt;
-            },
-            [](std::optional<E> accumulator)-> std::optional<E> {
-                return accumulator;
-            });
-    }
-
-    template<typename E, typename K, typename KeyExtractor>
-    auto useGroup(KeyExtractor &&keyExtractor) -> Collector<E, std::unordered_map<K, std::vector<E>>, std::unordered_map<K, std::vector<E>>> {
-        return useFull<E, std::unordered_map<K, std::vector<E>>, std::unordered_map<K, std::vector<E>>>(
-            []()->std::unordered_map<K, std::vector<E>> {
-                return std::unordered_map<K, std::vector<E>>();
-            },
-            [keyExtractor](std::unordered_map<K, std::vector<E>> accumulator, E element, functional::Timestamp index)-> std::unordered_map<K, std::vector<E>> {
-                if constexpr (std::is_invocable_r_v<K, KeyExtractor, E, functional::Timestamp>) {
-                    K key = std::invoke(keyExtractor, element, index);
-                    if (accumulator.contains(key)) {
-                        accumulator[key].push_back(element);
-                        return accumulator;
-                    }
-                    std::vector<E> group;
-                    group.push_back(element);
-                    accumulator.insert(std::pair<K, std::vector<E>>(key, group));
-                    return accumulator;
-                }
-                else if constexpr (std::is_invocable_r_v<K, KeyExtractor, E>) {
-                    K key = std::invoke(keyExtractor, element);
-                    if (accumulator.contains(key)) {
-                        accumulator[key].push_back(element);
-                        return accumulator;
-                    }
-                    std::vector<E> group;
-                    group.push_back(element);
-                    accumulator.insert(std::pair<K, std::vector<E>>(key, group));
-                    return accumulator;
-                }
-                return accumulator;
-            },
-            [](std::unordered_map<K, std::vector<E>> a, std::unordered_map<K, std::vector<E>> b)-> std::unordered_map<K, std::vector<E>> {
-                for (std::pair<K, std::vector<E>> pair : b) {
-                    if (a.contains(pair.first)) {
-                        std::vector<E> groupA = a[pair.first];
-                        std::vector<E> groupB = pair.second;
-                        groupA.reserve(groupA.size() + groupB.size());
-                        groupA.insert(groupA.end(), groupB.begin(), groupB.end());
-                    }
-                    else {
-                        a[pair.first] = std::move(pair.second);
-                    }
-                }
-                return a;
-            },
-            [](std::unordered_map<K, std::vector<E>> accumulator)-> std::unordered_map<K, std::vector<E>> {
-                return accumulator;
-            }
-        );
-    }
-
-    template<typename E, typename K, typename V, typename KeyExtractor, typename ValueExtractor>
-    auto useGroupBy(KeyExtractor &&keyExtractor, ValueExtractor &&valueExtractor) -> Collector<E, std::unordered_map<K, std::vector<V>>, std::unordered_map<K, std::vector<V>>> {
-        return useFull<E, std::unordered_map<K, E>, std::unordered_map<K, std::vector<E>>>(
-            []()->std::unordered_map<K, E> {
-                return std::unordered_map<K, E>();
-            },
-            [keyExtractor, valueExtractor](std::unordered_map<K, std::vector<V>> accumulator, E element, functional::Timestamp index)-> std::unordered_map<K, std::vector<V>> {
-                if constexpr (std::is_invocable_r_v<K, KeyExtractor, E, functional::Timestamp> && std::is_invocable_r_v<V, ValueExtractor, E, functional::Timestamp>) {
-                    K key = std::invoke(keyExtractor, element, index);
-                    V value = std::invoke(valueExtractor, element, index);
-                    if (accumulator.contains(key)) {
-                        accumulator[key].push_back(value);
-                        return accumulator;
-                    }
-                    std::vector<E> group;
-                    group.push_back(value);
-                    accumulator.insert(std::pair<K, std::vector<E>>(key, group));
-                    return accumulator;
-                }
-                else if constexpr (std::is_invocable_r_v<K, KeyExtractor, E> && std::is_invocable_r_v<V, ValueExtractor, E>) {
-                    K key = std::invoke(keyExtractor, element, index);
-                    V value = std::invoke(valueExtractor, element, index);
-                    if (accumulator.contains(key)) {
-                        accumulator[key].push_back(value);
-                        return accumulator;
-                    }
-                    std::vector<E> group;
-                    group.push_back(value);
-                    accumulator.insert(std::pair<K, std::vector<E>>(key, group));
-                    return accumulator;
-                }
-                return accumulator;
-            },
-            [](std::unordered_map<K, std::vector<V>> a, std::unordered_map<K, std::vector<V>> b)-> std::unordered_map<K, std::vector<V>> {
-                for (std::pair<K, std::vector<E>> pair : b) {
-                    if (a.contains(pair.first)) {
-                        std::vector<E> groupA = a[pair.first];
-                        std::vector<E> groupB = pair.second;
-                        groupA.reserve(groupA.size() + groupB.size());
-                        groupA.insert(groupA.end(), groupB.begin(), groupB.end());
-                    }
-                    else {
-                        a[pair.first] = std::move(pair.second);
-                    }
-                }
-                return a;
-            },
-            [](std::unordered_map<K, std::vector<V>> accumulator)-> std::unordered_map<K, std::vector<V>> {
-                return accumulator;
-            }
-        );
-    }
-
-    template<typename E>
-    auto useJoin() -> Collector<E, std::string, std::string> {
-        return useFull<E, std::string, std::string>(
-            []()-> std::string {
-                return "";
-            },
-            [](std::string accumulator, E element, functional::Timestamp index)-> std::string {
-                if constexpr (std::is_same_v<E, std::string>) {
-                    if (accumulator.length() > 0) {
-                        return accumulator + "," + element;
-                    }
-                    return element;
-                }
-                else {
-                    if (accumulator.length() > 0) {
-                        return accumulator + "," + std::to_string(element);
-                    }
-                    return std::to_string(element);
-                }
-            },
-            [](std::string a, std::string b)-> std::string {
-                return a + "," + b;
-            },
-            [](std::string accumulator)-> std::string {
-                return "[" + accumulator + "]";
-            }
-        );
-    }
-
-    template<typename E>
-    auto useJoin(const std::string& delimiter) -> Collector<E, std::string, std::string> {
-        return useFull<E, std::string, std::string>(
-            []()-> std::string {
-                return "";
-            },
-            [delimiter](std::string accumulator, E element, functional::Timestamp index)-> std::string {
-                if constexpr (std::is_same_v<E, std::string>) {
-                    if (accumulator.length() > 0) {
-                        return accumulator + delimiter + element;
-                    }
-                    return element;
-                }
-                else {
-                    if (accumulator.length() > 0) {
-                        return accumulator + delimiter + std::to_string(element);
-                    }
-                    return std::to_string(element);
-                }
-            },
-            [](std::string a, std::string b)-> std::string {
-                return a + "," + b;
-            },
-            [](std::string accumulator)-> std::string {
-                return "[" + accumulator + "]";
-            }
-        );
-    }
-
-    template<typename E>
-    auto useJoin(const std::string& prefix, const std::string& delimiter, const std::string suffix) -> Collector<E, std::string, std::string> {
-        return useFull<E, std::string, std::string>(
-            []()-> std::string {
-                return "";
-            },
-            [delimiter](std::string accumulator, E element, functional::Timestamp index)-> std::string {
-                if constexpr (std::is_same_v<E, std::string>) {
-                    if (accumulator.length() > 0) {
-                        return accumulator + delimiter + element;
-                    }
-                    return element;
-                }
-                else {
-                    if (accumulator.length() > 0) {
-                        return accumulator + delimiter + std::to_string(element);
-                    }
-                    return std::to_string(element);
-                }
-            },
-            [delimiter](std::string a, std::string b)-> std::string {
-                return a + delimiter + b.substr(1);
-            },
-            [prefix, suffix](std::string accumulator)-> std::string {
-                return "[" + accumulator + "]";
-            }
-        );
-    }
-
-    template<typename E>
-    auto useOut() -> Collector<E, std::string, std::string> {
-        return useFull<E, std::string, std::string>(
-            []()-> std::string {
-                return "";
-            },
-            [](std::string accumulator, E element, functional::Timestamp index)-> std::string {
-                if constexpr (std::is_same_v<E, std::string>) {
-                    if (accumulator.length() > 0) {
-                        return accumulator + "," + element;
-                    }
-                    return element;
-                }
-                else {
-                    if (accumulator.length() > 0) {
-                        return accumulator + "," + std::to_string(element);
-                    }
-                    return std::to_string(element);
-                }
-            },
-            [](std::string a, std::string b)-> std::string {
-                return a + "," + b;
-            },
-            [](std::string accumulator)-> std::string {
-                std::string result = "[" + accumulator + "]";
-                std::cout << result << '\n';
-                return result;
-            }
-        );
-    }
-
-    template<typename E>
-    auto useOut(const std::string& delimiter) -> Collector<E, std::string, std::string> {
-        return useFull<E, std::string, std::string>(
-            []()-> std::string {
-                return "";
-            },
-            [delimiter](std::string accumulator, E element, functional::Timestamp index)-> std::string {
-                if constexpr (std::is_same_v<E, std::string>) {
-                    if (accumulator.length() > 0) {
-                        return accumulator + delimiter + element;
-                    }
-                    return element;
-                }
-                else {
-                    if (accumulator.length() > 0) {
-                        return accumulator + delimiter + std::to_string(element);
-                    }
-                    return std::to_string(element);
-                }
-            },
-            [](std::string a, std::string b)-> std::string {
-                return a + "," + b;
-            },
-            [](std::string accumulator)-> std::string {
-                std::string result = "[" + accumulator + "]";
-                std::cout << result << '\n';
-                return result;
-            }
-        );
-    }
-
-    template<typename E>
-    auto useOut(const std::string& prefix, const std::string& delimiter, const std::string suffix) -> Collector<E, std::string, std::string> {
-        return useFull<E, std::string, std::string>(
-            []()->std::string {
-                return "";
-            },
-            [delimiter](std::string accumulator, E element, functional::Timestamp index)-> std::string {
-                if constexpr (std::is_same_v<E, std::string>) {
-                    if (accumulator.length() > 1) {
-                        return accumulator + delimiter + element;
-                    }
-                    return element;
-                }
-                else {
-                    if (accumulator.length() > 1) {
-                        return accumulator + delimiter + std::to_string(element);
-                    }
-                    return std::to_string(element);
-                }
-            },
-            [delimiter](std::string a, std::string b)-> std::string {
-                return a + delimiter + b;
-            },
-            [prefix, suffix](std::string accumulator)-> std::string {
-                std::string result = accumulator + suffix;
-                std::cout << result << '\n';
-                return result;
-            }
-        );
-    }
-
-    template<typename E>
-    auto usePartition(const functional::Module& size) -> Collector<E, std::vector<std::vector<E>>, std::vector<std::vector<E>>> {
-        return useFull<E, std::vector<std::vector<E>>, std::vector<std::vector<E>>>(
-            []()-> std::vector<std::vector<E>> {
-                return std::vector<std::vector<E>>();
-            },
-            [size](std::vector<std::vector<E>> accumulator, E element, functional::Timestamp index)-> std::vector<std::vector<E>> {
-                if (size == 0 || size == 1) {
-                    std::vector<E> single = { element };
-                    accumulator.push_back(single);
-                    return accumulator;
-                }
-                if (accumulator.empty()) {
-                    std::vector<E> partition = { element };
-                    accumulator.push_back(partition);
-                    return accumulator;
-                }
-                std::vector<E>& last = accumulator.back();
-                if (last.size() < size) {
-                    last.push_back(element);
-                }
-                else {
-                    std::vector<E> new_partition = { element };
-                    accumulator.push_back(new_partition);
-                }
-                return accumulator;
-            },
-            [](std::vector<std::vector<E>> a, std::vector<std::vector<E>> b)-> std::vector<std::vector<E>> {
-                if (a.empty()) return b;
-                if (b.empty()) return a;
-                std::vector<E>& last_a = a.back();
-                std::vector<E>& first_b = b.front();
-                if (last_a.size() < first_b.capacity()) {
-                    functional::Module can_take = first_b.capacity() - last_a.size();
-                    functional::Module take_count = std::min(can_take, first_b.size());
-                    for (size_t i = 0; i < take_count; i++) {
-                        last_a.push_back(first_b[i]);
-                    }
-                    if (take_count == first_b.size()) {
-                        b.erase(b.begin());
-                    }
-                    else {
-                        first_b.erase(first_b.begin(), first_b.begin() + take_count);
-                    }
-                }
-                a.insert(a.end(), b.begin(), b.end());
-                return a;
-            },
-            [](std::vector<std::vector<E>> accumulator)-> std::vector<std::vector<E>> {
-                return accumulator;
-            }
-        );
-    }
-
-    template<typename E, typename KeyExtractor>
-    auto usePartitionBy(KeyExtractor &&keyExtractor) -> Collector<E, std::map<functional::Timestamp, std::vector<E>>, std::vector<std::vector<E>>> {
-        return useFull<E, std::map<functional::Timestamp, std::vector<E>>, std::vector<std::vector<E>>>(
-            []()-> std::map<functional::Timestamp, std::vector<E>> {
-                return std::map<functional::Timestamp, std::vector<E>>();
-            },
-            [keyExtractor](std::map<functional::Timestamp, std::vector<E>> accumulator, E element, functional::Timestamp index)-> std::map<functional::Timestamp, std::vector<E>> {
-                if constexpr (std::is_invocable_r_v<functional::Timestamp, KeyExtractor, E, functional::Timestamp>) {
-                    functional::Timestamp key =  std::invoke(keyExtractor, element, index);
-                    accumulator[key].push_back(element);
-                    return accumulator;
-                }
-                else if constexpr (std::is_invocable_r_v<functional::Timestamp, KeyExtractor, E>) {
-                    functional::Timestamp key = std::invoke(keyExtractor, element);
-                    accumulator[key].push_back(element);
-                    return accumulator;
-                }
-                return accumulator;
-            },
-            [](std::map<functional::Timestamp, std::vector<E>> a, std::map<functional::Timestamp, std::vector<E>> b)-> std::map<functional::Timestamp, std::vector<E>> {
-                for (auto& [key, vec] : b) {
-                    for (E element : vec) {
-                        a[key].push_back(std::move(element));
-                    }
-                }
-                return a;
-            },
-            [](std::map<functional::Timestamp, std::vector<E>> accumulator)-> std::vector<std::vector<E>> {
-                std::vector<std::vector<E>> result;
-                result.reserve(accumulator.size());
-                for (auto& [key, vec] : accumulator) {
-                    result.push_back(std::move(vec));
-                }
-                return result;
-            }
-        );
-    }
-
-    template<typename E, typename V, typename KeyExtractor, typename ValueExtractor>
-    auto usePartitionBy(KeyExtractor&& keyExtractor, ValueExtractor valueExtractor) -> Collector<E, std::map<functional::Timestamp, std::vector<V>>, std::vector<std::vector<V>>>{
-        return useFull<E, std::map<functional::Timestamp, std::vector<V>>, std::vector<std::vector<V>>>(
-            []()-> std::map<functional::Timestamp, std::vector<V>> {
-                return std::map<functional::Timestamp, std::vector<V>>();
-            },
-            [keyExtractor, valueExtractor](std::map<functional::Timestamp, std::vector<V>> accumulator, E element, functional::Timestamp index)-> std::map<functional::Timestamp, std::vector<V>> {
-                if constexpr (std::is_invocable_r_v<functional::Timestamp, KeyExtractor, E, functional::Timestamp> && std::is_invocable_r_v<V, ValueExtractor, E, functional::Timestamp>) {
-                    functional::Timestamp key = std::invoke(keyExtractor, element, index);
-                    V value = std::invoke(valueExtractor, element, index);
-                    accumulator[key].push_back(value);
-                    return accumulator;
-                }
-                else if constexpr (std::is_invocable_r_v<functional::Timestamp, KeyExtractor, E> && std::is_invocable_r_v<V, ValueExtractor, E, functional::Timestamp>) {
-                    functional::Timestamp key = std::invoke(keyExtractor, element);
-                    V value = std::invoke(valueExtractor, element);
-                    accumulator[key].push_back(value);
-                    return accumulator;
-                }
-                return accumulator;
-            },
-            [](std::map<functional::Timestamp, std::vector<V>> a, std::map<functional::Timestamp, std::vector<V>> b)-> std::map<functional::Timestamp, std::vector<V>> {
-                for (auto& [key, vec] : b) {
-                    for (V element : vec) {
-                        a[key].push_back(std::move(element));
-                    }
-                }
-                return a;
-            },
-            [](std::map<functional::Timestamp, std::vector<V>> accumulator)-> std::vector<std::vector<V>> {
-                std::vector<std::vector<V>> result;
-                result.reserve(accumulator.size());
-                for (auto& [key, vector] : accumulator) {
-                    result.push_back(std::move(vector));
-                }
-                return result;
-            }
-        );
-    }
-
-    template<typename E>
-    auto useReduce(const functional::BiFunction<E, E, E>& reducer)  -> Collector<E, std::optional<E>, std::optional<E>>{
-        return useFull<E, std::optional<E>, std::optional<E>>->Collector<E, std::optional<E>, std::optional<E>>(
-            []()-> std::optional<E> {
-                return std::nullopt;
-            },
-            [reducer](std::optional<E> accumulator, E element, functional::Timestamp index)-> std::optional<E> {
-                if (!accumulator.has_value()) {
-                    return std::optional<E>(element);
-                }
-                return std::optional<E>(reducer(accumulator.value(), element));
-            },
-            [reducer](std::optional<E> a, std::optional<E> b)-> std::optional<E> {
-                if (!a.has_value()) return b;
-                if (!b.has_value()) return a;
-                return std::optional<E>(reducer(a.value(), b.value()));
-            },
-            [](std::optional<E> accumulator)-> std::optional<E> {
-                return accumulator;
-            }
-        );
-    }
-
-    template<typename E>
-    auto useReduce(const E& identity, const functional::BiFunction<E, E, E>& reducer) -> Collector<E, E, E> {
-        return useFull<E, E, E>(
-            [identity]()-> E {
-                return identity;
-            },
-            [reducer](E accumulator, E element, functional::Timestamp index)-> E {
-                return reducer(accumulator, element);
-            },
-            [reducer](E a, E b)-> E {
-                return reducer(a, b);
-            },
-            [](E accumulator)-> E {
-                return accumulator;
-            }
-        );
-    }
-
-    template<typename E, typename R>
-    auto useReduce(const R& identity, const functional::BiFunction<R, E, R>& reducer, const functional::BiFunction<R, R, R>& combiner, const functional::Function<R, R>& finisher) -> Collector<E, R, R> {
-        return useFull<E, R, R>(
-            [identity]()-> R {
-                return identity;
-            },
-            [reducer](R accumulator, E element, functional::Timestamp index)-> R {
-                return reducer(accumulator, element);
-            },
-            [combiner](R a, R b)-> R {
-                return combiner(a, b);
-            },
-            [finisher](R accumulator)-> R {
-                return finisher(accumulator);
-            }
-        );
-    }
-
-    template<typename E, typename K, typename KeyExtractor>
-    auto useToMap(KeyExtractor&& keyExtractor) -> Collector<E, std::map<K, E>, std::map<K, E>> {
-        return useFull<E, std::map<K, E>, std::map<K, E>>(
-            []()-> std::map<K, E> {
-                return std::map<K, E>();
-            },
-            [keyExtractor](std::map<K, E> accumulator, E element, functional::Timestamp index)-> std::map<K, E> {
-                if constexpr (std::is_invocable_r_v<K, KeyExtractor, E, functional::Timestamp>) {
-                    K key = std::invoke(keyExtractor, element, index);
-                    accumulator[key] = element;
-                    return accumulator;
-                }
-                else if constexpr (std::is_invocable_r_v<K, KeyExtractor, E>) {
-                    K key = std::invoke(keyExtractor, element);
-                    accumulator[key] = element;
-                    return accumulator;
-                }
-                return accumulator;
-            },
-            [](std::map<K, E> a, std::map<K, E> b)-> std::map<K, E> {
-                for (const auto& [key, value] : b) {
-                    a[key] = value;
-                }
-                return a;
-            },
-            [](std::map<K, E> accumulator)-> std::map<K, E> {
-                return accumulator;
-            }
-        );
-    }
-
-    template<typename E, typename K, typename V, typename KeyExtractor, typename ValueExtractor>
-    auto useToMap(KeyExtractor&& keyExtractor, ValueExtractor&& valueExtractor) -> Collector<E, std::map<K, V>, std::map<K, V>> {
-        return useFull<E, std::map<K, V>, std::map<K, V>>(
-            []()-> std::map<K, V> {
-                return std::map<K, V>();
-            },
-            [keyExtractor, valueExtractor](std::map<K, V> accumulator, E element, functional::Timestamp index)-> std::map<K, V> {
-                if constexpr (std::is_invocable_r_v<K, KeyExtractor, E, functional::Timestamp> && std::is_invocable_r_v<V, ValueExtractor, E, functional::Timestamp>) {
-                    K key = std::invoke(keyExtractor, element, index);
-                    V value = std::invoke(valueExtractor, element, index);
-                    accumulator[key] = value;
-                    return accumulator;
-                }
-                else if constexpr (std::is_invocable_r_v<K, KeyExtractor, E> && std::is_invocable_r_v<V, ValueExtractor, E>) {
-                    K key = std::invoke(keyExtractor, element);
-                    V value = std::invoke(valueExtractor, element);
-                    accumulator[key] = value;
-                    return accumulator;
-                }
-                return accumulator;
-            },
-            [](std::map<K, V> a, std::map<K, V> b)-> std::map<K, V> {
-                for (const auto& [key, value] : b) {
-                    a[key] = value;
-                }
-                return a;
-            },
-            [](std::map<K, V> accumulator)-> std::map<K, V> {
-                return accumulator;
-            }
-        );
-    }
-
-    template<typename E, typename K, typename V>
-    auto useToUnorderedMap(const functional::BiFunction<E, functional::Timestamp, K>& keyExtractor, const functional::BiFunction<E, functional::Timestamp, V>& valueExtractor) -> Collector<E, std::unordered_map<K, V>, std::unordered_map<K, V>> {
-        return useFull<E, std::unordered_map<K, V>, std::unordered_map<K, V>>(
-            []()-> std::unordered_map<K, V> {
-                return std::unordered_map<K, V>();
-            },
-            [keyExtractor, valueExtractor](std::unordered_map<K, V> accumulator, E element, functional::Timestamp index)-> std::unordered_map<K, V> {
-                K key = keyExtractor(element, index);
-                V value = valueExtractor(element, index);
-                accumulator[key] = value;
-                return accumulator;
-            },
-            [](std::unordered_map<K, V> a, std::unordered_map<K, V> b)-> std::unordered_map<K, V> {
-                for (const auto& [key, value] : b) {
-                    a[key] = value;
-                }
-                return a;
-            },
-            [](std::unordered_map<K, V> accumulator)-> std::unordered_map<K, V> {
-                return accumulator;
-            }
-        );
-    }
-
-    template<typename E>
-    auto useToSet() -> Collector<E, std::set<E>, std::set<E>> {
-        return useFull<E, std::set<E>, std::set<E>>(
-            []()-> std::set<E> {
-                return std::set<E>();
-            },
-            [](std::set<E> accumulator, E element, functional::Timestamp index)-> std::set<E> {
-                accumulator.insert(element);
-                return accumulator;
-            },
-            [](std::set<E> a, std::set<E> b)-> std::set<E> {
-                a.insert(b.begin(), b.end());
-                return a;
-            },
-            [](std::set<E> accumulator)-> std::set<E> {
-                return accumulator;
-            }
-        );
-    }
-
-    template<typename E>
-    auto useToUnorderedSet() -> Collector<E, std::unordered_set<E>, std::unordered_set<E>> {
-        return useFull<E, std::unordered_set<E>, std::unordered_set<E>>(
-            []()-> std::unordered_set<E> {
-                return std::unordered_set<E>();
-            },
-            [](std::unordered_set<E> accumulator, E element, functional::Timestamp index)-> std::unordered_set<E> {
-                accumulator.insert(element);
-                return accumulator;
-            },
-            [](std::unordered_set<E> a, std::unordered_set<E> b)-> std::unordered_set<E> {
-                a.insert(b.begin(), b.end());
-                return a;
-            },
-            [](std::unordered_set<E> accumulator)-> std::unordered_set<E> {
-                return accumulator;
-            }
-        );
-    }
-
-    template<typename E>
-    auto useToVector() -> Collector<E, std::vector<E>, std::vector<E>> {
-        return useFull<E, std::vector<E>, std::vector<E>>(
-            []()-> std::vector<E> {
-                return std::vector<E>();
-            },
-            [](std::vector<E> accumulator, E element, functional::Timestamp index)-> std::vector<E> {
-                accumulator.push_back(element);
-                return accumulator;
-            },
-            [](std::vector<E> a, std::vector<E> b)-> std::vector<E> {
-                a.insert(a.end(), b.begin(), b.end());
-                return a;
-            },
-            [](std::vector<E> accumulator)-> std::vector<E> {
-                return accumulator;
-            }
-        );
-    }
-
-    template<typename E>
-    auto useToList() -> Collector<E, std::list<E>, std::list<E>> {
-        return useFull<E, std::list<E>, std::list<E>>(
-            []()-> std::list<E> {
-                return std::list<E>();
-            },
-            [](std::list<E> accumulator, E element, functional::Timestamp index)-> std::list<E> {
-                accumulator.push_back(element);
-                return accumulator;
-            },
-            [](std::list<E> a, std::list<E> b)-> std::list<E> {
-                a.splice(a.end(), b);
-                return a;
-            },
-            [](std::list<E> accumulator)-> std::list<E> {
-                return accumulator;
-            }
-        );
-    }
-
-    template<typename E, typename D>
-    auto useSummate(const functional::Function<E, D>& mapper) -> Collector<E, D, D> {
-        return useFull<E, D, D>(
-            []()-> D {
-                return D{};
-            },
-            [mapper](D accumulator, E element, functional::Timestamp index)-> D {
-                return accumulator + mapper(element);
-            },
-            [](D a, D b)-> D {
-                return a + b;
-            },
-            [](D accumulator)-> D {
-                return accumulator;
-            }
-        );
-    }
-
-    template<typename E, typename D>
-    auto useAverage() -> Collector<E, std::pair<D, functional::Module>, D> {
-        return useFull<E, std::pair<D, functional::Module>, D>(
-            []()-> std::pair<D, functional::Module> {
-                return std::make_pair(D{}, 0);
-            },
-            [](std::pair<D, functional::Module> accumulator, E element, functional::Timestamp index)-> std::pair<D, functional::Module> {
-                D value = static_cast<D>(element);
-                return std::make_pair(accumulator.first + value, accumulator.second + 1);
-            },
-            [](std::pair<D, functional::Module> a, std::pair<D, functional::Module> b)-> std::pair<D, functional::Module> {
-                return std::make_pair(a.first + b.first, a.second + b.second);
-            },
-            [](std::pair<D, functional::Module> accumulator)-> D {
-                if (accumulator.second == 0) {
-                    return D{};
-                }
-                return accumulator.first / static_cast<D>(accumulator.second);
-            }
-        );
-    }
-
-    template<typename E, typename D>
-    auto useAverage(const functional::Function<E, D>& mapper) -> Collector<E, std::pair<D, functional::Module>, D> {
-        return useFull<E, std::pair<D, functional::Module>, D>(
-            []()-> std::pair<D, functional::Module> {
-                return std::make_pair(D{}, 0);
-            },
-            [mapper](std::pair<D, functional::Module> accumulator, E element, functional::Timestamp index)-> std::pair<D, functional::Module> {
-                D value = mapper(element);
-                return std::make_pair(accumulator.first + value, accumulator.second + 1);
-            },
-            [](std::pair<D, functional::Module> a, std::pair<D, functional::Module> b)-> std::pair<D, functional::Module> {
-                return std::make_pair(a.first + b.first, a.second + b.second);
-            },
-            [](std::pair<D, functional::Module> accumulator)-> D {
-                if (accumulator.second == 0) {
-                    return D{};
-                }
-                return accumulator.first / static_cast<D>(accumulator.second);
-            }
-        );
-    }
-
-    template<typename E, typename D>
-    auto useRange() -> Collector<E, std::pair<D, D>, D> {
-        return useFull<E, std::pair<D, D>, D>(
-            []()-> std::pair<D, D> {
-                return std::make_pair<D, D>(D{}, D{});
-            },
-            [](std::pair<D, D> accumulator, E element, functional::Timestamp index)-> std::pair<D, functional::Module> {
-                D mapped = static_cast<D>(element);
-                if (accumulator.first == D{}) {
-                    return std::make_pair<D, D>(mapped, accumulator.second);
-                }
-                if (accumulator.second == D{}) {
-                    return std::make_pair<D, D>(accumulator.first, mapped);
-                }
-                if (mapped < accumulator.first) {
-                    return std::make_pair<D, D>(mapped, accumulator.second);
-                }
-                if (mapped > accumulator.second) {
-                    return std::make_pair<D, D>(accumulator.first, mapped);
-                }
-            },
-            [](std::pair<D, D> a, std::pair<D, D> b)-> std::pair<D, D> {
-                return std::make_pair(a.first + b.first, a.second + b.second);
-            },
-            [](std::pair<D, D> accumulator)-> D {
-                if (accumulator.second == 0) {
-                    return D{};
-                }
-                return std::abs(accumulator.first - accumulator.second);
-            }
-        );
-    }
-
-    template<typename E, typename D>
-    auto useRange(const functional::Function<E, D>& mapper) -> Collector<E, std::pair<D, functional::Module>, D> {
-        return useFull<E, std::pair<D, D>, D>(
-            []()-> std::pair<D, D> {
-                return std::make_pair<D, D>(D{}, D{});
-            },
-            [mapper](std::pair<D, D> accumulator, E element, functional::Timestamp index)-> std::pair<D, functional::Module> {
-                D mapped = mapper(element);
-                if (accumulator.first == D{}) {
-                    return std::make_pair<D, D>(mapped, accumulator.second);
-                }
-                if (accumulator.second == D{}) {
-                    return std::make_pair<D, D>(accumulator.first, mapped);
-                }
-                if (mapped < accumulator.first) {
-                    return std::make_pair<D, D>(mapped, accumulator.second);
-                }
-                if (mapped > accumulator.second) {
-                    return std::make_pair<D, D>(accumulator.first, mapped);
-                }
-            },
-            [](std::pair<D, D> a, std::pair<D, D> b)-> std::pair<D, D> {
-                return std::make_pair(a.first + b.first, a.second + b.second);
-            },
-            [](std::pair<D, D> accumulator)-> D {
-                if (accumulator.second == 0) {
-                    return D{};
-                }
-                return std::abs(accumulator.first - accumulator.second);
-            }
-        );
-    }
-
-    template<typename E>
-    auto useFrequency() -> Collector<E, std::map<E, functional::Module>, std::map<E, functional::Module>> {
-        return useFull<E, std::map<E, functional::Module>, std::map<E, functional::Module>>(
-            []()-> std::map<E, functional::Module> {
-                return std::map<E, functional::Module>();
-            },
-            [](std::map<E, functional::Module> accumulator, E element, functional::Timestamp index)-> std::map<E, functional::Module> {
-                accumulator[element]++;
-                return accumulator;
-            },
-            [](std::map<E, functional::Module> a, std::map<E, functional::Module> b)-> std::map<E, functional::Module> {
-                for (const auto& [key, count] : b) {
-                    a[key] += count;
-                }
-                return a;
-            },
-            [](std::map<E, functional::Module> accumulator)-> std::map<E, functional::Module> {
-                return accumulator;
-            }
-        );
-    }
-
-    template<typename E, typename D>
-    auto useFrequency(const functional::Function<E, D>& mapper) {
-        return useFull<E, std::map<D, functional::Module>, std::map<D, functional::Module>>->Collector<E, std::map<D, functional::Module>, std::map<D, functional::Module>>(
-            []()-> std::map<D, functional::Module> {
-                return std::map<D, functional::Module>();
-            },
-            [mapper](std::map<D, functional::Module> accumulator, E element, functional::Timestamp index)-> std::map<D, functional::Module> {
-                D key = mapper(element);
-                accumulator[key]++;
-                return accumulator;
-            },
-            [](std::map<D, functional::Module> a, std::map<D, functional::Module> b)-> std::map<D, functional::Module> {
-                for (const auto& [key, count] : b) {
-                    a[key] += count;
-                }
-                return a;
-            },
-            [](std::map<D, functional::Module> accumulator)-> std::map<D, functional::Module> {
-                return accumulator;
-            }
-        );
-    }
+	template <typename D>
+	auto toStatistics() const -> collectable::Statistics<E, D>
+	{
+		return collectable::Statistics<E, D>(this->source(), this->concurrent);
+	}
 };
 
-namespace collectable {
+template <typename E>
+class Semantic<std::vector<E>>
+{
+  private:
+	std::unique_ptr<function::Generator<std::vector<E>>> generator;
+	function::Module concurrent;
 
-    template<typename E>
-    class Collectable {
-    protected:
-        functional::Module concurrent;
-    public:
-        Collectable(const functional::Module& concurrent) : concurrent(concurrent) {}
+  public:
+	using Element = std::vector<E>;
 
-        template <typename Predicate>
-        auto anyMatch(Predicate &&predicate) const -> bool {
-            collector::Collector<E, bool, bool> collector = collector::useAnyMatch<E, Predicate>(std::forward<Predicate>(predicate));
-            return collector.collect(this->source(), this->concurrent);
-        }
+	Semantic(std::vector<E> &&container) : generator(std::make_unique<function::Generator<std::vector<E>>>([elements = std::move(container)](function::BiConsumer<std::vector<E>, function::Timestamp> accept, function::BiPredicate<std::vector<E>, function::Timestamp> interrupt) -> void {
+											   accept(elements, 0LL);
+										   })),
+										   concurrent(1) {}
 
-        template <typename Predicate>
-        auto allMatch(Predicate&& predicate) const -> bool {
-            collector::Collector<E, bool, bool> collector = collector::useAllMatch<E, Predicate>(std::forward<Predicate>(predicate));
-            return collector.collect(this->source(), this->concurrent);
-        }
+	Semantic(std::vector<E> &&container, const function::Module &concurrent) : generator(std::make_unique<function::Generator<std::vector<E>>>([elements = std::move(container)](function::BiConsumer<std::vector<E>, function::Timestamp> accept, function::BiPredicate<std::vector<E>, function::Timestamp> interrupt) -> void {
+																				   accept(elements, 0LL);
+																			   })),
+																			   concurrent(concurrent) {}
 
-        template<typename A, typename R>
-        auto collect(const functional::Supplier<R>& identity, const functional::BiFunction<A, E, A>& accumulator, const functional::BiFunction<A, A, A>& combiner, const functional::Function<A, R>& finisher) const -> R {
-            collector::Collector<E, A, R> collector = collector::useCollect<E, A, R>(identity, accumulator, combiner, finisher);
-            return collector.collect(this->source(), this->concurrent);
-        }
+	Semantic(const function::Generator<std::vector<E>> &generator) : generator(std::make_unique<function::Generator<std::vector<E>>>(generator)), concurrent(1) {}
 
-        template<typename A, typename R>
-        auto collect(const functional::Supplier<R>& identity, const functional::TriPredicate<E, functional::Timestamp, A>& interrupt, const functional::BiFunction<A, E, A>& accumulator, const functional::BiFunction<A, A, A>& combiner, const functional::Function<A, R>& finisher) const -> R {
-            collector::Collector<E, A, R> collector = collector::useCollect<E, A, R>(identity, interrupt, accumulator, combiner, finisher);
-            return collector.collect(this->source(), this->concurrent);
-        }
+	Semantic(const function::Generator<std::vector<E>> &generator, const function::Module &concurrent) : generator(std::make_unique<function::Generator<std::vector<E>>>(generator)), concurrent(concurrent) {}
 
-        auto count() const -> functional::Module {
-            collector::Collector<E, functional::Module, functional::Module> collector = collector::useCount<E>();
-            return collector.collect(this->source(), this->concurrent);
-        }
+	Semantic(const Semantic<std::vector<E>> &other) : generator(std::make_unique<function::Generator<std::vector<E>>>(*other.generator)), concurrent(other.concurrent) {}
 
-        auto error() const -> void {
-            collector::Collector<E, std::string, std::string> collector = collector::useError<E>();
-            collector.collect(this->source(), this->concurrent);
-        }
+	Semantic(Semantic<std::vector<E>> &&other) noexcept = default;
 
-        auto error(const std::string &delimiter) const -> void {
-            collector::Collector<E, std::string, std::string> collector = collector::useError<E>(delimiter);
-            collector.collect(this->source(), this->concurrent);
-        }
+	Semantic<std::vector<E>> &operator=(const Semantic<std::vector<E>> &other)
+	{
+		if (this != &other)
+		{
+			generator = std::make_unique<function::Generator<std::vector<E>>>(*other.generator);
+			concurrent = other.concurrent;
+		}
+		return *this;
+	}
 
-        auto error(const std::string& prefix, const std::string& delimiter, const std::string& suffix) const -> void {
-            collector::Collector<E, std::string, std::string> collector = collector::useError(prefix, delimiter, suffix);
-            collector.collect(this->source(), this->concurrent);
-        }
+	Semantic<std::vector<E>> &operator=(Semantic<std::vector<E>> &&other) noexcept = default;
 
-        auto empty() const -> bool {
-            collector::Collector<E, functional::Module, functional::Module> collector = collector::useCount<E>();
-            return collector.collect(this->source(), this->concurrent) == 0;
-        }
+	auto source() const -> function::Generator<std::vector<E>>
+	{
+		return [generator = *(this->generator)](function::BiConsumer<std::vector<E>, function::Timestamp> accept, function::BiPredicate<std::vector<E>, function::Timestamp> interrupt) -> void {
+			bool stop = false;
+			generator([&accept, &stop](std::vector<E> container, function::Timestamp index) -> void {
+                if (!stop) { accept(container, index); } }, [&interrupt, &stop](std::vector<E> container, function::Timestamp index) -> bool {
+                if (interrupt(container, index)) { stop = true; return true; }
+                return false; });
+		};
+	}
 
-        auto findAny() const -> std::optional<E> {
-            collector::Collector<E, std::optional<E>, std::optional<E>> collector = collector::useFindAny<E>();
-            return collector.collect(this->source(), this->concurrent);
-        }
+	auto getConcurrent() const -> function::Module { return concurrent; }
 
-        auto findAt(const functional::Timestamp& index) const -> std::optional<E> {
-            collector::Collector<E, std::optional<E>, std::optional<E>> collector = collector::useFindAt<E>(index);
-            return collector.collect(this->source(), this->concurrent);
-        }
+	template <typename Mapper>
+	auto map(Mapper &&mapper) const -> Semantic<decltype(std::declval<Mapper>()(std::declval<std::vector<E>>()))>
+	{
+		using R = decltype(std::declval<Mapper>()(std::declval<std::vector<E>>()));
+		return Semantic<R>([generator = *(this->generator), mapper = std::forward<Mapper>(mapper)](function::BiConsumer<R, function::Timestamp> accept, function::BiPredicate<R, function::Timestamp> interrupt) -> void {
+			bool stop = false;
+			auto capturedInterrupt = interrupt;
+			generator([&accept, &stop, &mapper](std::vector<E> container, function::Timestamp index) -> void {
+                if (stop) return;
+                if constexpr (std::is_invocable_r_v<R, Mapper, std::vector<E>, function::Timestamp>)
+                    accept(std::invoke(mapper, container, index), index);
+                else if constexpr (std::is_invocable_r_v<R, Mapper, std::vector<E>>)
+                    accept(std::invoke(mapper, container), index); }, [&capturedInterrupt, &stop](std::vector<E> container, function::Timestamp index) -> bool {
+                if (capturedInterrupt(container, index)) { stop = true; return true; }
+                return false; });
+		},
+						   this->concurrent);
+	}
 
-        auto findFirst() const -> std::optional<E> {
-            collector::Collector<E, std::optional<E>, std::optional<E>> collector = collector::useFindFirst<E>();
-            return collector.collect(this->source(), this->concurrent);
-        }
+	template <typename Predicate>
+	auto filter(Predicate &&predicate) const -> Semantic<std::vector<E>>
+	{
+		return Semantic<std::vector<E>>([generator = *(this->generator), predicate = std::forward<Predicate>(predicate)](function::BiConsumer<std::vector<E>, function::Timestamp> accept, function::BiPredicate<std::vector<E>, function::Timestamp> interrupt) -> void {
+			function::Timestamp count = 0LL;
+			bool stop = false;
+			auto capturedInterrupt = interrupt;
+			generator([&accept, &count, &stop, predicate](std::vector<E> container, function::Timestamp index) -> void {
+                if (stop) return;
+                bool matches = false;
+                if constexpr (std::is_invocable_r_v<bool, Predicate, std::vector<E>, function::Timestamp>)
+                    matches = std::invoke(predicate, container, index);
+                else if constexpr (std::is_invocable_r_v<bool, Predicate, std::vector<E>>)
+                    matches = std::invoke(predicate, container);
+                if (matches) { accept(container, count); count++; } }, [&capturedInterrupt, &stop, &count](std::vector<E> container, function::Timestamp index) -> bool {
+                if (capturedInterrupt(container, count)) { stop = true; return true; }
+                return false; });
+		},
+										this->concurrent);
+	}
 
-        auto findLast() const -> std::optional<E> {
-            collector::Collector<E, std::vector<E>, std::optional<E>> collector = collector::useFindLast<E>();
-            return collector.collect(this->source(), this->concurrent);
-        }
+	template <typename Predicate>
+	auto takeWhile(Predicate &&predicate) const -> Semantic<std::vector<E>>
+	{
+		return Semantic<std::vector<E>>([generator = *(this->generator), predicate = std::forward<Predicate>(predicate)](function::BiConsumer<std::vector<E>, function::Timestamp> accept, function::BiPredicate<std::vector<E>, function::Timestamp> interrupt) -> void {
+			bool stop = false;
+			auto capturedInterrupt = interrupt;
+			generator([&accept, &stop, predicate](std::vector<E> container, function::Timestamp index) -> void {
+                if (stop) return;
+                bool matches = false;
+                if constexpr (std::is_invocable_r_v<bool, Predicate, std::vector<E>, function::Timestamp>)
+                    matches = std::invoke(predicate, container, index);
+                else if constexpr (std::is_invocable_r_v<bool, Predicate, std::vector<E>>)
+                    matches = std::invoke(predicate, container);
+                if (matches) accept(container, index); else stop = true; }, [&capturedInterrupt, &stop](std::vector<E> container, function::Timestamp index) -> bool {
+                if (capturedInterrupt(container, index)) { stop = true; return true; }
+                return stop; });
+		},
+										this->concurrent);
+	}
 
-        auto findMaximum() const -> std::optional<E> {
-            collector::Collector<E, std::optional<E>, std::optional<E>> collector = collector::useFindMaximum<E>();
-            return collector.collect(this->source(), this->concurrent);
-        }
+	template <typename Predicate>
+	auto dropWhile(Predicate &&predicate) const -> Semantic<std::vector<E>>
+	{
+		return Semantic<std::vector<E>>([generator = *(this->generator), predicate = std::forward<Predicate>(predicate)](function::BiConsumer<std::vector<E>, function::Timestamp> accept, function::BiPredicate<std::vector<E>, function::Timestamp> interrupt) -> void {
+			bool dropping = true;
+			function::Timestamp count = 0LL;
+			bool stop = false;
+			auto capturedInterrupt = interrupt;
+			generator([&accept, &dropping, &count, &stop, predicate](std::vector<E> container, function::Timestamp index) -> void {
+                if (stop) return;
+                if (dropping) {
+                    bool matches = false;
+                    if constexpr (std::is_invocable_r_v<bool, Predicate, std::vector<E>, function::Timestamp>)
+                        matches = std::invoke(predicate, container, index);
+                    else if constexpr (std::is_invocable_r_v<bool, Predicate, std::vector<E>>)
+                        matches = std::invoke(predicate, container);
+                    if (!matches) { dropping = false; accept(container, count); count++; }
+                } else { accept(container, count); count++; } }, [&capturedInterrupt, &stop, &count](std::vector<E> container, function::Timestamp index) -> bool {
+                if (capturedInterrupt(container, count)) { stop = true; return true; }
+                return false; });
+		},
+										this->concurrent);
+	}
 
-        auto findMaximum(const functional::Comparator<E>& comparator) const -> std::optional<E> {
-            collector::Collector<E, std::optional<E>, std::optional<E>> collector = collector::useFindMaximum<E>(comparator);
-            return collector.collect(this->source(), this->concurrent);
-        }
+	auto distinct() const -> Semantic<std::vector<E>>
+	{
+		return Semantic<std::vector<E>>([generator = *(this->generator)](function::BiConsumer<std::vector<E>, function::Timestamp> accept, function::BiPredicate<std::vector<E>, function::Timestamp> interrupt) -> void {
+			std::unordered_set<std::vector<E>> seen;
+			function::Timestamp count = 0LL;
+			bool stop = false;
+			auto capturedInterrupt = interrupt;
+			generator([&accept, &seen, &count, &stop](std::vector<E> container, function::Timestamp index) -> void {
+                if (stop) return;
+                if (seen.find(container) == seen.end()) { seen.insert(container); accept(container, count); count++; } }, [&capturedInterrupt, &stop, &count](std::vector<E> container, function::Timestamp index) -> bool {
+                if (capturedInterrupt(container, count)) { stop = true; return true; }
+                return false; });
+		},
+										this->concurrent);
+	}
 
-        auto findMinimum() const -> std::optional<E> {
-            collector::Collector<E, std::optional<E>, std::optional<E>> collector = collector::useFindMinimum<E>();
-            return collector.collect(this->source(), this->concurrent);
-        }
+	auto distinct(const function::Comparator<std::vector<E>> &comparator) const -> Semantic<std::vector<E>>
+	{
+		return Semantic<std::vector<E>>([generator = *(this->generator), comparator](function::BiConsumer<std::vector<E>, function::Timestamp> accept, function::BiPredicate<std::vector<E>, function::Timestamp> interrupt) -> void {
+			std::set<std::vector<E>, function::Comparator<std::vector<E>>> seen(comparator);
+			function::Timestamp count = 0LL;
+			bool stop = false;
+			auto capturedInterrupt = interrupt;
+			generator([&accept, &seen, &count, &stop](std::vector<E> container, function::Timestamp index) -> void {
+                if (stop) return;
+                if (seen.find(container) == seen.end()) { seen.insert(container); accept(container, count); count++; } }, [&capturedInterrupt, &stop, &count](std::vector<E> container, function::Timestamp index) -> bool {
+                if (capturedInterrupt(container, count)) { stop = true; return true; }
+                return false; });
+		},
+										this->concurrent);
+	}
 
-        auto findMinimum(const functional::Comparator<E>& comparator) const -> std::optional<E> {
-            collector::Collector<E, std::optional<E>, std::optional<E>> collector = collector::useFindMinimum(comparator);
-            return collector.collect(this->source(), this->concurrent);
-        }
+	auto sort() const -> collectable::OrderedCollectable<std::vector<E>>
+	{
+		return collectable::OrderedCollectable<std::vector<E>>(this->source(), this->concurrent);
+	}
 
-        template <typename Consumer>
-        auto forEach(Consumer &&consumer) const -> void {
-            collector::Collector<E, functional::Module, functional::Module> collector = collector::useForEach<E, Consumer>(std::forward<Consumer>(consumer));
-            collector.collect(this->source(), this->concurrent);
-        }
+	auto sort(const function::Comparator<std::vector<E>> &comparator) const -> collectable::OrderedCollectable<std::vector<E>>
+	{
+		return collectable::OrderedCollectable<std::vector<E>>(this->source(), comparator, this->concurrent);
+	}
 
-        template<typename K, typename KeyExtractor>
-        auto group(KeyExtractor&& keyExtractor) const -> std::unordered_map<K, std::vector<E>> {
-            collector::Collector<E, std::unordered_map<K, std::vector<E>>, std::unordered_map<K, std::vector<E>>> collector = collector::useGroup<E, K, KeyExtractor>(std::forward<KeyExtractor>(keyExtractor));
-            return collector.collect(this->source(), this->concurrent);
-        }
+	auto limit(const function::Module &n) const -> Semantic<std::vector<E>>
+	{
+		return Semantic<std::vector<E>>([generator = *(this->generator), n](function::BiConsumer<std::vector<E>, function::Timestamp> accept, function::BiPredicate<std::vector<E>, function::Timestamp> interrupt) -> void {
+			function::Module count = 0;
+			bool stop = false;
+			auto capturedInterrupt = interrupt;
+			generator([&accept, &count, &stop, n](std::vector<E> container, function::Timestamp index) -> void {
+                if (stop) return;
+                if (count < n) { accept(container, count); count++; }
+                if (count >= n) { stop = true; } }, [&capturedInterrupt, &stop, &count](std::vector<E> container, function::Timestamp index) -> bool {
+                if (capturedInterrupt(container, count)) { stop = true; return true; }
+                return stop; });
+		},
+										this->concurrent);
+	}
 
-        template<typename K, typename V, typename KeyExtractor, typename ValueExtractor>
-        auto groupBy(const functional::BiFunction<E, functional::Timestamp, K>& keyExtractor, const functional::BiFunction<E, functional::Timestamp, V>& valueExtractor) const -> std::unordered_map<K, std::vector<V>> {
-            collector::Collector<E, std::unordered_map<K, std::vector<V>>, std::unordered_map<K, std::vector<V>>> collector = collector::useGroupBy<E, K, V, KeyExtractor, ValueExtractor>(std::forward<KeyExtractor>(keyExtractor), std::forward<KeyExtractor>(valueExtractor));
-            return collector.collect(this->source(), this->concurrent);
-        }
+	auto skip(const function::Module &n) const -> Semantic<std::vector<E>>
+	{
+		return Semantic<std::vector<E>>([generator = *(this->generator), n](function::BiConsumer<std::vector<E>, function::Timestamp> accept, function::BiPredicate<std::vector<E>, function::Timestamp> interrupt) -> void {
+			function::Module count = 0;
+			bool stop = false;
+			auto capturedInterrupt = interrupt;
+			generator([&accept, &count, &stop, n](std::vector<E> container, function::Timestamp index) -> void {
+                if (stop) return;
+                if (count >= n) { accept(container, count); }
+                count++; }, [&capturedInterrupt, &stop, &count](std::vector<E> container, function::Timestamp index) -> bool {
+                if (capturedInterrupt(container, count)) { stop = true; return true; }
+                return false; });
+		},
+										this->concurrent);
+	}
 
-        auto join() const -> std::string {
-            collector::Collector<E, std::string, std::string> collector = collector::useJoin<E>();
-            return collector.collect(this->source(), this->concurrent);
-        }
+	template <typename Consumer>
+	auto peek(Consumer &&consumer) const -> Semantic<std::vector<E>>
+	{
+		return Semantic<std::vector<E>>([generator = *(this->generator), consumer = std::forward<Consumer>(consumer)](function::BiConsumer<std::vector<E>, function::Timestamp> accept, function::BiPredicate<std::vector<E>, function::Timestamp> interrupt) -> void {
+			bool stop = false;
+			auto capturedInterrupt = interrupt;
+			generator([&accept, &stop, &consumer](std::vector<E> container, function::Timestamp index) -> void {
+                if (stop) return;
+                if constexpr (std::is_invocable_r_v<void, Consumer, std::vector<E>, function::Timestamp>)
+                    std::invoke(consumer, container, index);
+                else if constexpr (std::is_invocable_r_v<void, Consumer, std::vector<E>>)
+                    std::invoke(consumer, container);
+                accept(container, index); }, [&capturedInterrupt, &stop](std::vector<E> container, function::Timestamp index) -> bool {
+                if (capturedInterrupt(container, index)) { stop = true; return true; }
+                return false; });
+		},
+										this->concurrent);
+	}
 
-        auto join(const std::string& delimiter) const -> std::string {
-            collector::Collector<E, std::string, std::string> collector = collector::useJoin(delimiter);
-            return collector.collect(this->source(), this->concurrent);
-        }
-
-        auto join(const std::string& prefix, const std::string& delimiter, const std::string& suffix) const -> std::string {
-            collector::Collector<E, std::string, std::string> collector = collector::useJoin(prefix, delimiter, suffix);
-            return collector.collect(this->source(), this->concurrent);
-        }
-
-        auto noneMatch(const functional::BiPredicate<E, functional::Timestamp>& predicate) const -> bool {
-            collector::Collector<E, bool, bool> collector = collector::useNoneMatch(predicate);
-            return collector.collect(this->source(), this->concurrent);
-        }
-
-        auto out() const -> std::string {
-            collector::Collector<E, std::string, std::string> collector = collector::useOut<E>();
-            return collector.collect(this->source(), this->concurrent);
-        }
-
-        auto out(const std::string &delimiter) const -> std::string {
-            collector::Collector<E, std::string, std::string> collector = collector::useOut(delimiter);
-            return collector.collect(this->source(), this->concurrent);
-        }
-
-        auto out(const std::string &prefix, const std::string &delimiter, const std::string& suffix) const -> std::string {
-            collector::Collector<E, std::string, std::string> collector = collector::useOut(prefix, delimiter, suffix);
-            return collector.collect(this->source(), this->concurrent);
-        }
-
-        auto out(const std::string& prefix, const functional::BiFunction<std::string, E, std::string>& serializer, const std::string suffix, const functional::BiFunction<std::string, std::string, std::string>& combiner) const -> std::string {
-            collector::Collector<E, std::string, std::string> collector = collector::useOut(prefix, serializer, suffix, combiner);
-            return collector.collect(this->source(), this->concurrent);
-        }
-
-        auto partition(const functional::Module& size) const -> std::vector<std::vector<E>> {
-            collector::Collector<E, std::vector<std::vector<E>>, std::vector<std::vector<E>>> collector = collector::usePartition(size);
-            return collector.collect(this->source(), this->concurrent);
-        }
-
-        template<typename KeyExtractor>
-        auto partitionBy(KeyExtractor&& keyExtractor) const -> std::vector<std::vector<E>> {
-            collector::Collector<E, std::map<functional::Timestamp, std::vector<E>>, std::vector<std::vector<E>>> collector = collector::usePartitionBy<E, KeyExtractor>(std::forward<KeyExtractor>(keyExtractor));
-            return collector.collect(this->source(), this->concurrent);
-        }
-
-        template<typename V, typename KeyExtractor, typename ValueExtractor>
-        auto partitionBy(KeyExtractor&& keyExtractor, ValueExtractor&& valueExtractor) const -> std::vector<std::vector<V>> {
-            collector::Collector<E, std::map<functional::Timestamp, std::vector<V>>, std::vector<std::vector<V>>> collector = collector::usePartitionBy<E, V, KeyExtractor, ValueExtractor>(std::forward<KeyExtractor>(keyExtractor), std::forward<ValueExtractor>(valueExtractor));
-            return collector.collect(this->source(), this->concurrent);
-        }
-
-        auto reduce(const functional::BiFunction<E, E, E>& accumulator) const -> std::optional<E> {
-            collector::Collector<E, std::optional<E>, std::optional<E>> collector = collector::useReduce(accumulator);
-            return collector.collect(this->source(), this->concurrent);
-        }
-
-        auto reduce(const E& identity, const functional::BiFunction<E, E, E>& accumulator) const -> E {
-            collector::Collector < E, E, E> collector = collector::useReduce(identity, accumulator);
-            return collector.collect(this->source(), this->concurrent);
-        }
-
-        template<typename R>
-        auto reduce(const R& identity, const functional::BiFunction<R, E, R>& accumulator, const functional::BiFunction<R, R, R>& combiner) const -> R {
-            collector::Collector<E, R, R> collector = collector::useReduce(identity, accumulator, combiner);
-            return collector.collect(this->source(), this->concurrent);
-        }
-
-        virtual auto source() const -> functional::Generator <E> = 0;
-
-        auto toList() const -> std::list<E> {
-            collector::Collector<E, std::list<E>, std::list<E>> collector = collector::useToList();
-            return collector.collect(this->source(), this->concurrent);
-        }
-
-        template<typename K, typename KeyExtractor>
-        auto toMap(KeyExtractor && keyExtractor) const -> std::map<K, E> {
-            collector::Collector<E, std::map<K, E>, std::map<K, E>> collector = collector::useToMap<E, K, KeyExtractor>(std::forward<KeyExtractor>(keyExtractor));
-            return collector.collect(this->source(), this->concurrent);
-        }
-
-        template<typename K, typename V, typename KeyExtractor, typename ValueExtractor>
-        auto toMap(KeyExtractor&& keyExtractor, ValueExtractor&& valueExtractor) const -> std::map<K, V> {
-            collector::Collector<E, std::map<K, E>, std::map<K, E>> collector = collector::useToMap<E, K, V, KeyExtractor, ValueExtractor>(std::forward<KeyExtractor>(keyExtractor), std::forward<KeyExtractor>(valueExtractor));
-            return collector.collect(this->source(), this->concurrent);
-        }
-
-        auto toSet() const -> std::set<E> {
-            collector::Collector<E, std::set<E>, std::set<E>> collector = collector::useToSet();
-            return collector.collect(this->source(), this->concurrent);
-        }
-
-        auto toVector() const -> std::vector<E> {
-            collector::Collector<E, std::vector<E>, std::vector<E>> collector = collector::useToVector();
-            return collector.collect(this->source(), this->concurrent);
-        }
-    };
-
-    template<typename E>
-    class OrderedCollectable :public Collectable<E> {
-    protected:
-        std::map<functional::Timestamp, E> buffer;
-    public:
-
-        OrderedCollectable(const functional::Generator<E>& generator) : Collectable<E>(1) {
-            std::set<std::pair<functional::Timestamp, E>> buffer;
-            generator([&buffer](E element, functional::Timestamp index)->void {
-                buffer.insert(std::make_pair(index, element));
-                }, [](E element, functional::Timestamp index)-> bool {
-                    return false;
+	template <typename Flatten>
+	auto flat(Flatten &&flatten) const -> Semantic<std::vector<E>>
+	{
+		return Semantic<std::vector<E>>([generator = *(this->generator), flatten = std::forward<Flatten>(flatten)](function::BiConsumer<std::vector<E>, function::Timestamp> accept, function::BiPredicate<std::vector<E>, function::Timestamp> interrupt) -> void {
+			function::Timestamp count = 0LL;
+			bool stop = false;
+			auto capturedInterrupt = interrupt;
+			generator([&accept, &count, &stop, flatten, capturedInterrupt](std::vector<E> container, function::Timestamp index) -> void {
+                if (stop) return;
+                if constexpr (std::is_invocable_r_v<Semantic<std::vector<E>>, Flatten, std::vector<E>, function::Timestamp>)
+                {
+                    Semantic<std::vector<E>> inner = std::invoke(flatten, container, index);
+                    inner.source()([&accept, &count](std::vector<E> innerElement, function::Timestamp innerIndex) -> void {
+                        accept(innerElement, count); count++;
+                    }, [capturedInterrupt, &stop, &count](std::vector<E> innerElement, function::Timestamp innerIndex) -> bool {
+                        if (capturedInterrupt(innerElement, count)) { stop = true; return true; } return false;
                     });
-                for (std::pair<functional::Timestamp, E> pair : buffer) {
-                    functional::Timestamp index = pair.first < 0 ? (buffer.size() - (std::abs(pair.first) % buffer.size())) : (pair.first % buffer.size());
-                    this->buffer.insert(std::make_pair(index, pair.second));
                 }
-        }
-
-        OrderedCollectable(const functional::Generator<E>& generator, const functional::Module& concurrent) : Collectable<E>(concurrent) {
-            std::set<std::pair<functional::Timestamp, E>> buffer;
-            generator([&buffer](E element, functional::Timestamp index)->void {
-                buffer.insert(std::make_pair(index, element));
-                }, [](E element, functional::Timestamp index)-> bool {
-                    return false;
+                else if constexpr (std::is_invocable_r_v<Semantic<std::vector<E>>, Flatten, std::vector<E>>)
+                {
+                    Semantic<std::vector<E>> inner = std::invoke(flatten, container);
+                    inner.source()([&accept, &count](std::vector<E> innerElement, function::Timestamp innerIndex) -> void {
+                        accept(innerElement, count); count++;
+                    }, [capturedInterrupt, &stop, &count](std::vector<E> innerElement, function::Timestamp innerIndex) -> bool {
+                        if (capturedInterrupt(innerElement, count)) { stop = true; return true; } return false;
                     });
-                for (std::pair<functional::Timestamp, E> pair : buffer) {
-                    functional::Timestamp index = pair.first < 0 ? (buffer.size() - (std::abs(pair.first) % buffer.size())) : (pair.first % buffer.size());
-                    this->buffer.insert(std::make_pair(index, pair.second));
-                }
-        }
+                } }, [&stop](std::vector<E> container, function::Timestamp index) -> bool { return stop; });
+		},
+										this->concurrent);
+	}
 
-        OrderedCollectable(const functional::Generator<E>& generator, const functional::Comparator<E>& comparator) : Collectable<E>(1) {
-            std::set<std::pair<functional::Timestamp, E>> buffer(comparator);
-            generator([&buffer](E element, functional::Timestamp index)->void {
-                buffer.insert(std::make_pair(index, element));
-                }, [](E element, functional::Timestamp index)-> bool {
-                    return false;
+	template <typename R, typename Flatten>
+	auto flatMap(Flatten &&flatten) const -> Semantic<R>
+	{
+		return Semantic<R>([generator = *(this->generator), flatten = std::forward<Flatten>(flatten)](function::BiConsumer<R, function::Timestamp> accept, function::BiPredicate<R, function::Timestamp> interrupt) -> void {
+			function::Timestamp count = 0LL;
+			bool stop = false;
+			auto capturedInterrupt = interrupt;
+			generator([&accept, &count, &stop, flatten, capturedInterrupt](std::vector<E> container, function::Timestamp index) -> void {
+                if (stop) return;
+                if constexpr (std::is_invocable_r_v<Semantic<R>, Flatten, std::vector<E>, function::Timestamp>)
+                {
+                    Semantic<R> inner = std::invoke(flatten, container, index);
+                    inner.source()([&accept, &count](R innerElement, function::Timestamp innerIndex) -> void {
+                        accept(innerElement, count); count++;
+                    }, [capturedInterrupt, &stop, &count](R innerElement, function::Timestamp innerIndex) -> bool {
+                        if (capturedInterrupt(innerElement, count)) { stop = true; return true; } return false;
                     });
-                for (std::pair<functional::Timestamp, E> pair : buffer) {
-                    functional::Timestamp index = pair.first < 0 ? (buffer.size() - (std::abs(pair.first) % buffer.size())) : (pair.first % buffer.size());
-                    this->buffer.insert(std::make_pair(index, pair.second));
                 }
-        }
-
-        OrderedCollectable(const functional::Generator<E>& generator, const functional::Comparator<E>& comparator, const functional::Module& concurrent) : Collectable<E>(concurrent) {
-            std::set<std::pair<functional::Timestamp, E>> buffer(comparator);
-            generator([&buffer](E element, functional::Timestamp index)->void {
-                buffer.insert(std::make_pair(index, element));
-                }, [](E element, functional::Timestamp index)-> bool {
-                    return false;
+                else if constexpr (std::is_invocable_r_v<Semantic<R>, Flatten, std::vector<E>>)
+                {
+                    Semantic<R> inner = std::invoke(flatten, container);
+                    inner.source()([&accept, &count](R innerElement, function::Timestamp innerIndex) -> void {
+                        accept(innerElement, count); count++;
+                    }, [capturedInterrupt, &stop, &count](R innerElement, function::Timestamp innerIndex) -> bool {
+                        if (capturedInterrupt(innerElement, count)) { stop = true; return true; } return false;
                     });
-                for (std::pair<functional::Timestamp, E> pair : buffer) {
-                    functional::Timestamp index = pair.first < 0 ? (buffer.size() - (std::abs(pair.first) % buffer.size())) : (pair.first % buffer.size());
-                    this->buffer.insert(std::make_pair(index, pair.second));
-                }
-        }
+                } }, [&stop](std::vector<E> container, function::Timestamp index) -> bool { return stop; });
+		},
+						   this->concurrent);
+	}
 
-        virtual auto source() const -> functional::Generator<E> override {
-            return [buffer = this-> buffer](functional::BiConsumer<E, functional::Timestamp> accept, functional::BiPredicate<E, functional::Timestamp> interrupt)-> void {
-                for (std::pair<functional::Timestamp, E> pair : buffer) {
-                    if (interrupt(pair.second, pair.first)) {
-                        break;
-                    }
-                    accept(pair.second, pair.first);
-                }
-                };
-        }
-    };
+	auto reverse() const -> Semantic<std::vector<E>>
+	{
+		return Semantic<std::vector<E>>([generator = *(this->generator)](function::BiConsumer<std::vector<E>, function::Timestamp> accept, function::BiPredicate<std::vector<E>, function::Timestamp> interrupt) -> void {
+			bool stop = false;
+			auto capturedInterrupt = interrupt;
+			generator([&accept, &stop](std::vector<E> container, function::Timestamp index) -> void {
+                if (stop) return; accept(container, -index); }, [&capturedInterrupt, &stop](std::vector<E> container, function::Timestamp index) -> bool {
+                if (capturedInterrupt(container, -index)) { stop = true; return true; }
+                return false; });
+		},
+										this->concurrent);
+	}
 
-    template<typename E, typename D>
-    class Statistics : public OrderedCollectable<E> {
-    public:
-        Statistics(const functional::Module& concurrent) : OrderedCollectable<E>(concurrent) {}
-        Statistics(const functional::Generator<E>& generator, const functional::Module& concurrent) : OrderedCollectable<E>(generator, concurrent) {}
-        Statistics(const Statistics<E, D>& other) : OrderedCollectable<E>(other) {}
-        Statistics(Statistics<E, D>&& other) noexcept : OrderedCollectable<E>(std::move(other)) {}
+	auto translate(const function::Timestamp &offset) const -> Semantic<std::vector<E>>
+	{
+		return Semantic<std::vector<E>>([generator = *(this->generator), offset](function::BiConsumer<std::vector<E>, function::Timestamp> accept, function::BiPredicate<std::vector<E>, function::Timestamp> interrupt) -> void {
+			bool stop = false;
+			auto capturedInterrupt = interrupt;
+			generator([&accept, &stop, offset](std::vector<E> container, function::Timestamp index) -> void {
+                if (stop) return; accept(container, index + offset); }, [&capturedInterrupt, &stop, offset](std::vector<E> container, function::Timestamp index) -> bool {
+                if (capturedInterrupt(container, index + offset)) { stop = true; return true; }
+                return false; });
+		},
+										this->concurrent);
+	}
 
-        auto operator=(const Statistics<E, D>& other) -> Statistics<E, D>& {
-            if (this != &other) {
-                OrderedCollectable<E>::operator=(other);
-            }
-            return *this;
-        }
-        auto operator=(Statistics<E, D>&& other) noexcept -> Statistics<E, D>& {
-            if (this != &other) {
-                OrderedCollectable<E>::operator=(std::move(other));
-            }
-            return *this;
-        }
+	auto translate(const function::BiFunction<std::vector<E>, function::Timestamp, function::Timestamp> &translator) const -> Semantic<std::vector<E>>
+	{
+		return Semantic<std::vector<E>>([generator = *(this->generator), translator](function::BiConsumer<std::vector<E>, function::Timestamp> accept, function::BiPredicate<std::vector<E>, function::Timestamp> interrupt) -> void {
+			bool stop = false;
+			auto capturedInterrupt = interrupt;
+			generator([&accept, &stop, translator](std::vector<E> container, function::Timestamp index) -> void {
+                if (stop) return; accept(container, translator(container, index)); }, [&capturedInterrupt, &stop, translator](std::vector<E> container, function::Timestamp index) -> bool {
+                if (capturedInterrupt(container, translator(container, index))) { stop = true; return true; }
+                return false; });
+		},
+										this->concurrent);
+	}
 
-        auto average() const -> D {
-            collector::Collector<E, std::pair<D, functional::Module>, D> collector = collector::useAverage<E, D>();
-            return collector.collect(this->source(), this->concurrent);
-        }
+	auto redirect(const function::BiFunction<std::vector<E>, function::Timestamp, std::vector<E>> &redirector) const -> Semantic<std::vector<E>>
+	{
+		return Semantic<std::vector<E>>([generator = *(this->generator), redirector](function::BiConsumer<std::vector<E>, function::Timestamp> accept, function::BiPredicate<std::vector<E>, function::Timestamp> interrupt) -> void {
+			bool stop = false;
+			auto capturedInterrupt = interrupt;
+			generator([&accept, &stop, &redirector](std::vector<E> container, function::Timestamp index) -> void {
+                if (stop) return; accept(redirector(container, index), index); }, [&capturedInterrupt, &stop, &redirector](std::vector<E> container, function::Timestamp index) -> bool {
+                if (capturedInterrupt(redirector(container, index), index)) { stop = true; return true; }
+                return false; });
+		},
+										this->concurrent);
+	}
 
-        auto average(const functional::Function<E, D>& mapper) const -> D {
-            collector::Collector<E, std::pair<D, functional::Module>, D> collector = collector::useAverage<E, D>(mapper);
-            return collector.collect(this->source(), this->concurrent);
-        }
+	auto sub(const function::Module &start, const function::Module &end) const -> Semantic<std::vector<E>>
+	{
+		return Semantic<std::vector<E>>([generator = *(this->generator), start, end](function::BiConsumer<std::vector<E>, function::Timestamp> accept, function::BiPredicate<std::vector<E>, function::Timestamp> interrupt) -> void {
+			function::Module count = 0;
+			bool stop = false;
+			auto capturedInterrupt = interrupt;
+			generator([&accept, &count, &stop, start, end](std::vector<E> container, function::Timestamp index) -> void {
+                if (stop) return;
+                if (count >= start && count < end) { accept(container, count); }
+                count++; if (count >= end) { stop = true; } }, [&capturedInterrupt, &stop, &count](std::vector<E> container, function::Timestamp index) -> bool {
+                if (capturedInterrupt(container, count)) { stop = true; return true; }
+                return stop; });
+		},
+										this->concurrent);
+	}
 
-        auto range() const -> D {
-            collector::Collector<E, std::pair<D, D>, D> collector = collector::useRange<E, D>();
-            return collector.collect(this->source(), this->concurrent);
-        }
+	auto parallel() const -> Semantic<std::vector<E>> { return Semantic<std::vector<E>>(this->source(), this->concurrent + 1); }
+	auto parallel(const function::Module &concurrent) const -> Semantic<std::vector<E>> { return Semantic<std::vector<E>>(this->source(), std::max(concurrent, 1ULL)); }
 
-        auto range(const functional::Function<E, D>& mapper) const -> D {
-            collector::Collector<E, std::pair<D, D>, D> collector = collector::useRange<E, D>(mapper);
-            return collector.collect(this->source(), this->concurrent);
-        }
-    };
+	template <typename OtherContainer>
+	auto concatenate(OtherContainer &&otherContainer) const -> Semantic<std::vector<E>>
+	{
+		if constexpr (std::is_same_v<std::decay_t<OtherContainer>, Semantic<std::vector<E>>>)
+		{
+			return Semantic<std::vector<E>>([generator = *(this->generator), other](function::BiConsumer<std::vector<E>, function::Timestamp> accept, function::BiPredicate<std::vector<E>, function::Timestamp> interrupt) -> void {
+				function::Timestamp count = 0LL;
+				bool stop = false;
+				auto capturedInterrupt = interrupt;
+				generator([&accept, &count, &stop](std::vector<E> container, function::Timestamp index) -> void {
+                    if (stop) return; accept(container, count); count++; }, [&capturedInterrupt, &stop, &count](std::vector<E> container, function::Timestamp index) -> bool {
+                    if (capturedInterrupt(container, count)) { stop = true; return true; } return false; });
+				if (!stop)
+				{
+					other.source()([&accept, &count, &stop](std::vector<E> container, function::Timestamp index) -> void {
+                        if (stop) return; accept(container, count); count++; }, [&capturedInterrupt, &stop, &count](std::vector<E> container, function::Timestamp index) -> bool {
+                        if (capturedInterrupt(container, count)) { stop = true; return true; } return false; });
+				}
+			},
+											this->concurrent);
+		}
+		else if constexpr (std::is_same_v<std::decay_t<OtherContainer>, std::vector<E>>)
+		{
+			return Semantic<std::vector<E>>([generator = *(this->generator), elements = std::forward<OtherContainer>(otherContainer)](function::BiConsumer<std::vector<E>, function::Timestamp> accept, function::BiPredicate<std::vector<E>, function::Timestamp> interrupt) -> void {
+				function::Timestamp count = 0LL;
+				bool stop = false;
+				auto capturedInterrupt = interrupt;
+				generator([&accept, &count, &stop](std::vector<E> container, function::Timestamp index) -> void {
+                    if (stop) return; accept(container, count); count++; }, [&capturedInterrupt, &stop, &count](std::vector<E> container, function::Timestamp index) -> bool {
+                    if (capturedInterrupt(container, count)) { stop = true; return true; } return false; });
+				if (!stop)
+				{
+					if (!capturedInterrupt(elements, count))
+					{
+						accept(elements, count);
+					}
+				}
+			},
+											this->concurrent);
+		}
+		else
+		{
+			return Semantic<std::vector<E>>([generator = *(this->generator), elements = std::forward<OtherContainer>(otherContainer)](function::BiConsumer<std::vector<E>, function::Timestamp> accept, function::BiPredicate<std::vector<E>, function::Timestamp> interrupt) -> void {
+				function::Timestamp count = 0LL;
+				bool stop = false;
+				auto capturedInterrupt = interrupt;
+				generator([&accept, &count, &stop](std::vector<E> container, function::Timestamp index) -> void {
+                    if (stop) return; accept(container, count); count++; }, [&capturedInterrupt, &stop, &count](std::vector<E> container, function::Timestamp index) -> bool {
+                    if (capturedInterrupt(container, count)) { stop = true; return true; } return false; });
+				if (!stop)
+				{
+					for (const auto &element : elements)
+					{
+						if (stop)
+							break;
+						accept(element, count);
+						count++;
+					}
+				}
+			},
+											this->concurrent);
+		}
+	}
 
-    template<typename E>
-    class WindowCollectable : public OrderedCollectable<E> {
-    public:
-        WindowCollectable(const functional::Module& concurrent) : OrderedCollectable<E>(concurrent) {}
-        WindowCollectable(const functional::Generator<E>& generator, const functional::Module& concurrent) : OrderedCollectable<E>(generator, concurrent) {}
-        WindowCollectable(const WindowCollectable<E>& other) : OrderedCollectable<E>(other) {}
-        WindowCollectable(WindowCollectable<E>&& other) noexcept : OrderedCollectable<E>(std::move(other)) {}
-
-        auto operator=(const WindowCollectable<E>& other) -> WindowCollectable<E>& {
-            if (this != &other) {
-                OrderedCollectable<E>::operator=(other);
-            }
-            return *this;
-        }
-        auto operator=(WindowCollectable<E>&& other) noexcept -> WindowCollectable<E>& {
-            if (this != &other) {
-                OrderedCollectable<E>::operator=(std::move(other));
-            }
-            return *this;
-        }
-
-        auto slide(const functional::Module& size, const functional::Timestamp& step) -> semantic::Semantic<semantic::Semantic<E>> const {
-            return semantic::Semantic<semantic::Semantic<E>>([buffer = this->buffer, size, step](auto accept, auto interrupt) -> void {
-                functional::Module total = static_cast<functional::Timestamp>(buffer.size());
-                functional::Module index = 0LL;
-                bool stop = false;
-                for (functional::Module start = 0; start < total && !stop; start += step) {
-                    functional::Module end = std::min(start + size, total);
-                    if (start < end) {
-                        std::vector<E> window;
-                        for (functional::Module i = start; i < end; i++) {
-                            window.push_back(buffer.at(i));
-                        }
-                        auto semantic = semantic::useFrom(window);
-                        if (interrupt(semantic, index)) {
-                            break;
-                        }
-                        accept(semantic, index++);
-                    }
-                }
-                }, this->concurrent);
-        }
-
-        auto tumble(const functional::Module& size) -> semantic::Semantic<semantic::Semantic<E>> const {
-            return this->slide(size, size);
-        }
-    };
-
-    template<typename E>
-    class UnorderedCollectable : public Collectable<E> {
-    protected:
-        std::unordered_map<functional::Timestamp, E> buffer;
-    public:
-        UnorderedCollectable(const functional::Generator<E>& generator) : Collectable<E>(1) {
-            generator([this](E element, functional::Timestamp index)->void {
-                this->buffer.insert(std::make_pair(index, element));
-                }, [](E element, functional::Timestamp index)-> bool {
-                    return false;
-                    });
-        }
-
-        UnorderedCollectable(const functional::Generator<E>& generator, const functional::Module& concurrent) : Collectable<E>(concurrent) {
-            generator([this](E element, functional::Timestamp index)->void {
-                this->buffer.insert(std::make_pair(index, element));
-                }, [](E element, functional::Timestamp index)-> bool {
-                    return false;
-                    });
-        }
-
-        OrderedCollectable<E>& operator=(const OrderedCollectable<E>& other) {
-            if (this != &other) {
-                Collectable<E>::operator=(other);
-                buffer = other.buffer;
-            }
-            return *this;
-        }
-
-        OrderedCollectable<E>& operator=(OrderedCollectable<E>&& other) noexcept {
-            if (this != &other) {
-                Collectable<E>::operator=(std::move(other));
-                buffer = std::move(other.buffer);
-            }
-            return *this;
-        }
-
-        virtual auto source() const -> functional::Generator<E> override {
-            return [buffer = this-> buffer](functional::BiConsumer<E, functional::Timestamp> accept, functional::BiPredicate<E, functional::Timestamp> interrupt)-> void {
-                for (std::pair<functional::Timestamp, E> pair : buffer) {
-                    if (interrupt(pair.second, pair.first)) {
-                        break;
-                    }
-                    accept(pair.second, pair.first);
-                }
-                };
-        }
-    };
+	auto toUnordered() const -> collectable::UnorderedCollectable<std::vector<E>> { return collectable::UnorderedCollectable<std::vector<E>>(this->source(), this->concurrent); }
+	auto toOrdered() const -> collectable::OrderedCollectable<std::vector<E>> { return collectable::OrderedCollectable<std::vector<E>>(this->source(), this->concurrent); }
+	auto toWindow() const -> collectable::WindowCollectable<std::vector<E>> { return collectable::WindowCollectable<std::vector<E>>(this->source(), this->concurrent); }
+	template <typename D>
+	auto toStatistics() const -> collectable::Statistics<std::vector<E>, D> { return collectable::Statistics<std::vector<E>, D>(this->source(), this->concurrent); }
 };
 
-namespace semantic {
+template <typename E>
+class Semantic<std::list<E>>
+{
+  private:
+	std::unique_ptr<function::Generator<std::list<E>>> generator;
+	function::Module concurrent;
 
-    template<typename E>
-    class Semantic {
-    private:
-        std::unique_ptr<functional::Generator<E>> generator;
-        const functional::Module concurrent;
-    public:
-        using Element = E;
-        Semantic(Semantic<E>&& other) noexcept = default;
-        Semantic(const functional::Generator<E>& generator) : generator(std::make_unique<functional::Generator<E>>(generator)), concurrent(1) {}
-        Semantic(const Semantic& other) : generator(std::make_unique<functional::Generator<E>>(*other.generator)), concurrent(other.concurrent) {}
-        Semantic(const functional::Generator<E>& generator, const functional::Module& concurrent) : generator(std::make_unique<functional::Generator<E>>(generator)), concurrent(concurrent) {}
-        Semantic& operator=(const Semantic& other) {
-            if (this != &other) {
-                generator = std::make_unique<decltype(*other.generator)>(*other.generator);
-                concurrent = other.concurrent;
-            }
-            return *this;
-        }
+  public:
+	using Element = std::list<E>;
 
-        auto concatenate(Semantic<E> other) const -> Semantic<E> {
-            return Semantic<E>([other](functional::BiConsumer<E, functional::Timestamp> accept, functional::BiPredicate<E, functional::Timestamp> interrupt) -> void {
-                functional::Module count = 0LL;
-                generator([&accept, &count](E element, functional::Timestamp index) -> void {
-                    accept(element, index);
-                    count++;
-                    }, [&count, &interrupt](E element, functional::Timestamp index) -> bool {
-                        return interrupt(element, count);
-                        });
-                    other.source()([&accept, &count](E element, functional::Timestamp index) -> void {
-                        accept(element, index);
-                        count++;
-                        }, [&count, &interrupt](E element, functional::Timestamp index) -> bool {
-                            return interrupt(element, count);
-                            });
+	Semantic(std::list<E> &&container) : generator(std::make_unique<function::Generator<std::list<E>>>([elements = std::move(container)](function::BiConsumer<std::list<E>, function::Timestamp> accept, function::BiPredicate<std::list<E>, function::Timestamp> interrupt) -> void {
+											 accept(elements, 0LL);
+										 })),
+										 concurrent(1) {}
 
-                }, this->concurrent);
-        }
+	Semantic(std::list<E> &&container, const function::Module &concurrent) : generator(std::make_unique<function::Generator<std::list<E>>>([elements = std::move(container)](function::BiConsumer<std::list<E>, function::Timestamp> accept, function::BiPredicate<std::list<E>, function::Timestamp> interrupt) -> void {
+																				 accept(elements, 0LL);
+																			 })),
+																			 concurrent(concurrent) {}
 
-        auto concatenate(std::vector<E> vector) const -> Semantic<E> {
-            return Semantic<E>([vector = std::move(vector), generator = *(this-> generator)](functional::BiConsumer<E, functional::Timestamp> accept, functional::BiPredicate<E, functional::Timestamp> interrupt) -> void {
-                functional::Module count = 0LL;
-                generator([&accept, &count](E element, functional::Timestamp index) -> void {
-                    accept(element, index);
-                    count++;
-                    }, [&count, &interrupt](E element, functional::Timestamp index) -> bool {
-                        return interrupt(element, count);
-                        });
-                    for (E element : vector) {
-                        if (interrupt(element, count)) {
-                            break;
-                        }
-                        accept(element, count);
-                        count++;
-                    }
-                }, this->concurrent);
-        }
+	Semantic(const function::Generator<std::list<E>> &generator) : generator(std::make_unique<function::Generator<std::list<E>>>(generator)), concurrent(1) {}
 
-        auto concatenate(std::list<E> list) const -> Semantic<E> {
-            return Semantic<E>([list = std::move(list), generator = *(this-> generator)](functional::BiConsumer<E, functional::Timestamp> accept, functional::BiPredicate<E, functional::Timestamp> interrupt) -> void {
-                functional::Module count = 0LL;
-                generator([&accept, &count](E element, functional::Timestamp index) -> void {
-                    accept(element, index);
-                    count++;
-                    }, [&count, &interrupt](E element, functional::Timestamp index) -> bool {
-                        return interrupt(element, count);
-                        });
-                    for (E element : list) {
-                        if (interrupt(element, count)) {
-                            break;
-                        }
-                        accept(element, count);
-                        count++;
-                    }
-                }, this->concurrent);
-        }
+	Semantic(const function::Generator<std::list<E>> &generator, const function::Module &concurrent) : generator(std::make_unique<function::Generator<std::list<E>>>(generator)), concurrent(concurrent) {}
 
-        auto concatenate(std::set<E> set) const -> Semantic<E> {
-            return Semantic<E>([set = std::move(set), generator = *(this-> generator)](functional::BiConsumer<E, functional::Timestamp> accept, functional::BiPredicate<E, functional::Timestamp> interrupt) -> void {
-                functional::Module count = 0LL;
-                generator([&accept, &count](E element, functional::Timestamp index) -> void {
-                    accept(element, index);
-                    count++;
-                    }, [&count, &interrupt](E element, functional::Timestamp index) -> bool {
-                        return interrupt(element, count);
-                        });
-                    for (E element : set) {
-                        if (interrupt(element, count)) {
-                            break;
-                        }
-                        accept(element, count);
-                        count++;
-                    }
-                }, this->concurrent);
-        }
+	Semantic(const Semantic<std::list<E>> &other) : generator(std::make_unique<function::Generator<std::list<E>>>(*other.generator)), concurrent(other.concurrent) {}
 
-        auto concatenate(std::unordered_set<E> unordered_set) const -> Semantic<E> {
-            return Semantic<E>([unordered_set = std::move(unordered_set), generator = *(this-> generator)](functional::BiConsumer<E, functional::Timestamp> accept, functional::BiPredicate<E, functional::Timestamp> interrupt) -> void {
-                functional::Module count = 0LL;
-                generator([&accept, &count](E element, functional::Timestamp index) -> void {
-                    accept(element, index);
-                    count++;
-                    }, [&count, &interrupt](E element, functional::Timestamp index) -> bool {
-                        return interrupt(element, count);
-                        });
-                    for (E element : unordered_set) {
-                        if (interrupt(element, count)) {
-                            break;
-                        }
-                        accept(element, count);
-                        count++;
-                    }
-                }, this->concurrent);
-        }
+	Semantic(Semantic<std::list<E>> &&other) noexcept = default;
 
-        auto concatenate(std::initializer_list<E> initializer_list) const -> Semantic<E> {
-            return Semantic<E>([initializer_list = std::move(initializer_list), generator = *(this-> generator)](functional::BiConsumer<E, functional::Timestamp> accept, functional::BiPredicate<E, functional::Timestamp> interrupt) -> void {
-                functional::Module count = 0LL;
-                generator([&accept, &count](E element, functional::Timestamp index) -> void {
-                    accept(element, index);
-                    count++;
-                    }, [&count, &interrupt](E element, functional::Timestamp index) -> bool {
-                        return interrupt(element, count);
-                        });
-                    for (E element : initializer_list) {
-                        if (interrupt(element, count)) {
-                            break;
-                        }
-                        accept(element, count);
-                        count++;
-                    }
-                }, this->concurrent);
-        }
+	Semantic<std::list<E>> &operator=(const Semantic<std::list<E>> &other)
+	{
+		if (this != &other)
+		{
+			generator = std::make_unique<function::Generator<std::list<E>>>(*other.generator);
+			concurrent = other.concurrent;
+		}
+		return *this;
+	}
 
-        auto concatenate(std::forward_list<E> forward_list) const -> Semantic<E> {
-            return Semantic<E>([forward_list = std::move(forward_list), generator = *(this-> generator)](functional::BiConsumer<E, functional::Timestamp> accept, functional::BiPredicate<E, functional::Timestamp> interrupt) -> void {
-                functional::Module count = 0LL;
-                generator([&accept, &count](E element, functional::Timestamp index) -> void {
-                    accept(element, index);
-                    count++;
-                    }, [&count, &interrupt](E element, functional::Timestamp index) -> bool {
-                        return interrupt(element, count);
-                        });
-                    for (E element : forward_list) {
-                        if (interrupt(element, count)) {
-                            break;
-                        }
-                        accept(element, count);
-                        count++;
-                    }
-                }, this->concurrent);
-        }
+	Semantic<std::list<E>> &operator=(Semantic<std::list<E>> &&other) noexcept = default;
 
-        auto concatenate(std::deque<E> deque) const -> Semantic<E> {
-            return Semantic<E>([deque = std::move(deque), generator = *(this-> generator)](functional::BiConsumer<E, functional::Timestamp> accept, functional::BiPredicate<E, functional::Timestamp> interrupt) -> void {
-                functional::Module count = 0LL;
-                generator([&accept, &count](E element, functional::Timestamp index) -> void {
-                    accept(element, index);
-                    count++;
-                    }, [&count, &interrupt](E element, functional::Timestamp index) -> bool {
-                        return interrupt(element, count);
-                        });
-                    for (E element : deque) {
-                        if (interrupt(element, count)) {
-                            break;
-                        }
-                        accept(element, count);
-                        count++;
-                    }
-                }, this->concurrent);
-        }
+	auto source() const -> function::Generator<std::list<E>>
+	{
+		return [generator = *(this->generator)](function::BiConsumer<std::list<E>, function::Timestamp> accept, function::BiPredicate<std::list<E>, function::Timestamp> interrupt) -> void {
+			bool stop = false;
+			generator([&accept, &stop](std::list<E> container, function::Timestamp index) -> void {
+                if (!stop) { accept(container, index); } }, [&interrupt, &stop](std::list<E> container, function::Timestamp index) -> bool {
+                if (interrupt(container, index)) { stop = true; return true; }
+                return false; });
+		};
+	}
 
-        template<functional::Module Length>
-        auto concatenate(std::array<E, Length> array) const -> Semantic<E> {
-            return Semantic<E>([array = std::move(array), generator = *(this-> generator)](functional::BiConsumer<E, functional::Timestamp> accept, functional::BiPredicate<E, functional::Timestamp> interrupt) -> void {
-                functional::Module count = 0LL;
-                generator([&accept, &count](E element, functional::Timestamp index) -> void {
-                    accept(element, index);
-                    count++;
-                    }, [&count, &interrupt](E element, functional::Timestamp index) -> bool {
-                        return interrupt(element, count);
-                        });
-                    for (E element : array) {
-                        if (interrupt(element, count)) {
-                            break;
-                        }
-                        accept(element, count);
-                        count++;
-                    }
-                }, this->concurrent);
-        }
+	auto getConcurrent() const -> function::Module { return concurrent; }
 
-        auto distinct() const -> Semantic<E> {
-            return Semantic<E>([generator = *(this-> generator)](functional::BiConsumer<E, functional::Timestamp> accept, functional::BiPredicate<E, functional::Timestamp> interrupt)-> void {
-                std::unordered_set<E> seen = {};
-                generator([&accept, &seen](E element, functional::Timestamp index) -> void {
-                    if (seen.find(element) == seen.end()) {
-                        accept(element, seen.size());
-                        seen.insert(element);
-                    }
-                    }, [&seen, &interrupt](E element, functional::Timestamp index) -> bool {
-                        return interrupt(element, seen.size());
-                        });
-                }, this->concurrent);
-        }
+	template <typename Mapper>
+	auto map(Mapper &&mapper) const -> Semantic<decltype(std::declval<Mapper>()(std::declval<std::list<E>>()))>
+	{
+		using R = decltype(std::declval<Mapper>()(std::declval<std::list<E>>()));
+		return Semantic<R>([generator = *(this->generator), mapper = std::forward<Mapper>(mapper)](function::BiConsumer<R, function::Timestamp> accept, function::BiPredicate<R, function::Timestamp> interrupt) -> void {
+			bool stop = false;
+			auto capturedInterrupt = interrupt;
+			generator([&accept, &stop, &mapper](std::list<E> container, function::Timestamp index) -> void {
+                if (stop) return;
+                if constexpr (std::is_invocable_r_v<R, Mapper, std::list<E>, function::Timestamp>)
+                    accept(std::invoke(mapper, container, index), index);
+                else if constexpr (std::is_invocable_r_v<R, Mapper, std::list<E>>)
+                    accept(std::invoke(mapper, container), index); }, [&capturedInterrupt, &stop](std::list<E> container, function::Timestamp index) -> bool {
+                if (capturedInterrupt(container, index)) { stop = true; return true; }
+                return false; });
+		},
+						   this->concurrent);
+	}
 
-        auto distinct(const functional::Comparator<E>& comparator) const -> Semantic<E> {
-            return Semantic<E>([generator = *(this-> generator), comparator](functional::BiConsumer<E, functional::Timestamp> accept, functional::BiPredicate<E, functional::Timestamp> interrupt)-> void {
-                std::set<E, functional::Comparator<E>> seen(comparator);
-                generator([&accept, &seen](E element, functional::Timestamp index) -> void {
-                    if (seen.find(element) == seen.end()) {
-                        accept(element, seen.size());
-                        seen.insert(element);
-                    }
-                    }, [&seen, &interrupt](E element, functional::Timestamp index) -> bool {
-                        return interrupt(element, seen.size());
-                        });
-                }, this->concurrent);
-        }
+	template <typename Predicate>
+	auto filter(Predicate &&predicate) const -> Semantic<std::list<E>>
+	{
+		return Semantic<std::list<E>>([generator = *(this->generator), predicate = std::forward<Predicate>(predicate)](function::BiConsumer<std::list<E>, function::Timestamp> accept, function::BiPredicate<std::list<E>, function::Timestamp> interrupt) -> void {
+			function::Timestamp count = 0LL;
+			bool stop = false;
+			auto capturedInterrupt = interrupt;
+			generator([&accept, &count, &stop, predicate](std::list<E> container, function::Timestamp index) -> void {
+                if (stop) return;
+                bool matches = false;
+                if constexpr (std::is_invocable_r_v<bool, Predicate, std::list<E>, function::Timestamp>)
+                    matches = std::invoke(predicate, container, index);
+                else if constexpr (std::is_invocable_r_v<bool, Predicate, std::list<E>>)
+                    matches = std::invoke(predicate, container);
+                if (matches) { accept(container, count); count++; } }, [&capturedInterrupt, &stop, &count](std::list<E> container, function::Timestamp index) -> bool {
+                if (capturedInterrupt(container, count)) { stop = true; return true; }
+                return false; });
+		},
+									  this->concurrent);
+	}
 
-        template<typename Predicate>
-        auto dropWhile(Predicate&& predicate) const -> Semantic<E> {
-            return Semantic<E>([generator = *(this-> generator), predicate = std::forward<Predicate>(predicate)](functional::BiConsumer<E, functional::Timestamp> accept, functional::BiPredicate<E, functional::Timestamp> interrupt)-> void {
-                functional::Timestamp count = -1LL;
-                generator([&accept, &count, predicate](E element, functional::Timestamp index) -> void {
-                    if (count == -1LL) {
-                        if constexpr (std::is_invocable_r_v<bool, Predicate, E, functional::Timestamp>) {
-                            if (!std::invoke(predicate, element, index)) {
-                                count++;
-                                accept(element, count);
-                            }
-                        }
-                        else if constexpr (std::is_invocable_r_v<bool, Predicate, E>) {
-                            if (!std::invoke(predicate, element)) {
-                                count++;
-                            }
-                        }
-                        else {
-                            static_assert(std::is_invocable_r_v<bool, Predicate, E, functional::Timestamp> || std::is_invocable_r_v<bool, Predicate, E>, "Predicate must be callable as either (E, functional::Timestamp) -> bool or (E) -> bool");
-                        }
-                    }
-                    else {
-                        accept(element, count);
-                        count++;
-                    }
-                    }, [&interrupt, count](E element, functional::Timestamp index) -> bool {
-                        if (count == -1) {
-                            return false;
-                        }
-                        return interrupt(element, count);
-                        });
-                }, this->concurrent);
-        }
+	template <typename Predicate>
+	auto takeWhile(Predicate &&predicate) const -> Semantic<std::list<E>>
+	{
+		return Semantic<std::list<E>>([generator = *(this->generator), predicate = std::forward<Predicate>(predicate)](function::BiConsumer<std::list<E>, function::Timestamp> accept, function::BiPredicate<std::list<E>, function::Timestamp> interrupt) -> void {
+			bool stop = false;
+			auto capturedInterrupt = interrupt;
+			generator([&accept, &stop, predicate](std::list<E> container, function::Timestamp index) -> void {
+                if (stop) return;
+                bool matches = false;
+                if constexpr (std::is_invocable_r_v<bool, Predicate, std::list<E>, function::Timestamp>)
+                    matches = std::invoke(predicate, container, index);
+                else if constexpr (std::is_invocable_r_v<bool, Predicate, std::list<E>>)
+                    matches = std::invoke(predicate, container);
+                if (matches) accept(container, index); else stop = true; }, [&capturedInterrupt, &stop](std::list<E> container, function::Timestamp index) -> bool {
+                if (capturedInterrupt(container, index)) { stop = true; return true; }
+                return stop; });
+		},
+									  this->concurrent);
+	}
 
-        template<typename Predicate>
-        auto filter(Predicate&& predicate) const -> Semantic<E> {
-            return Semantic<E>([generator = *(this-> generator), predicate = std::forward<Predicate>(predicate)](functional::BiConsumer<E, functional::Timestamp> accept, functional::BiPredicate<E, functional::Timestamp> interrupt)-> void {
-                functional::Timestamp count = 0LL;
-                generator([&accept, &count, predicate](E element, functional::Timestamp index) -> void {
-                    if constexpr (std::is_invocable_r_v<bool, Predicate, E, functional::Timestamp>) {
-                        if (std::invoke(predicate, element, index)) {
-                            accept(element, count);
-                            count++;
-                        }
-                    }
-                    else if constexpr (std::is_invocable_r_v<bool, Predicate, E>) {
-                        if (std::invoke(predicate, element)) {
-                            accept(element, count);
-                            count++;
-                        }
-                    }
-                    else {
-                        static_assert(std::is_invocable_r_v<bool, Predicate, E, functional::Timestamp> || std::is_invocable_r_v<bool, Predicate, E>, "Predicate must be callable as either (E, functional::Timestamp) -> bool or (E) -> bool");
-                    }
-                    }, [&interrupt, count](E element, functional::Timestamp index) -> bool {
-                        return interrupt(element, count);
-                        });
-                }, this->concurrent);
-        }
+	template <typename Predicate>
+	auto dropWhile(Predicate &&predicate) const -> Semantic<std::list<E>>
+	{
+		return Semantic<std::list<E>>([generator = *(this->generator), predicate = std::forward<Predicate>(predicate)](function::BiConsumer<std::list<E>, function::Timestamp> accept, function::BiPredicate<std::list<E>, function::Timestamp> interrupt) -> void {
+			bool dropping = true;
+			function::Timestamp count = 0LL;
+			bool stop = false;
+			auto capturedInterrupt = interrupt;
+			generator([&accept, &dropping, &count, &stop, predicate](std::list<E> container, function::Timestamp index) -> void {
+                if (stop) return;
+                if (dropping) {
+                    bool matches = false;
+                    if constexpr (std::is_invocable_r_v<bool, Predicate, std::list<E>, function::Timestamp>)
+                        matches = std::invoke(predicate, container, index);
+                    else if constexpr (std::is_invocable_r_v<bool, Predicate, std::list<E>>)
+                        matches = std::invoke(predicate, container);
+                    if (!matches) { dropping = false; accept(container, count); count++; }
+                } else { accept(container, count); count++; } }, [&capturedInterrupt, &stop, &count](std::list<E> container, function::Timestamp index) -> bool {
+                if (capturedInterrupt(container, count)) { stop = true; return true; }
+                return false; });
+		},
+									  this->concurrent);
+	}
 
-        template<typename Flatten>
-        auto flat(Flatten&& flatten) const -> Semantic<E> {
-            return Semantic<E>([generator = *(this-> generator), flatten = std::forward<Flatten>(flatten)](functional::BiConsumer<E, functional::Timestamp> accept, functional::BiPredicate<E, functional::Timestamp> interrupt)-> void {
-                functional::Timestamp count = 0LL;
-                bool stop = false;
-                generator([&accept, &interrupt, &stop, &count, flatten](E element, functional::Timestamp index) -> void {
-                    if constexpr (std::is_invocable_r_v<Semantic<E>, Flatten, E, functional::Timestamp>) {
-                        Semantic<E> inner = std::invoke(flatten, element, index);
-                        inner.source()([&accept, &count](E element, functional::Timestamp index) -> void {
-                            accept(element, count);
-                            count++;
-                            }, [&interrupt, &stop, &count](E element, functional::Timestamp index) -> bool {
-                                stop = stop || interrupt(element, count);
-                                return stop;
-                                });
-                    }
-                    else if constexpr (std::is_invocable_r_v<Semantic<E>, Flatten, E>) {
-                        Semantic<E> inner = std::invoke(flatten, element);
-                        inner.source()([&accept, &count](E element, functional::Timestamp index) -> void {
-                            accept(element, count);
-                            count++;
-                            }, [&interrupt, &stop, &count](E innerElement, functional::Timestamp index) -> bool {
-                                stop = stop || interrupt(element, count);
-                                return stop;
-                                });
-                    }
-                    else {
-                        static_assert(std::is_invocable_r_v<Semantic<E>, Flatten, E, functional::Timestamp> || std::is_invocable_r_v<Semantic<E>, Flatten, E>, "Flatten must be callable as either (E, functional::Timestamp) -> Semantic<E> or (E) -> Semantic<E>");
-                    }
-                    }, [&interrupt, &stop, &count](E element, functional::Timestamp index) -> bool {
-                        return stop;
-                        });
-                }, this->concurrent);
-        }
+	auto distinct() const -> Semantic<std::list<E>>
+	{
+		return Semantic<std::list<E>>([generator = *(this->generator)](function::BiConsumer<std::list<E>, function::Timestamp> accept, function::BiPredicate<std::list<E>, function::Timestamp> interrupt) -> void {
+			std::unordered_set<std::list<E>> seen;
+			function::Timestamp count = 0LL;
+			bool stop = false;
+			auto capturedInterrupt = interrupt;
+			generator([&accept, &seen, &count, &stop](std::list<E> container, function::Timestamp index) -> void {
+                if (stop) return;
+                if (seen.find(container) == seen.end()) { seen.insert(container); accept(container, count); count++; } }, [&capturedInterrupt, &stop, &count](std::list<E> container, function::Timestamp index) -> bool {
+                if (capturedInterrupt(container, count)) { stop = true; return true; }
+                return false; });
+		},
+									  this->concurrent);
+	}
 
-        template<typename R, typename Flatten>
-        auto flatMap(Flatten&& flatten) const -> Semantic<R> {
-            return Semantic<R>([generator = *(this-> generator), flatten = std::forward<Flatten>(flatten)](functional::BiConsumer<R, functional::Timestamp> accept, functional::BiPredicate<R, functional::Timestamp> interrupt)-> void {
-                functional::Timestamp count = 0LL;
-                bool stop = false;
-                generator([&accept, &interrupt, &stop, &count, flatten](E element, functional::Timestamp index) -> void {
-                    if constexpr (std::is_invocable_r_v<Semantic<R>, Flatten, E, functional::Timestamp>) {
-                        Semantic<R> inner = std::invoke(flatten, element, index);
-                        inner.source()([&accept, &count](R innerElement, functional::Timestamp innerIndex) -> void {
-                            accept(innerElement, count);
-                            count++;
-                            }, [&interrupt, &stop, &count](R innerElement, functional::Timestamp innerIndex) -> bool {
-                                stop = stop || interrupt(innerElement, count);
-                                return stop;
-                                });
-                    }
-                    else if constexpr (std::is_invocable_r_v<Semantic<R>, Flatten, E>) {
-                        Semantic<R> inner = std::invoke(flatten, element);
-                        inner.source()([&accept, &count](R innerElement, functional::Timestamp innerIndex) -> void {
-                            accept(innerElement, count);
-                            count++;
-                            }, [&interrupt, &stop, &count](R innerElement, functional::Timestamp innerIndex) -> bool {
-                                stop = stop || interrupt(innerElement, count);
-                                return stop;
-                                });
-                    }
-                    else {
-                        static_assert(std::is_invocable_r_v<Semantic<R>, Flatten, E, functional::Timestamp> || std::is_invocable_r_v<Semantic<R>, Flatten, E>, "Flatten must be callable as either (E, functional::Timestamp) -> Semantic<R> or (E) -> Semantic<R>");
-                    }
-                    }, [&interrupt, &stop, &count](E element, functional::Timestamp index) -> bool {
-                        return stop;
-                        });
-                }, this->concurrent);
-        }
+	auto distinct(const function::Comparator<std::list<E>> &comparator) const -> Semantic<std::list<E>>
+	{
+		return Semantic<std::list<E>>([generator = *(this->generator), comparator](function::BiConsumer<std::list<E>, function::Timestamp> accept, function::BiPredicate<std::list<E>, function::Timestamp> interrupt) -> void {
+			std::set<std::list<E>, function::Comparator<std::list<E>>> seen(comparator);
+			function::Timestamp count = 0LL;
+			bool stop = false;
+			auto capturedInterrupt = interrupt;
+			generator([&accept, &seen, &count, &stop](std::list<E> container, function::Timestamp index) -> void {
+                if (stop) return;
+                if (seen.find(container) == seen.end()) { seen.insert(container); accept(container, count); count++; } }, [&capturedInterrupt, &stop, &count](std::list<E> container, function::Timestamp index) -> bool {
+                if (capturedInterrupt(container, count)) { stop = true; return true; }
+                return false; });
+		},
+									  this->concurrent);
+	}
 
-        auto limit(const functional::Module& n) const -> Semantic<E> {
-            return Semantic<E>([generator = *(this-> generator), n](functional::BiConsumer<E, functional::Timestamp> accept, functional::BiPredicate<E, functional::Timestamp> interrupt)-> void {
-                functional::Module count = 0;
-                generator([&accept, &count, n](E element, functional::Timestamp index) -> void {
-                    if (count < n) {
-                        accept(element, count);
-                        count++;
-                    }
-                    }, [&count, n, &interrupt](E element, functional::Timestamp index) -> bool {
-                        return interrupt(element, count) || count >= n;
-                        });
-                }, this->concurrent);
-        }
+	auto sort() const -> collectable::OrderedCollectable<std::list<E>>
+	{
+		return collectable::OrderedCollectable<std::list<E>>(this->source(), this->concurrent);
+	}
 
-        template<typename Mapper>
-        auto map(Mapper&& mapper) const -> Semantic<decltype(std::declval<Mapper>()(std::declval<E>()))> {
-            using R = decltype(std::declval<Mapper>()(std::declval<E>()));
-            return Semantic<R>([generator = *(this->generator), mapper = std::forward<Mapper>(mapper)](functional::BiConsumer<R, functional::Timestamp> accept, functional::BiPredicate<R, functional::Timestamp> interrupt) -> void {
-                bool stop = false;
-                generator([&accept, &interrupt, &stop, &mapper](E element, functional::Timestamp index) -> void {
-                    if constexpr (std::is_invocable_r_v<R, Mapper, E, functional::Timestamp>) {
-                        R mapped = std::invoke(mapper, element, index);
-                        accept(mapped, index);
-                        stop = stop || interrupt(mapped, index);
-                    }
-                    else if constexpr (std::is_invocable_r_v<R, Mapper, E>) {
-                        R mapped = std::invoke(mapper, element);
-                        accept(mapped, index);
-                        stop = stop || interrupt(mapped, index);
-                    }
-                    else {
-                        static_assert(std::is_invocable_r_v<R, Mapper, E, functional::Timestamp> || std::is_invocable_r_v<R, Mapper, E>, "Mapper must be callable as either (E, functional::Timestamp) -> R or (E) -> R");
-                    }
-                    }, [&stop, &interrupt](E element, functional::Timestamp index) -> bool {
-                        return stop;
-                        });
-                }, this->concurrent);
-        }
+	auto sort(const function::Comparator<std::list<E>> &comparator) const -> collectable::OrderedCollectable<std::list<E>>
+	{
+		return collectable::OrderedCollectable<std::list<E>>(this->source(), comparator, this->concurrent);
+	}
 
-        auto parallel() const -> Semantic<E> {
-            return Semantic<E>(this->source(), this->concurrent + 1);
-        }
+	auto limit(const function::Module &n) const -> Semantic<std::list<E>>
+	{
+		return Semantic<std::list<E>>([generator = *(this->generator), n](function::BiConsumer<std::list<E>, function::Timestamp> accept, function::BiPredicate<std::list<E>, function::Timestamp> interrupt) -> void {
+			function::Module count = 0;
+			bool stop = false;
+			auto capturedInterrupt = interrupt;
+			generator([&accept, &count, &stop, n](std::list<E> container, function::Timestamp index) -> void {
+                if (stop) return;
+                if (count < n) { accept(container, count); count++; }
+                if (count >= n) { stop = true; } }, [&capturedInterrupt, &stop, &count](std::list<E> container, function::Timestamp index) -> bool {
+                if (capturedInterrupt(container, count)) { stop = true; return true; }
+                return stop; });
+		},
+									  this->concurrent);
+	}
 
-        auto parallel(const functional::Module& concurrent) const -> Semantic<E> {
-            return Semantic<E>(this->source(), std::max(concurrent, 1ULL));
-        }
+	auto skip(const function::Module &n) const -> Semantic<std::list<E>>
+	{
+		return Semantic<std::list<E>>([generator = *(this->generator), n](function::BiConsumer<std::list<E>, function::Timestamp> accept, function::BiPredicate<std::list<E>, function::Timestamp> interrupt) -> void {
+			function::Module count = 0;
+			bool stop = false;
+			auto capturedInterrupt = interrupt;
+			generator([&accept, &count, &stop, n](std::list<E> container, function::Timestamp index) -> void {
+                if (stop) return;
+                if (count >= n) { accept(container, count); }
+                count++; }, [&capturedInterrupt, &stop, &count](std::list<E> container, function::Timestamp index) -> bool {
+                if (capturedInterrupt(container, count)) { stop = true; return true; }
+                return false; });
+		},
+									  this->concurrent);
+	}
 
-        template<typename Consumer>
-        auto peek(Consumer&& consumer) const -> Semantic<E> {
-            return Semantic<E>([generator = *(this->generator), consumer = std::forward<Consumer>(consumer)](functional::BiConsumer<E, functional::Timestamp> accept, functional::BiPredicate<E, functional::Timestamp> interrupt) -> void {
-                bool stop = false;
-                generator([&accept, &interrupt, &stop, &consumer](E element, functional::Timestamp index) -> void {
-                    if constexpr (std::is_invocable_r_v<void, Consumer, E, functional::Timestamp>) {
-                        std::invoke(consumer, element, index);
-                        accept(element, index);
-                    }
-                    else if constexpr (std::is_invocable_r_v<void, Consumer, E>) {
-                        std::invoke(consumer, element);
-                        accept(element, index);
-                    }
-                    else {
-                        static_assert(std::is_invocable_r_v<void, Consumer, E, functional::Timestamp> || std::is_invocable_r_v<void, Consumer, E>, "Consumer must be callable as either (E, functional::Timestamp) -> void or (E) -> void");
-                    }
-                    }, [&stop, &interrupt](E element, functional::Timestamp index) -> bool {
-                        return stop;
-                        });
-                }, this->concurrent);
-        }
+	template <typename Consumer>
+	auto peek(Consumer &&consumer) const -> Semantic<std::list<E>>
+	{
+		return Semantic<std::list<E>>([generator = *(this->generator), consumer = std::forward<Consumer>(consumer)](function::BiConsumer<std::list<E>, function::Timestamp> accept, function::BiPredicate<std::list<E>, function::Timestamp> interrupt) -> void {
+			bool stop = false;
+			auto capturedInterrupt = interrupt;
+			generator([&accept, &stop, &consumer](std::list<E> container, function::Timestamp index) -> void {
+                if (stop) return;
+                if constexpr (std::is_invocable_r_v<void, Consumer, std::list<E>, function::Timestamp>)
+                    std::invoke(consumer, container, index);
+                else if constexpr (std::is_invocable_r_v<void, Consumer, std::list<E>>)
+                    std::invoke(consumer, container);
+                accept(container, index); }, [&capturedInterrupt, &stop](std::list<E> container, function::Timestamp index) -> bool {
+                if (capturedInterrupt(container, index)) { stop = true; return true; }
+                return false; });
+		},
+									  this->concurrent);
+	}
 
-        auto redirect(const functional::BiFunction<E, functional::Timestamp, E>& redirector) const -> Semantic<E> {
-            return Semantic<E>([generator = *(this->generator), redirector](functional::BiConsumer<E, functional::Timestamp> accept, functional::BiPredicate<E, functional::Timestamp> interrupt) -> void {
-                bool stop = false;
-                generator([&accept, &interrupt, &stop, &redirector](E element, functional::Timestamp index) -> void {
-                    functional::Timestamp redirected = redirector(element, index);
-                    stop = stop || interrupt(element, redirected);
-                    accept(element, redirected);
-                    }, [&stop](E element, functional::Timestamp index) -> bool {
-                        return stop;
-                        });
-                }, this->concurrent);
-        }
-
-        auto reverse() const -> Semantic<E> {
-            return Semantic<E>([generator = *(this->generator)](functional::BiConsumer<E, functional::Timestamp> accept, functional::BiPredicate<E, functional::Timestamp> interrupt) -> void {
-                bool stop = false;
-                generator([&accept, &interrupt, &stop](E element, functional::Timestamp index) -> void {
-                    functional::Timestamp redirected = -index;
-                    stop = stop || interrupt(element, redirected);
-                    accept(element, redirected);
-                    }, [&stop](E element, functional::Timestamp index) -> bool {
-                        return stop;
-                        });
-                }, this->concurrent);
-        }
-
-        auto skip(const functional::Module& n) const -> Semantic<E> {
-            return Semantic<E>([generator = *(this-> generator), n](functional::BiConsumer<E, functional::Timestamp> accept, functional::BiPredicate<E, functional::Timestamp> interrupt)-> void {
-                functional::Module count = 0;
-                generator([&accept, &count, n](E element, functional::Timestamp index) -> void {
-                    if (count >= n) {
-                        accept(element, count);
-                    }
-                    count++;
-                    }, [&count, n, &interrupt](E element, functional::Timestamp index) -> bool {
-                        return interrupt(element, count);
-                        });
-                }, this->concurrent);
-        }
-
-        auto source() const -> functional::Generator<E> {
-            return [generator = *(this-> generator)](functional::BiConsumer<E, functional::Timestamp> accept, functional::BiPredicate<E, functional::Timestamp> interrupt) -> void {
-                generator([&accept](E element, functional::Timestamp index) -> void {
-                    accept(element, index);
-                    }, [&interrupt](E element, functional::Timestamp index) -> bool {
-                        return interrupt(element, index);
-                        });
-                };
-        }
-
-        auto sub(const functional::Module& start, const functional::Module& end) const -> Semantic<E> {
-            return Semantic<E>([generator = *(this-> generator), start, end](functional::BiConsumer<E, functional::Timestamp> accept, functional::BiPredicate<E, functional::Timestamp> interrupt)-> void {
-                functional::Module count = 0;
-                generator([&accept, &count, start, end](E element, functional::Timestamp index) -> void {
-                    if (count >= start && count < end) {
-                        accept(element, count);
-                    }
-                    count++;
-                    }, [&count, &interrupt, end](E element, functional::Timestamp index) -> bool {
-                        return interrupt(element, count) || count >= end;
-                        });
-                }, this->concurrent);
-        }
-
-        template<typename Predicate>
-        auto takeWhile(Predicate&& predicate) const -> Semantic<E> {
-            return Semantic<E>([generator = *(this-> generator), predicate = std::forward<Predicate>(predicate)](functional::BiConsumer<E, functional::Timestamp> accept, functional::BiPredicate<E, functional::Timestamp> interrupt)-> void {
-                bool stop = false;
-                generator([&accept, &stop](E element, functional::Timestamp index) -> void {
-                    if constexpr (std::is_invocable_r_v<bool, Predicate, E, functional::Timestamp>) {
-                        if (std::invoke(predicate, element, index) && (!stop)) {
-                            accept(element, index);
-                        }
-                        else {
-                            stop = true;
-                        }
-                    }
-                    else if constexpr (std::is_invocable_r_v<bool, Predicate, E>) {
-                        if (std::invoke(predicate, element) && (!stop)) {
-                            accept(element, index);
-                        }
-                        else {
-                            stop = true;
-                        }
-                    }
-                    else {
-                        static_assert(std::is_invocable_r_v<bool, Predicate, E, functional::Timestamp> || std::is_invocable_r_v<bool, Predicate, E>, "Predicate must be callable as either (E, functional::Timestamp) -> bool or (E) -> bool");
-                    }
-                    }, [&interrupt, &stop](E element, functional::Timestamp index) -> bool {
-                        return stop || interrupt(element, index);
-                        });
-                }, this->concurrent);
-        }
-
-        auto toUnordered() const -> collectable::UnorderedCollectable<E> {
-            return collectable::UnorderedCollectable<E>(this->source(), this->concurrent);
-        }
-
-        auto toOrdered() const -> collectable::OrderedCollectable<E> {
-            return collectable::OrderedCollectable<E>(this->source(), this->concurrent);
-        }
-
-        auto toWindow() const -> collectable::WindowCollectable<E> {
-            return collectable::WindowCollectable<E>(this->source(), this->concurrent);
-        }
-
-        template<typename D>
-        auto toStatistics() const -> collectable::Statistics<E, D> {
-            return collectable::Statistics<E, D>(this->source(), this->concurrent);
-        }
-
-        auto translate(const functional::Timestamp& offset) const -> Semantic<E> {
-            return Semantic<E>([generator = *(this->generator)](functional::BiConsumer<E, functional::Timestamp> accept, functional::BiPredicate<E, functional::Timestamp> interrupt) -> void {
-                bool stop = false;
-                generator([&accept, &interrupt, &stop, offset](E element, functional::Timestamp index) -> void {
-                    functional::Timestamp redirected = index + offset;
-                    stop = stop || interrupt(element, redirected);
-                    accept(element, redirected);
-                    }, [&stop](E element, functional::Timestamp index) -> bool {
-                        return stop;
-                        });
-                }, this->concurrent);
-        }
-
-        auto translate(const functional::BiFunction<E, functional::Timestamp, functional::Timestamp>& translator) const -> Semantic<E> {
-            return Semantic<E>([generator = *(this->generator)](functional::BiConsumer<E, functional::Timestamp> accept, functional::BiPredicate<E, functional::Timestamp> interrupt) -> void {
-                bool stop = false;
-                generator([&accept, &interrupt, &stop, translator](E element, functional::Timestamp index) -> void {
-                    functional::Timestamp redirected = translator(element, index);
-                    stop = stop || interrupt(element, redirected);
-                    accept(element, redirected);
-                    }, [&stop](E element, functional::Timestamp index) -> bool {
-                        return stop;
-                        });
-                }, this->concurrent);
-        }
-    };
-
-    template<typename E>
-    class Semantic<Semantic<E>> {
-    private:
-        std::unique_ptr<functional::Generator<Semantic<E>>> generator;
-        const functional::Module concurrent;
-    public:
-        using Element = E;
-        Semantic(const functional::Generator<Semantic<E>>& generator) : generator(std::make_unique<functional::Generator<Semantic<E>>>(generator)), concurrent(1) {}
-        Semantic(const functional::Generator<Semantic<E>>& generator, const functional::Module& concurrent) : generator(std::make_unique<functional::Generator<Semantic<E>>>(generator)), concurrent(concurrent) {}
-        Semantic(const Semantic<Semantic<E>>& other) = default;
-        Semantic(Semantic<Semantic<E>>&& other) noexcept = default;
-
-        auto flat() const -> Semantic<E> {
-            return Semantic<E>([generator = this-> source()](functional::BiConsumer<E, functional::Timestamp> accept, functional::BiPredicate<E, functional::Timestamp> interrupt) -> void {
-                functional::Timestamp count = 0LL;
-                bool stop = false;
-                generator([&accept, &interrupt, &stop, &count](Semantic<E> semantic, functional::Timestamp index) -> void {
-                    semantic.source()([&accept, &count](E element, functional::Timestamp index) -> void {
-                        accept(element, count);
-                        count++;
-                        }, [&interrupt, &stop, &count](E element, functional::Timestamp index) -> bool {
-                            if (!stop && interrupt(element, count)) {
-                                stop = true;
-                            }
-                            return stop;
-                            });
-                    }, [&interrupt, &stop, &count](Semantic<E> element, functional::Timestamp index) -> bool {
-                        return stop;
-                        });
-                }, this->concurrent);
-        }
-
-        template <typename Flatten>
-        auto flat(Flatten&& flatten) const -> Semantic<E> {
-            return Semantic<E>([generator = this-> source(), flatten = std::forward<Flatten>(flatten)](functional::BiConsumer<E, functional::Timestamp> accept, functional::BiPredicate<E, functional::Timestamp> interrupt) -> void {
-                functional::Timestamp count = 0LL;
-                bool stop = false;
-                generator([&accept, &interrupt, &stop, &count, flatten](Semantic<E> semantic, functional::Timestamp index) -> void {
-                    if constexpr (std::is_invocable_r_v<Semantic<E>, Flatten, Semantic<E>, functional::Timestamp>) {
-                        Semantic<E> inner = std::invoke(flatten, semantic, index);
-                        inner.source()([&accept, &count](E element, functional::Timestamp index) -> void {
-                            accept(element, count);
-                            count++;
-                            }, [&interrupt, &stop, &count](E element, functional::Timestamp index) -> bool {
-                                stop = stop || interrupt(element, count);
-                                return stop;
-                                });
-                    }
-                    else if constexpr (std::is_invocable_r_v<Semantic<E>, Flatten, Semantic<E>>) {
-                        Semantic<E> inner = std::invoke(flatten, semantic);
-                        inner.source()([&accept, &count, flatten](E element, functional::Timestamp index) -> void {
-                            accept(element, count);
-                            count++;
-                            }, [&interrupt, &stop, &count](E element, functional::Timestamp index) -> bool {
-                                stop = stop || interrupt(element, count);
-                                return stop;
-                                });
-                    }
-                    else {
-                        static_assert(std::is_invocable_r_v<Semantic<E>, Flatten, Semantic<E>, functional::Timestamp> || std::is_invocable_r_v<Semantic<E>, Flatten, Semantic<E>>, "Flatten must be callable as either (E, functional::Timestamp) -> Semantic<E> or (E) -> Semantic<E>");
-                    }
-                    }, [&stop](Semantic<E> semantic, functional::Timestamp index)-> bool {
-                        return stop;
-                        });
-                }, this->concurrent);
-        }
-
-        template <typename R, typename Flatten>
-        auto flatMap(Flatten&& flatten) const -> Semantic<R> {
-            return Semantic<R>([generator = this-> source(), flatten = std::forward<Flatten>(flatten)](functional::BiConsumer<R, functional::Timestamp> accept, functional::BiPredicate<R, functional::Timestamp> interrupt) -> void {
-                functional::Timestamp count = 0LL;
-                bool stop = false;
-                generator([&accept, &interrupt, &stop, &count, flatten](Semantic<E> semantic, functional::Timestamp index) -> void {
-                    if constexpr (std::is_invocable_r_v<Semantic<R>, Flatten, Semantic<E>, functional::Timestamp>) {
-                        Semantic<R> inner = std::invoke(flatten, semantic, index);
-                        inner.source()([&accept, &count](R element, functional::Timestamp index) -> void {
-                            accept(element, count);
-                            count++;
-                            }, [&interrupt, &stop, &count](R element, functional::Timestamp index) -> bool {
-                                stop = stop || interrupt(element, count);
-                                return stop;
-                                });
-                    }
-                    else if constexpr (std::is_invocable_r_v<Semantic<R>, Flatten, Semantic<E>>) {
-                        Semantic<R> inner = std::invoke(flatten, semantic);
-                        inner.source()([&accept, &count, flatten](R element, functional::Timestamp index) -> void {
-                            accept(element, count);
-                            count++;
-                            }, [&interrupt, &stop, &count](R element, functional::Timestamp index) -> bool {
-                                stop = stop || interrupt(element, count);
-                                return stop;
-                                });
-                    }
-                    else {
-                        static_assert(std::is_invocable_r_v<Semantic<R>, Flatten, Semantic<E>, functional::Timestamp> || std::is_invocable_r_v<Semantic<R>, Flatten, Semantic<E>>, "Flatten must be callable as either (E, functional::Timestamp) -> Semantic<E> or (E) -> Semantic<E>");
-                    }
-                    }, [&stop](Semantic<E> semantic, functional::Timestamp index)-> bool {
-                        return stop;
-                        });
-                }, this->concurrent);
-        }
-
-        auto source() const -> functional::Generator<Semantic<E>> {
-            return [generator = *(this-> generator)](functional::BiConsumer<Semantic<E>, functional::Timestamp> accept, functional::BiPredicate<Semantic<E>, functional::Timestamp> interrupt) -> void {
-                generator([&accept](Semantic<E> element, functional::Timestamp index) -> void {
-                    accept(element, index);
-                    }, [&interrupt](Semantic<E> element, functional::Timestamp index) -> bool {
-                        return interrupt(element, index);
-                        });
-                };
-        }
-    };
-
-    template <typename D>
-    auto useRange(const D& start, const D& end) -> Semantic<D> {
-        return Semantic<D>([start = std::min(start, end), end = std::max(start, end)](functional::BiConsumer<D, functional::Timestamp> accept, functional::BiPredicate<D, functional::Timestamp> interrupt)->void {
-            for (D index = start; index < end; index++) {
-                if (interrupt(index, index)) {
-                    break;
+	template <typename Flatten>
+	auto flat(Flatten &&flatten) const -> Semantic<std::list<E>>
+	{
+		return Semantic<std::list<E>>([generator = *(this->generator), flatten = std::forward<Flatten>(flatten)](function::BiConsumer<std::list<E>, function::Timestamp> accept, function::BiPredicate<std::list<E>, function::Timestamp> interrupt) -> void {
+			function::Timestamp count = 0LL;
+			bool stop = false;
+			auto capturedInterrupt = interrupt;
+			generator([&accept, &count, &stop, flatten, capturedInterrupt](std::list<E> container, function::Timestamp index) -> void {
+                if (stop) return;
+                if constexpr (std::is_invocable_r_v<Semantic<std::list<E>>, Flatten, std::list<E>, function::Timestamp>)
+                {
+                    Semantic<std::list<E>> inner = std::invoke(flatten, container, index);
+                    inner.source()([&accept, &count](std::list<E> innerElement, function::Timestamp innerIndex) -> void {
+                        accept(innerElement, count); count++;
+                    }, [capturedInterrupt, &stop, &count](std::list<E> innerElement, function::Timestamp innerIndex) -> bool {
+                        if (capturedInterrupt(innerElement, count)) { stop = true; return true; } return false;
+                    });
                 }
-                accept(index, index);
-            }
-            });
-    }
+                else if constexpr (std::is_invocable_r_v<Semantic<std::list<E>>, Flatten, std::list<E>>)
+                {
+                    Semantic<std::list<E>> inner = std::invoke(flatten, container);
+                    inner.source()([&accept, &count](std::list<E> innerElement, function::Timestamp innerIndex) -> void {
+                        accept(innerElement, count); count++;
+                    }, [capturedInterrupt, &stop, &count](std::list<E> innerElement, function::Timestamp innerIndex) -> bool {
+                        if (capturedInterrupt(innerElement, count)) { stop = true; return true; } return false;
+                    });
+                } }, [&stop](std::list<E> container, function::Timestamp index) -> bool { return stop; });
+		},
+									  this->concurrent);
+	}
 
-    template <typename Container>
-    auto useFrom(Container container) -> Semantic<typename Container::value_type> {
-        using E = typename Container::value_type;
-        return Semantic<E>([elements = std::forward<Container>(container)](functional::BiConsumer<E, functional::Timestamp> accept, functional::BiPredicate<E, functional::Timestamp> interrupt) -> void {
-            functional::Timestamp index = 0LL;
-            for (const E& element : elements) {
-                if (interrupt(element, index)) {
-                    break;
+	template <typename R, typename Flatten>
+	auto flatMap(Flatten &&flatten) const -> Semantic<R>
+	{
+		return Semantic<R>([generator = *(this->generator), flatten = std::forward<Flatten>(flatten)](function::BiConsumer<R, function::Timestamp> accept, function::BiPredicate<R, function::Timestamp> interrupt) -> void {
+			function::Timestamp count = 0LL;
+			bool stop = false;
+			auto capturedInterrupt = interrupt;
+			generator([&accept, &count, &stop, flatten, capturedInterrupt](std::list<E> container, function::Timestamp index) -> void {
+                if (stop) return;
+                if constexpr (std::is_invocable_r_v<Semantic<R>, Flatten, std::list<E>, function::Timestamp>)
+                {
+                    Semantic<R> inner = std::invoke(flatten, container, index);
+                    inner.source()([&accept, &count](R innerElement, function::Timestamp innerIndex) -> void {
+                        accept(innerElement, count); count++;
+                    }, [capturedInterrupt, &stop, &count](R innerElement, function::Timestamp innerIndex) -> bool {
+                        if (capturedInterrupt(innerElement, count)) { stop = true; return true; } return false;
+                    });
                 }
-                accept(element, index);
-                index++;
-            }
-            }, 1LL);
-    }
+                else if constexpr (std::is_invocable_r_v<Semantic<R>, Flatten, std::list<E>>)
+                {
+                    Semantic<R> inner = std::invoke(flatten, container);
+                    inner.source()([&accept, &count](R innerElement, function::Timestamp innerIndex) -> void {
+                        accept(innerElement, count); count++;
+                    }, [capturedInterrupt, &stop, &count](R innerElement, function::Timestamp innerIndex) -> bool {
+                        if (capturedInterrupt(innerElement, count)) { stop = true; return true; } return false;
+                    });
+                } }, [&stop](std::list<E> container, function::Timestamp index) -> bool { return stop; });
+		},
+						   this->concurrent);
+	}
 
-    template<typename E>
-    auto useFrom(std::initializer_list<E> list) -> Semantic<E> {
-        return Semantic<E>([elements = std::move(list)](functional::BiConsumer<E, functional::Timestamp> accept, functional::BiPredicate<E, functional::Timestamp> interrupt) -> void {
-            functional::Timestamp index = 0LL;
-            for (const E& element : elements) {
-                if (interrupt(element, index)) {
-                    break;
-                }
-                accept(element, index);
-                index++;
-            }
-        }, 1LL);
-    }
+	auto reverse() const -> Semantic<std::list<E>>
+	{
+		return Semantic<std::list<E>>([generator = *(this->generator)](function::BiConsumer<std::list<E>, function::Timestamp> accept, function::BiPredicate<std::list<E>, function::Timestamp> interrupt) -> void {
+			bool stop = false;
+			auto capturedInterrupt = interrupt;
+			generator([&accept, &stop](std::list<E> container, function::Timestamp index) -> void {
+                if (stop) return; accept(container, -index); }, [&capturedInterrupt, &stop](std::list<E> container, function::Timestamp index) -> bool {
+                if (capturedInterrupt(container, -index)) { stop = true; return true; }
+                return false; });
+		},
+									  this->concurrent);
+	}
 
-    template<typename E>
-    auto useOf(std::initializer_list<E> elements) -> Semantic<E> {
-        return Semantic<E>([elements = std::move(elements)](functional::BiConsumer<E, functional::Timestamp> accept, functional::BiPredicate<E, functional::Timestamp> interrupt) -> void {functional::Timestamp index = 0LL;
-        for (const E& element : elements) {
-            if (interrupt(element, index)) {
-                break;
-            }
-            accept(element, index);
-            index++;
-        }
-            }, 1LL);
-    }
+	auto translate(const function::Timestamp &offset) const -> Semantic<std::list<E>>
+	{
+		return Semantic<std::list<E>>([generator = *(this->generator), offset](function::BiConsumer<std::list<E>, function::Timestamp> accept, function::BiPredicate<std::list<E>, function::Timestamp> interrupt) -> void {
+			bool stop = false;
+			auto capturedInterrupt = interrupt;
+			generator([&accept, &stop, offset](std::list<E> container, function::Timestamp index) -> void {
+                if (stop) return; accept(container, index + offset); }, [&capturedInterrupt, &stop, offset](std::list<E> container, function::Timestamp index) -> bool {
+                if (capturedInterrupt(container, index + offset)) { stop = true; return true; }
+                return false; });
+		},
+									  this->concurrent);
+	}
 
-    auto useBlob(const std::string& text) -> Semantic<char> {
-        return Semantic<char>([text](functional::BiConsumer<char, functional::Timestamp> accept, functional::BiPredicate<char, functional::Timestamp> interrupt) -> void {
-            functional::Timestamp index = 0LL;
-            for (const auto& byte : text) {
-                if (interrupt(byte, index)) {
-                    break;
-                }
-                accept(byte, index);
-                index++;
-            }
-            }, 1LL);
-    }
+	auto translate(const function::BiFunction<std::list<E>, function::Timestamp, function::Timestamp> &translator) const -> Semantic<std::list<E>>
+	{
+		return Semantic<std::list<E>>([generator = *(this->generator), translator](function::BiConsumer<std::list<E>, function::Timestamp> accept, function::BiPredicate<std::list<E>, function::Timestamp> interrupt) -> void {
+			bool stop = false;
+			auto capturedInterrupt = interrupt;
+			generator([&accept, &stop, translator](std::list<E> container, function::Timestamp index) -> void {
+                if (stop) return; accept(container, translator(container, index)); }, [&capturedInterrupt, &stop, translator](std::list<E> container, function::Timestamp index) -> bool {
+                if (capturedInterrupt(container, translator(container, index))) { stop = true; return true; }
+                return false; });
+		},
+									  this->concurrent);
+	}
 
-    auto useBlob(const std::string& text, functional::Module start, const functional::Module end) -> Semantic<char> {
-        return Semantic<char>([text, start, end](functional::BiConsumer<char, functional::Timestamp> accept, functional::BiPredicate<char, functional::Timestamp> interrupt) -> void {
-            functional::Module limitedStart = std::max(start, static_cast<functional::Module>(0LL));
-            functional::Module limitedEnd = std::min(end, static_cast<functional::Module>(text.size()));
-            if (start < end) {
-                functional::Timestamp index = 0LL;
-                for (const auto& byte : text) {
-                    if (interrupt(byte, index)) {
-                        break;
-                    }
-                    accept(byte, index);
-                    index++;
-                }
-            }
-            }, 1LL);
-    }
+	auto redirect(const function::BiFunction<std::list<E>, function::Timestamp, std::list<E>> &redirector) const -> Semantic<std::list<E>>
+	{
+		return Semantic<std::list<E>>([generator = *(this->generator), redirector](function::BiConsumer<std::list<E>, function::Timestamp> accept, function::BiPredicate<std::list<E>, function::Timestamp> interrupt) -> void {
+			bool stop = false;
+			auto capturedInterrupt = interrupt;
+			generator([&accept, &stop, &redirector](std::list<E> container, function::Timestamp index) -> void {
+                if (stop) return; accept(redirector(container, index), index); }, [&capturedInterrupt, &stop, &redirector](std::list<E> container, function::Timestamp index) -> bool {
+                if (capturedInterrupt(redirector(container, index), index)) { stop = true; return true; }
+                return false; });
+		},
+									  this->concurrent);
+	}
 
-    auto useBlob(std::istream& stream) -> Semantic<std::string> {
-        return Semantic<std::string>([&stream](functional::BiConsumer<std::string, functional::Timestamp> accept, functional::BiPredicate<std::string, functional::Timestamp> interrupt) -> void {
-            std::string line;
-            functional::Timestamp index = 0LL;
-            while (std::getline(stream, line)) {
-                if (interrupt(line, index)) {
-                    break;
-                }
-                accept(line, index);
-                index++;
-            }
-            }, 1LL);
-    }
+	auto sub(const function::Module &start, const function::Module &end) const -> Semantic<std::list<E>>
+	{
+		return Semantic<std::list<E>>([generator = *(this->generator), start, end](function::BiConsumer<std::list<E>, function::Timestamp> accept, function::BiPredicate<std::list<E>, function::Timestamp> interrupt) -> void {
+			function::Module count = 0;
+			bool stop = false;
+			auto capturedInterrupt = interrupt;
+			generator([&accept, &count, &stop, start, end](std::list<E> container, function::Timestamp index) -> void {
+                if (stop) return;
+                if (count >= start && count < end) { accept(container, count); }
+                count++; if (count >= end) { stop = true; } }, [&capturedInterrupt, &stop, &count](std::list<E> container, function::Timestamp index) -> bool {
+                if (capturedInterrupt(container, count)) { stop = true; return true; }
+                return stop; });
+		},
+									  this->concurrent);
+	}
 
-    auto useText(const std::string& text) -> Semantic<std::string> {
-        return Semantic<std::string>([text](functional::BiConsumer<std::string, functional::Timestamp> accept, functional::BiPredicate<std::string, functional::Timestamp> interrupt) -> void {
-            if (!interrupt(text, 0LL)) {
-                accept(text, 0LL);
-            }
-            }, 1LL);
-    }
+	auto parallel() const -> Semantic<std::list<E>> { return Semantic<std::list<E>>(this->source(), this->concurrent + 1); }
+	auto parallel(const function::Module &concurrent) const -> Semantic<std::list<E>> { return Semantic<std::list<E>>(this->source(), std::max(concurrent, 1ULL)); }
 
-    auto useText(const std::string& text, const char& delimiter) -> Semantic<std::string> {
-        return Semantic<std::string>([text, delimiter](functional::BiConsumer<std::string, functional::Timestamp> accept, functional::BiPredicate<std::string, functional::Timestamp> interrupt) -> void {
-            std::vector<std::string> pool;
-            for (functional::Module a = 0; a < text.size(); a++) {
-                std::string target = "";
-                for (functional::Module b = a; b < text.size(); b++) {
-                    if (text[b] == delimiter) {
-                        a = b;
-                        break;
-                    }
-                    target += text[b];
-                }
-                pool.push_back(target);
-                functional::Module index = std::min(0ULL, pool.size() - 1);
-                if (interrupt(target, index)) {
-                    break;
-                }
-                accept(target, index);
-            }
-            }, 1LL);
-    }
+	template <typename OtherContainer>
+	auto concatenate(OtherContainer &&otherContainer) const -> Semantic<std::list<E>>
+	{
+		if constexpr (std::is_same_v<std::decay_t<OtherContainer>, Semantic<std::list<E>>>)
+		{
+			return Semantic<std::list<E>>([generator = *(this->generator), other](function::BiConsumer<std::list<E>, function::Timestamp> accept, function::BiPredicate<std::list<E>, function::Timestamp> interrupt) -> void {
+				function::Timestamp count = 0LL;
+				bool stop = false;
+				auto capturedInterrupt = interrupt;
+				generator([&accept, &count, &stop](std::list<E> container, function::Timestamp index) -> void {
+                    if (stop) return; accept(container, count); count++; }, [&capturedInterrupt, &stop, &count](std::list<E> container, function::Timestamp index) -> bool {
+                    if (capturedInterrupt(container, count)) { stop = true; return true; } return false; });
+				if (!stop)
+				{
+					other.source()([&accept, &count, &stop](std::list<E> container, function::Timestamp index) -> void {
+                        if (stop) return; accept(container, count); count++; }, [&capturedInterrupt, &stop, &count](std::list<E> container, function::Timestamp index) -> bool {
+                        if (capturedInterrupt(container, count)) { stop = true; return true; } return false; });
+				}
+			},
+										  this->concurrent);
+		}
+		else if constexpr (std::is_same_v<std::decay_t<OtherContainer>, std::list<E>>)
+		{
+			return Semantic<std::list<E>>([generator = *(this->generator), elements = std::forward<OtherContainer>(otherContainer)](function::BiConsumer<std::list<E>, function::Timestamp> accept, function::BiPredicate<std::list<E>, function::Timestamp> interrupt) -> void {
+				function::Timestamp count = 0LL;
+				bool stop = false;
+				auto capturedInterrupt = interrupt;
+				generator([&accept, &count, &stop](std::list<E> container, function::Timestamp index) -> void {
+                    if (stop) return; accept(container, count); count++; }, [&capturedInterrupt, &stop, &count](std::list<E> container, function::Timestamp index) -> bool {
+                    if (capturedInterrupt(container, count)) { stop = true; return true; } return false; });
+				if (!stop)
+				{
+					if (!capturedInterrupt(elements, count))
+					{
+						accept(elements, count);
+					}
+				}
+			},
+										  this->concurrent);
+		}
+		else
+		{
+			return Semantic<std::list<E>>([generator = *(this->generator), elements = std::forward<OtherContainer>(otherContainer)](function::BiConsumer<std::list<E>, function::Timestamp> accept, function::BiPredicate<std::list<E>, function::Timestamp> interrupt) -> void {
+				function::Timestamp count = 0LL;
+				bool stop = false;
+				auto capturedInterrupt = interrupt;
+				generator([&accept, &count, &stop](std::list<E> container, function::Timestamp index) -> void {
+                    if (stop) return; accept(container, count); count++; }, [&capturedInterrupt, &stop, &count](std::list<E> container, function::Timestamp index) -> bool {
+                    if (capturedInterrupt(container, count)) { stop = true; return true; } return false; });
+				if (!stop)
+				{
+					for (const auto &element : elements)
+					{
+						if (stop)
+							break;
+						accept(element, count);
+						count++;
+					}
+				}
+			},
+										  this->concurrent);
+		}
+	}
+
+	auto toUnordered() const -> collectable::UnorderedCollectable<std::list<E>> { return collectable::UnorderedCollectable<std::list<E>>(this->source(), this->concurrent); }
+	auto toOrdered() const -> collectable::OrderedCollectable<std::list<E>> { return collectable::OrderedCollectable<std::list<E>>(this->source(), this->concurrent); }
+	auto toWindow() const -> collectable::WindowCollectable<std::list<E>> { return collectable::WindowCollectable<std::list<E>>(this->source(), this->concurrent); }
+	template <typename D>
+	auto toStatistics() const -> collectable::Statistics<std::list<E>, D> { return collectable::Statistics<std::list<E>, D>(this->source(), this->concurrent); }
 };
+
+template <typename E>
+class Semantic<std::set<E>>
+{
+  private:
+	std::unique_ptr<function::Generator<std::set<E>>> generator;
+	function::Module concurrent;
+
+  public:
+	using Element = std::set<E>;
+
+	Semantic(std::set<E> &&container) : generator(std::make_unique<function::Generator<std::set<E>>>([elements = std::move(container)](function::BiConsumer<std::set<E>, function::Timestamp> accept, function::BiPredicate<std::set<E>, function::Timestamp> interrupt) -> void {
+											accept(elements, 0LL);
+										})),
+										concurrent(1) {}
+
+	Semantic(std::set<E> &&container, const function::Module &concurrent) : generator(std::make_unique<function::Generator<std::set<E>>>([elements = std::move(container)](function::BiConsumer<std::set<E>, function::Timestamp> accept, function::BiPredicate<std::set<E>, function::Timestamp> interrupt) -> void {
+																				accept(elements, 0LL);
+																			})),
+																			concurrent(concurrent) {}
+
+	Semantic(const function::Generator<std::set<E>> &generator) : generator(std::make_unique<function::Generator<std::set<E>>>(generator)), concurrent(1) {}
+
+	Semantic(const function::Generator<std::set<E>> &generator, const function::Module &concurrent) : generator(std::make_unique<function::Generator<std::set<E>>>(generator)), concurrent(concurrent) {}
+
+	Semantic(const Semantic<std::set<E>> &other) : generator(std::make_unique<function::Generator<std::set<E>>>(*other.generator)), concurrent(other.concurrent) {}
+
+	Semantic(Semantic<std::set<E>> &&other) noexcept = default;
+
+	Semantic<std::set<E>> &operator=(const Semantic<std::set<E>> &other)
+	{
+		if (this != &other)
+		{
+			generator = std::make_unique<function::Generator<std::set<E>>>(*other.generator);
+			concurrent = other.concurrent;
+		}
+		return *this;
+	}
+
+	Semantic<std::set<E>> &operator=(Semantic<std::set<E>> &&other) noexcept = default;
+
+	auto source() const -> function::Generator<std::set<E>>
+	{
+		return [generator = *(this->generator)](function::BiConsumer<std::set<E>, function::Timestamp> accept, function::BiPredicate<std::set<E>, function::Timestamp> interrupt) -> void {
+			bool stop = false;
+			generator([&accept, &stop](std::set<E> container, function::Timestamp index) -> void {
+                if (!stop) { accept(container, index); } }, [&interrupt, &stop](std::set<E> container, function::Timestamp index) -> bool {
+                if (interrupt(container, index)) { stop = true; return true; }
+                return false; });
+		};
+	}
+
+	auto getConcurrent() const -> function::Module { return concurrent; }
+
+	template <typename Mapper>
+	auto map(Mapper &&mapper) const -> Semantic<decltype(std::declval<Mapper>()(std::declval<std::set<E>>()))>
+	{
+		using R = decltype(std::declval<Mapper>()(std::declval<std::set<E>>()));
+		return Semantic<R>([generator = *(this->generator), mapper = std::forward<Mapper>(mapper)](function::BiConsumer<R, function::Timestamp> accept, function::BiPredicate<R, function::Timestamp> interrupt) -> void {
+			bool stop = false;
+			auto capturedInterrupt = interrupt;
+			generator([&accept, &stop, &mapper](std::set<E> container, function::Timestamp index) -> void {
+                if (stop) return;
+                if constexpr (std::is_invocable_r_v<R, Mapper, std::set<E>, function::Timestamp>)
+                    accept(std::invoke(mapper, container, index), index);
+                else if constexpr (std::is_invocable_r_v<R, Mapper, std::set<E>>)
+                    accept(std::invoke(mapper, container), index); }, [&capturedInterrupt, &stop](std::set<E> container, function::Timestamp index) -> bool {
+                if (capturedInterrupt(container, index)) { stop = true; return true; }
+                return false; });
+		},
+						   this->concurrent);
+	}
+
+	template <typename Predicate>
+	auto filter(Predicate &&predicate) const -> Semantic<std::set<E>>
+	{
+		return Semantic<std::set<E>>([generator = *(this->generator), predicate = std::forward<Predicate>(predicate)](function::BiConsumer<std::set<E>, function::Timestamp> accept, function::BiPredicate<std::set<E>, function::Timestamp> interrupt) -> void {
+			function::Timestamp count = 0LL;
+			bool stop = false;
+			auto capturedInterrupt = interrupt;
+			generator([&accept, &count, &stop, predicate](std::set<E> container, function::Timestamp index) -> void {
+                if (stop) return;
+                bool matches = false;
+                if constexpr (std::is_invocable_r_v<bool, Predicate, std::set<E>, function::Timestamp>)
+                    matches = std::invoke(predicate, container, index);
+                else if constexpr (std::is_invocable_r_v<bool, Predicate, std::set<E>>)
+                    matches = std::invoke(predicate, container);
+                if (matches) { accept(container, count); count++; } }, [&capturedInterrupt, &stop, &count](std::set<E> container, function::Timestamp index) -> bool {
+                if (capturedInterrupt(container, count)) { stop = true; return true; }
+                return false; });
+		},
+									 this->concurrent);
+	}
+
+	template <typename Predicate>
+	auto takeWhile(Predicate &&predicate) const -> Semantic<std::set<E>>
+	{
+		return Semantic<std::set<E>>([generator = *(this->generator), predicate = std::forward<Predicate>(predicate)](function::BiConsumer<std::set<E>, function::Timestamp> accept, function::BiPredicate<std::set<E>, function::Timestamp> interrupt) -> void {
+			bool stop = false;
+			auto capturedInterrupt = interrupt;
+			generator([&accept, &stop, predicate](std::set<E> container, function::Timestamp index) -> void {
+                if (stop) return;
+                bool matches = false;
+                if constexpr (std::is_invocable_r_v<bool, Predicate, std::set<E>, function::Timestamp>)
+                    matches = std::invoke(predicate, container, index);
+                else if constexpr (std::is_invocable_r_v<bool, Predicate, std::set<E>>)
+                    matches = std::invoke(predicate, container);
+                if (matches) accept(container, index); else stop = true; }, [&capturedInterrupt, &stop](std::set<E> container, function::Timestamp index) -> bool {
+                if (capturedInterrupt(container, index)) { stop = true; return true; }
+                return stop; });
+		},
+									 this->concurrent);
+	}
+
+	template <typename Predicate>
+	auto dropWhile(Predicate &&predicate) const -> Semantic<std::set<E>>
+	{
+		return Semantic<std::set<E>>([generator = *(this->generator), predicate = std::forward<Predicate>(predicate)](function::BiConsumer<std::set<E>, function::Timestamp> accept, function::BiPredicate<std::set<E>, function::Timestamp> interrupt) -> void {
+			bool dropping = true;
+			function::Timestamp count = 0LL;
+			bool stop = false;
+			auto capturedInterrupt = interrupt;
+			generator([&accept, &dropping, &count, &stop, predicate](std::set<E> container, function::Timestamp index) -> void {
+                if (stop) return;
+                if (dropping) {
+                    bool matches = false;
+                    if constexpr (std::is_invocable_r_v<bool, Predicate, std::set<E>, function::Timestamp>)
+                        matches = std::invoke(predicate, container, index);
+                    else if constexpr (std::is_invocable_r_v<bool, Predicate, std::set<E>>)
+                        matches = std::invoke(predicate, container);
+                    if (!matches) { dropping = false; accept(container, count); count++; }
+                } else { accept(container, count); count++; } }, [&capturedInterrupt, &stop, &count](std::set<E> container, function::Timestamp index) -> bool {
+                if (capturedInterrupt(container, count)) { stop = true; return true; }
+                return false; });
+		},
+									 this->concurrent);
+	}
+
+	auto distinct() const -> Semantic<std::set<E>>
+	{
+		return Semantic<std::set<E>>([generator = *(this->generator)](function::BiConsumer<std::set<E>, function::Timestamp> accept, function::BiPredicate<std::set<E>, function::Timestamp> interrupt) -> void {
+			std::unordered_set<std::set<E>> seen;
+			function::Timestamp count = 0LL;
+			bool stop = false;
+			auto capturedInterrupt = interrupt;
+			generator([&accept, &seen, &count, &stop](std::set<E> container, function::Timestamp index) -> void {
+                if (stop) return;
+                if (seen.find(container) == seen.end()) { seen.insert(container); accept(container, count); count++; } }, [&capturedInterrupt, &stop, &count](std::set<E> container, function::Timestamp index) -> bool {
+                if (capturedInterrupt(container, count)) { stop = true; return true; }
+                return false; });
+		},
+									 this->concurrent);
+	}
+
+	auto distinct(const function::Comparator<std::set<E>> &comparator) const -> Semantic<std::set<E>>
+	{
+		return Semantic<std::set<E>>([generator = *(this->generator), comparator](function::BiConsumer<std::set<E>, function::Timestamp> accept, function::BiPredicate<std::set<E>, function::Timestamp> interrupt) -> void {
+			std::set<std::set<E>, function::Comparator<std::set<E>>> seen(comparator);
+			function::Timestamp count = 0LL;
+			bool stop = false;
+			auto capturedInterrupt = interrupt;
+			generator([&accept, &seen, &count, &stop](std::set<E> container, function::Timestamp index) -> void {
+                if (stop) return;
+                if (seen.find(container) == seen.end()) { seen.insert(container); accept(container, count); count++; } }, [&capturedInterrupt, &stop, &count](std::set<E> container, function::Timestamp index) -> bool {
+                if (capturedInterrupt(container, count)) { stop = true; return true; }
+                return false; });
+		},
+									 this->concurrent);
+	}
+
+	auto sort() const -> collectable::OrderedCollectable<std::set<E>>
+	{
+		return collectable::OrderedCollectable<std::set<E>>(this->source(), this->concurrent);
+	}
+
+	auto sort(const function::Comparator<std::set<E>> &comparator) const -> collectable::OrderedCollectable<std::set<E>>
+	{
+		return collectable::OrderedCollectable<std::set<E>>(this->source(), comparator, this->concurrent);
+	}
+
+	auto limit(const function::Module &n) const -> Semantic<std::set<E>>
+	{
+		return Semantic<std::set<E>>([generator = *(this->generator), n](function::BiConsumer<std::set<E>, function::Timestamp> accept, function::BiPredicate<std::set<E>, function::Timestamp> interrupt) -> void {
+			function::Module count = 0;
+			bool stop = false;
+			auto capturedInterrupt = interrupt;
+			generator([&accept, &count, &stop, n](std::set<E> container, function::Timestamp index) -> void {
+                if (stop) return;
+                if (count < n) { accept(container, count); count++; }
+                if (count >= n) { stop = true; } }, [&capturedInterrupt, &stop, &count](std::set<E> container, function::Timestamp index) -> bool {
+                if (capturedInterrupt(container, count)) { stop = true; return true; }
+                return stop; });
+		},
+									 this->concurrent);
+	}
+
+	auto skip(const function::Module &n) const -> Semantic<std::set<E>>
+	{
+		return Semantic<std::set<E>>([generator = *(this->generator), n](function::BiConsumer<std::set<E>, function::Timestamp> accept, function::BiPredicate<std::set<E>, function::Timestamp> interrupt) -> void {
+			function::Module count = 0;
+			bool stop = false;
+			auto capturedInterrupt = interrupt;
+			generator([&accept, &count, &stop, n](std::set<E> container, function::Timestamp index) -> void {
+                if (stop) return;
+                if (count >= n) { accept(container, count); }
+                count++; }, [&capturedInterrupt, &stop, &count](std::set<E> container, function::Timestamp index) -> bool {
+                if (capturedInterrupt(container, count)) { stop = true; return true; }
+                return false; });
+		},
+									 this->concurrent);
+	}
+
+	template <typename Consumer>
+	auto peek(Consumer &&consumer) const -> Semantic<std::set<E>>
+	{
+		return Semantic<std::set<E>>([generator = *(this->generator), consumer = std::forward<Consumer>(consumer)](function::BiConsumer<std::set<E>, function::Timestamp> accept, function::BiPredicate<std::set<E>, function::Timestamp> interrupt) -> void {
+			bool stop = false;
+			auto capturedInterrupt = interrupt;
+			generator([&accept, &stop, &consumer](std::set<E> container, function::Timestamp index) -> void {
+                if (stop) return;
+                if constexpr (std::is_invocable_r_v<void, Consumer, std::set<E>, function::Timestamp>)
+                    std::invoke(consumer, container, index);
+                else if constexpr (std::is_invocable_r_v<void, Consumer, std::set<E>>)
+                    std::invoke(consumer, container);
+                accept(container, index); }, [&capturedInterrupt, &stop](std::set<E> container, function::Timestamp index) -> bool {
+                if (capturedInterrupt(container, index)) { stop = true; return true; }
+                return false; });
+		},
+									 this->concurrent);
+	}
+
+	template <typename Flatten>
+	auto flat(Flatten &&flatten) const -> Semantic<std::set<E>>
+	{
+		return Semantic<std::set<E>>([generator = *(this->generator), flatten = std::forward<Flatten>(flatten)](function::BiConsumer<std::set<E>, function::Timestamp> accept, function::BiPredicate<std::set<E>, function::Timestamp> interrupt) -> void {
+			function::Timestamp count = 0LL;
+			bool stop = false;
+			auto capturedInterrupt = interrupt;
+			generator([&accept, &count, &stop, flatten, capturedInterrupt](std::set<E> container, function::Timestamp index) -> void {
+                if (stop) return;
+                if constexpr (std::is_invocable_r_v<Semantic<std::set<E>>, Flatten, std::set<E>, function::Timestamp>)
+                {
+                    Semantic<std::set<E>> inner = std::invoke(flatten, container, index);
+                    inner.source()([&accept, &count](std::set<E> innerElement, function::Timestamp innerIndex) -> void {
+                        accept(innerElement, count); count++;
+                    }, [capturedInterrupt, &stop, &count](std::set<E> innerElement, function::Timestamp innerIndex) -> bool {
+                        if (capturedInterrupt(innerElement, count)) { stop = true; return true; } return false;
+                    });
+                }
+                else if constexpr (std::is_invocable_r_v<Semantic<std::set<E>>, Flatten, std::set<E>>)
+                {
+                    Semantic<std::set<E>> inner = std::invoke(flatten, container);
+                    inner.source()([&accept, &count](std::set<E> innerElement, function::Timestamp innerIndex) -> void {
+                        accept(innerElement, count); count++;
+                    }, [capturedInterrupt, &stop, &count](std::set<E> innerElement, function::Timestamp innerIndex) -> bool {
+                        if (capturedInterrupt(innerElement, count)) { stop = true; return true; } return false;
+                    });
+                } }, [&stop](std::set<E> container, function::Timestamp index) -> bool { return stop; });
+		},
+									 this->concurrent);
+	}
+
+	template <typename R, typename Flatten>
+	auto flatMap(Flatten &&flatten) const -> Semantic<R>
+	{
+		return Semantic<R>([generator = *(this->generator), flatten = std::forward<Flatten>(flatten)](function::BiConsumer<R, function::Timestamp> accept, function::BiPredicate<R, function::Timestamp> interrupt) -> void {
+			function::Timestamp count = 0LL;
+			bool stop = false;
+			auto capturedInterrupt = interrupt;
+			generator([&accept, &count, &stop, flatten, capturedInterrupt](std::set<E> container, function::Timestamp index) -> void {
+                if (stop) return;
+                if constexpr (std::is_invocable_r_v<Semantic<R>, Flatten, std::set<E>, function::Timestamp>)
+                {
+                    Semantic<R> inner = std::invoke(flatten, container, index);
+                    inner.source()([&accept, &count](R innerElement, function::Timestamp innerIndex) -> void {
+                        accept(innerElement, count); count++;
+                    }, [capturedInterrupt, &stop, &count](R innerElement, function::Timestamp innerIndex) -> bool {
+                        if (capturedInterrupt(innerElement, count)) { stop = true; return true; } return false;
+                    });
+                }
+                else if constexpr (std::is_invocable_r_v<Semantic<R>, Flatten, std::set<E>>)
+                {
+                    Semantic<R> inner = std::invoke(flatten, container);
+                    inner.source()([&accept, &count](R innerElement, function::Timestamp innerIndex) -> void {
+                        accept(innerElement, count); count++;
+                    }, [capturedInterrupt, &stop, &count](R innerElement, function::Timestamp innerIndex) -> bool {
+                        if (capturedInterrupt(innerElement, count)) { stop = true; return true; } return false;
+                    });
+                } }, [&stop](std::set<E> container, function::Timestamp index) -> bool { return stop; });
+		},
+						   this->concurrent);
+	}
+
+	auto reverse() const -> Semantic<std::set<E>>
+	{
+		return Semantic<std::set<E>>([generator = *(this->generator)](function::BiConsumer<std::set<E>, function::Timestamp> accept, function::BiPredicate<std::set<E>, function::Timestamp> interrupt) -> void {
+			bool stop = false;
+			auto capturedInterrupt = interrupt;
+			generator([&accept, &stop](std::set<E> container, function::Timestamp index) -> void {
+                if (stop) return; accept(container, -index); }, [&capturedInterrupt, &stop](std::set<E> container, function::Timestamp index) -> bool {
+                if (capturedInterrupt(container, -index)) { stop = true; return true; }
+                return false; });
+		},
+									 this->concurrent);
+	}
+
+	auto translate(const function::Timestamp &offset) const -> Semantic<std::set<E>>
+	{
+		return Semantic<std::set<E>>([generator = *(this->generator), offset](function::BiConsumer<std::set<E>, function::Timestamp> accept, function::BiPredicate<std::set<E>, function::Timestamp> interrupt) -> void {
+			bool stop = false;
+			auto capturedInterrupt = interrupt;
+			generator([&accept, &stop, offset](std::set<E> container, function::Timestamp index) -> void {
+                if (stop) return; accept(container, index + offset); }, [&capturedInterrupt, &stop, offset](std::set<E> container, function::Timestamp index) -> bool {
+                if (capturedInterrupt(container, index + offset)) { stop = true; return true; }
+                return false; });
+		},
+									 this->concurrent);
+	}
+
+	auto translate(const function::BiFunction<std::set<E>, function::Timestamp, function::Timestamp> &translator) const -> Semantic<std::set<E>>
+	{
+		return Semantic<std::set<E>>([generator = *(this->generator), translator](function::BiConsumer<std::set<E>, function::Timestamp> accept, function::BiPredicate<std::set<E>, function::Timestamp> interrupt) -> void {
+			bool stop = false;
+			auto capturedInterrupt = interrupt;
+			generator([&accept, &stop, translator](std::set<E> container, function::Timestamp index) -> void {
+                if (stop) return; accept(container, translator(container, index)); }, [&capturedInterrupt, &stop, translator](std::set<E> container, function::Timestamp index) -> bool {
+                if (capturedInterrupt(container, translator(container, index))) { stop = true; return true; }
+                return false; });
+		},
+									 this->concurrent);
+	}
+
+	auto redirect(const function::BiFunction<std::set<E>, function::Timestamp, std::set<E>> &redirector) const -> Semantic<std::set<E>>
+	{
+		return Semantic<std::set<E>>([generator = *(this->generator), redirector](function::BiConsumer<std::set<E>, function::Timestamp> accept, function::BiPredicate<std::set<E>, function::Timestamp> interrupt) -> void {
+			bool stop = false;
+			auto capturedInterrupt = interrupt;
+			generator([&accept, &stop, &redirector](std::set<E> container, function::Timestamp index) -> void {
+                if (stop) return; accept(redirector(container, index), index); }, [&capturedInterrupt, &stop, &redirector](std::set<E> container, function::Timestamp index) -> bool {
+                if (capturedInterrupt(redirector(container, index), index)) { stop = true; return true; }
+                return false; });
+		},
+									 this->concurrent);
+	}
+
+	auto sub(const function::Module &start, const function::Module &end) const -> Semantic<std::set<E>>
+	{
+		return Semantic<std::set<E>>([generator = *(this->generator), start, end](function::BiConsumer<std::set<E>, function::Timestamp> accept, function::BiPredicate<std::set<E>, function::Timestamp> interrupt) -> void {
+			function::Module count = 0;
+			bool stop = false;
+			auto capturedInterrupt = interrupt;
+			generator([&accept, &count, &stop, start, end](std::set<E> container, function::Timestamp index) -> void {
+                if (stop) return;
+                if (count >= start && count < end) { accept(container, count); }
+                count++; if (count >= end) { stop = true; } }, [&capturedInterrupt, &stop, &count](std::set<E> container, function::Timestamp index) -> bool {
+                if (capturedInterrupt(container, count)) { stop = true; return true; }
+                return stop; });
+		},
+									 this->concurrent);
+	}
+
+	auto parallel() const -> Semantic<std::set<E>> { return Semantic<std::set<E>>(this->source(), this->concurrent + 1); }
+	auto parallel(const function::Module &concurrent) const -> Semantic<std::set<E>> { return Semantic<std::set<E>>(this->source(), std::max(concurrent, 1ULL)); }
+
+	template <typename OtherContainer>
+	auto concatenate(OtherContainer &&otherContainer) const -> Semantic<std::set<E>>
+	{
+		if constexpr (std::is_same_v<std::decay_t<OtherContainer>, Semantic<std::set<E>>>)
+		{
+			return Semantic<std::set<E>>([generator = *(this->generator), other](function::BiConsumer<std::set<E>, function::Timestamp> accept, function::BiPredicate<std::set<E>, function::Timestamp> interrupt) -> void {
+				function::Timestamp count = 0LL;
+				bool stop = false;
+				auto capturedInterrupt = interrupt;
+				generator([&accept, &count, &stop](std::set<E> container, function::Timestamp index) -> void {
+                    if (stop) return; accept(container, count); count++; }, [&capturedInterrupt, &stop, &count](std::set<E> container, function::Timestamp index) -> bool {
+                    if (capturedInterrupt(container, count)) { stop = true; return true; } return false; });
+				if (!stop)
+				{
+					other.source()([&accept, &count, &stop](std::set<E> container, function::Timestamp index) -> void {
+                        if (stop) return; accept(container, count); count++; }, [&capturedInterrupt, &stop, &count](std::set<E> container, function::Timestamp index) -> bool {
+                        if (capturedInterrupt(container, count)) { stop = true; return true; } return false; });
+				}
+			},
+										 this->concurrent);
+		}
+		else if constexpr (std::is_same_v<std::decay_t<OtherContainer>, std::set<E>>)
+		{
+			return Semantic<std::set<E>>([generator = *(this->generator), elements = std::forward<OtherContainer>(otherContainer)](function::BiConsumer<std::set<E>, function::Timestamp> accept, function::BiPredicate<std::set<E>, function::Timestamp> interrupt) -> void {
+				function::Timestamp count = 0LL;
+				bool stop = false;
+				auto capturedInterrupt = interrupt;
+				generator([&accept, &count, &stop](std::set<E> container, function::Timestamp index) -> void {
+                    if (stop) return; accept(container, count); count++; }, [&capturedInterrupt, &stop, &count](std::set<E> container, function::Timestamp index) -> bool {
+                    if (capturedInterrupt(container, count)) { stop = true; return true; } return false; });
+				if (!stop)
+				{
+					if (!capturedInterrupt(elements, count))
+					{
+						accept(elements, count);
+					}
+				}
+			},
+										 this->concurrent);
+		}
+		else
+		{
+			return Semantic<std::set<E>>([generator = *(this->generator), elements = std::forward<OtherContainer>(otherContainer)](function::BiConsumer<std::set<E>, function::Timestamp> accept, function::BiPredicate<std::set<E>, function::Timestamp> interrupt) -> void {
+				function::Timestamp count = 0LL;
+				bool stop = false;
+				auto capturedInterrupt = interrupt;
+				generator([&accept, &count, &stop](std::set<E> container, function::Timestamp index) -> void {
+                    if (stop) return; accept(container, count); count++; }, [&capturedInterrupt, &stop, &count](std::set<E> container, function::Timestamp index) -> bool {
+                    if (capturedInterrupt(container, count)) { stop = true; return true; } return false; });
+				if (!stop)
+				{
+					for (const auto &element : elements)
+					{
+						if (stop)
+							break;
+						accept(element, count);
+						count++;
+					}
+				}
+			},
+										 this->concurrent);
+		}
+	}
+
+	auto toUnordered() const -> collectable::UnorderedCollectable<std::set<E>> { return collectable::UnorderedCollectable<std::set<E>>(this->source(), this->concurrent); }
+	auto toOrdered() const -> collectable::OrderedCollectable<std::set<E>> { return collectable::OrderedCollectable<std::set<E>>(this->source(), this->concurrent); }
+	auto toWindow() const -> collectable::WindowCollectable<std::set<E>> { return collectable::WindowCollectable<std::set<E>>(this->source(), this->concurrent); }
+	template <typename D>
+	auto toStatistics() const -> collectable::Statistics<std::set<E>, D> { return collectable::Statistics<std::set<E>, D>(this->source(), this->concurrent); }
+};
+
+template <typename E>
+class Semantic<std::unordered_set<E>>
+{
+  private:
+	std::unique_ptr<function::Generator<std::unordered_set<E>>> generator;
+	function::Module concurrent;
+
+  public:
+	using Element = std::unordered_set<E>;
+
+	Semantic(std::unordered_set<E> &&container) : generator(std::make_unique<function::Generator<std::unordered_set<E>>>([elements = std::move(container)](function::BiConsumer<std::unordered_set<E>, function::Timestamp> accept, function::BiPredicate<std::unordered_set<E>, function::Timestamp> interrupt) -> void {
+													  accept(elements, 0LL);
+												  })),
+												  concurrent(1) {}
+
+	Semantic(std::unordered_set<E> &&container, const function::Module &concurrent) : generator(std::make_unique<function::Generator<std::unordered_set<E>>>([elements = std::move(container)](function::BiConsumer<std::unordered_set<E>, function::Timestamp> accept, function::BiPredicate<std::unordered_set<E>, function::Timestamp> interrupt) -> void {
+																						  accept(elements, 0LL);
+																					  })),
+																					  concurrent(concurrent) {}
+
+	Semantic(const function::Generator<std::unordered_set<E>> &generator) : generator(std::make_unique<function::Generator<std::unordered_set<E>>>(generator)), concurrent(1) {}
+
+	Semantic(const function::Generator<std::unordered_set<E>> &generator, const function::Module &concurrent) : generator(std::make_unique<function::Generator<std::unordered_set<E>>>(generator)), concurrent(concurrent) {}
+
+	Semantic(const Semantic<std::unordered_set<E>> &other) : generator(std::make_unique<function::Generator<std::unordered_set<E>>>(*other.generator)), concurrent(other.concurrent) {}
+
+	Semantic(Semantic<std::unordered_set<E>> &&other) noexcept = default;
+
+	Semantic<std::unordered_set<E>> &operator=(const Semantic<std::unordered_set<E>> &other)
+	{
+		if (this != &other)
+		{
+			generator = std::make_unique<function::Generator<std::unordered_set<E>>>(*other.generator);
+			concurrent = other.concurrent;
+		}
+		return *this;
+	}
+
+	Semantic<std::unordered_set<E>> &operator=(Semantic<std::unordered_set<E>> &&other) noexcept = default;
+
+	auto source() const -> function::Generator<std::unordered_set<E>>
+	{
+		return [generator = *(this->generator)](function::BiConsumer<std::unordered_set<E>, function::Timestamp> accept, function::BiPredicate<std::unordered_set<E>, function::Timestamp> interrupt) -> void {
+			bool stop = false;
+			generator([&accept, &stop](std::unordered_set<E> container, function::Timestamp index) -> void {
+                if (!stop) { accept(container, index); } }, [&interrupt, &stop](std::unordered_set<E> container, function::Timestamp index) -> bool {
+                if (interrupt(container, index)) { stop = true; return true; }
+                return false; });
+		};
+	}
+
+	auto getConcurrent() const -> function::Module { return concurrent; }
+
+	template <typename Mapper>
+	auto map(Mapper &&mapper) const -> Semantic<decltype(std::declval<Mapper>()(std::declval<std::unordered_set<E>>()))>
+	{
+		using R = decltype(std::declval<Mapper>()(std::declval<std::unordered_set<E>>()));
+		return Semantic<R>([generator = *(this->generator), mapper = std::forward<Mapper>(mapper)](function::BiConsumer<R, function::Timestamp> accept, function::BiPredicate<R, function::Timestamp> interrupt) -> void {
+			bool stop = false;
+			auto capturedInterrupt = interrupt;
+			generator([&accept, &stop, &mapper](std::unordered_set<E> container, function::Timestamp index) -> void {
+                if (stop) return;
+                if constexpr (std::is_invocable_r_v<R, Mapper, std::unordered_set<E>, function::Timestamp>)
+                    accept(std::invoke(mapper, container, index), index);
+                else if constexpr (std::is_invocable_r_v<R, Mapper, std::unordered_set<E>>)
+                    accept(std::invoke(mapper, container), index); }, [&capturedInterrupt, &stop](std::unordered_set<E> container, function::Timestamp index) -> bool {
+                if (capturedInterrupt(container, index)) { stop = true; return true; }
+                return false; });
+		},
+						   this->concurrent);
+	}
+
+	template <typename Predicate>
+	auto filter(Predicate &&predicate) const -> Semantic<std::unordered_set<E>>
+	{
+		return Semantic<std::unordered_set<E>>([generator = *(this->generator), predicate = std::forward<Predicate>(predicate)](function::BiConsumer<std::unordered_set<E>, function::Timestamp> accept, function::BiPredicate<std::unordered_set<E>, function::Timestamp> interrupt) -> void {
+			function::Timestamp count = 0LL;
+			bool stop = false;
+			auto capturedInterrupt = interrupt;
+			generator([&accept, &count, &stop, predicate](std::unordered_set<E> container, function::Timestamp index) -> void {
+                if (stop) return;
+                bool matches = false;
+                if constexpr (std::is_invocable_r_v<bool, Predicate, std::unordered_set<E>, function::Timestamp>)
+                    matches = std::invoke(predicate, container, index);
+                else if constexpr (std::is_invocable_r_v<bool, Predicate, std::unordered_set<E>>)
+                    matches = std::invoke(predicate, container);
+                if (matches) { accept(container, count); count++; } }, [&capturedInterrupt, &stop, &count](std::unordered_set<E> container, function::Timestamp index) -> bool {
+                if (capturedInterrupt(container, count)) { stop = true; return true; }
+                return false; });
+		},
+											   this->concurrent);
+	}
+
+	template <typename Predicate>
+	auto takeWhile(Predicate &&predicate) const -> Semantic<std::unordered_set<E>>
+	{
+		return Semantic<std::unordered_set<E>>([generator = *(this->generator), predicate = std::forward<Predicate>(predicate)](function::BiConsumer<std::unordered_set<E>, function::Timestamp> accept, function::BiPredicate<std::unordered_set<E>, function::Timestamp> interrupt) -> void {
+			bool stop = false;
+			auto capturedInterrupt = interrupt;
+			generator([&accept, &stop, predicate](std::unordered_set<E> container, function::Timestamp index) -> void {
+                if (stop) return;
+                bool matches = false;
+                if constexpr (std::is_invocable_r_v<bool, Predicate, std::unordered_set<E>, function::Timestamp>)
+                    matches = std::invoke(predicate, container, index);
+                else if constexpr (std::is_invocable_r_v<bool, Predicate, std::unordered_set<E>>)
+                    matches = std::invoke(predicate, container);
+                if (matches) accept(container, index); else stop = true; }, [&capturedInterrupt, &stop](std::unordered_set<E> container, function::Timestamp index) -> bool {
+                if (capturedInterrupt(container, index)) { stop = true; return true; }
+                return stop; });
+		},
+											   this->concurrent);
+	}
+
+	template <typename Predicate>
+	auto dropWhile(Predicate &&predicate) const -> Semantic<std::unordered_set<E>>
+	{
+		return Semantic<std::unordered_set<E>>([generator = *(this->generator), predicate = std::forward<Predicate>(predicate)](function::BiConsumer<std::unordered_set<E>, function::Timestamp> accept, function::BiPredicate<std::unordered_set<E>, function::Timestamp> interrupt) -> void {
+			bool dropping = true;
+			function::Timestamp count = 0LL;
+			bool stop = false;
+			auto capturedInterrupt = interrupt;
+			generator([&accept, &dropping, &count, &stop, predicate](std::unordered_set<E> container, function::Timestamp index) -> void {
+                if (stop) return;
+                if (dropping) {
+                    bool matches = false;
+                    if constexpr (std::is_invocable_r_v<bool, Predicate, std::unordered_set<E>, function::Timestamp>)
+                        matches = std::invoke(predicate, container, index);
+                    else if constexpr (std::is_invocable_r_v<bool, Predicate, std::unordered_set<E>>)
+                        matches = std::invoke(predicate, container);
+                    if (!matches) { dropping = false; accept(container, count); count++; }
+                } else { accept(container, count); count++; } }, [&capturedInterrupt, &stop, &count](std::unordered_set<E> container, function::Timestamp index) -> bool {
+                if (capturedInterrupt(container, count)) { stop = true; return true; }
+                return false; });
+		},
+											   this->concurrent);
+	}
+
+	auto distinct() const -> Semantic<std::unordered_set<E>>
+	{
+		return Semantic<std::unordered_set<E>>([generator = *(this->generator)](function::BiConsumer<std::unordered_set<E>, function::Timestamp> accept, function::BiPredicate<std::unordered_set<E>, function::Timestamp> interrupt) -> void {
+			std::unordered_set<std::unordered_set<E>> seen;
+			function::Timestamp count = 0LL;
+			bool stop = false;
+			auto capturedInterrupt = interrupt;
+			generator([&accept, &seen, &count, &stop](std::unordered_set<E> container, function::Timestamp index) -> void {
+                if (stop) return;
+                if (seen.find(container) == seen.end()) { seen.insert(container); accept(container, count); count++; } }, [&capturedInterrupt, &stop, &count](std::unordered_set<E> container, function::Timestamp index) -> bool {
+                if (capturedInterrupt(container, count)) { stop = true; return true; }
+                return false; });
+		},
+											   this->concurrent);
+	}
+
+	auto distinct(const function::Comparator<std::unordered_set<E>> &comparator) const -> Semantic<std::unordered_set<E>>
+	{
+		return Semantic<std::unordered_set<E>>([generator = *(this->generator), comparator](function::BiConsumer<std::unordered_set<E>, function::Timestamp> accept, function::BiPredicate<std::unordered_set<E>, function::Timestamp> interrupt) -> void {
+			std::set<std::unordered_set<E>, function::Comparator<std::unordered_set<E>>> seen(comparator);
+			function::Timestamp count = 0LL;
+			bool stop = false;
+			auto capturedInterrupt = interrupt;
+			generator([&accept, &seen, &count, &stop](std::unordered_set<E> container, function::Timestamp index) -> void {
+                if (stop) return;
+                if (seen.find(container) == seen.end()) { seen.insert(container); accept(container, count); count++; } }, [&capturedInterrupt, &stop, &count](std::unordered_set<E> container, function::Timestamp index) -> bool {
+                if (capturedInterrupt(container, count)) { stop = true; return true; }
+                return false; });
+		},
+											   this->concurrent);
+	}
+
+	auto sort() const -> collectable::OrderedCollectable<std::unordered_set<E>>
+	{
+		return collectable::OrderedCollectable<std::unordered_set<E>>(this->source(), this->concurrent);
+	}
+
+	auto sort(const function::Comparator<std::unordered_set<E>> &comparator) const -> collectable::OrderedCollectable<std::unordered_set<E>>
+	{
+		return collectable::OrderedCollectable<std::unordered_set<E>>(this->source(), comparator, this->concurrent);
+	}
+
+	auto limit(const function::Module &n) const -> Semantic<std::unordered_set<E>>
+	{
+		return Semantic<std::unordered_set<E>>([generator = *(this->generator), n](function::BiConsumer<std::unordered_set<E>, function::Timestamp> accept, function::BiPredicate<std::unordered_set<E>, function::Timestamp> interrupt) -> void {
+			function::Module count = 0;
+			bool stop = false;
+			auto capturedInterrupt = interrupt;
+			generator([&accept, &count, &stop, n](std::unordered_set<E> container, function::Timestamp index) -> void {
+                if (stop) return;
+                if (count < n) { accept(container, count); count++; }
+                if (count >= n) { stop = true; } }, [&capturedInterrupt, &stop, &count](std::unordered_set<E> container, function::Timestamp index) -> bool {
+                if (capturedInterrupt(container, count)) { stop = true; return true; }
+                return stop; });
+		},
+											   this->concurrent);
+	}
+
+	auto skip(const function::Module &n) const -> Semantic<std::unordered_set<E>>
+	{
+		return Semantic<std::unordered_set<E>>([generator = *(this->generator), n](function::BiConsumer<std::unordered_set<E>, function::Timestamp> accept, function::BiPredicate<std::unordered_set<E>, function::Timestamp> interrupt) -> void {
+			function::Module count = 0;
+			bool stop = false;
+			auto capturedInterrupt = interrupt;
+			generator([&accept, &count, &stop, n](std::unordered_set<E> container, function::Timestamp index) -> void {
+                if (stop) return;
+                if (count >= n) { accept(container, count); }
+                count++; }, [&capturedInterrupt, &stop, &count](std::unordered_set<E> container, function::Timestamp index) -> bool {
+                if (capturedInterrupt(container, count)) { stop = true; return true; }
+                return false; });
+		},
+											   this->concurrent);
+	}
+
+	template <typename Consumer>
+	auto peek(Consumer &&consumer) const -> Semantic<std::unordered_set<E>>
+	{
+		return Semantic<std::unordered_set<E>>([generator = *(this->generator), consumer = std::forward<Consumer>(consumer)](function::BiConsumer<std::unordered_set<E>, function::Timestamp> accept, function::BiPredicate<std::unordered_set<E>, function::Timestamp> interrupt) -> void {
+			bool stop = false;
+			auto capturedInterrupt = interrupt;
+			generator([&accept, &stop, &consumer](std::unordered_set<E> container, function::Timestamp index) -> void {
+                if (stop) return;
+                if constexpr (std::is_invocable_r_v<void, Consumer, std::unordered_set<E>, function::Timestamp>)
+                    std::invoke(consumer, container, index);
+                else if constexpr (std::is_invocable_r_v<void, Consumer, std::unordered_set<E>>)
+                    std::invoke(consumer, container);
+                accept(container, index); }, [&capturedInterrupt, &stop](std::unordered_set<E> container, function::Timestamp index) -> bool {
+                if (capturedInterrupt(container, index)) { stop = true; return true; }
+                return false; });
+		},
+											   this->concurrent);
+	}
+
+	template <typename Flatten>
+	auto flat(Flatten &&flatten) const -> Semantic<std::unordered_set<E>>
+	{
+		return Semantic<std::unordered_set<E>>([generator = *(this->generator), flatten = std::forward<Flatten>(flatten)](function::BiConsumer<std::unordered_set<E>, function::Timestamp> accept, function::BiPredicate<std::unordered_set<E>, function::Timestamp> interrupt) -> void {
+			function::Timestamp count = 0LL;
+			bool stop = false;
+			auto capturedInterrupt = interrupt;
+			generator([&accept, &count, &stop, flatten, capturedInterrupt](std::unordered_set<E> container, function::Timestamp index) -> void {
+                if (stop) return;
+                if constexpr (std::is_invocable_r_v<Semantic<std::unordered_set<E>>, Flatten, std::unordered_set<E>, function::Timestamp>)
+                {
+                    Semantic<std::unordered_set<E>> inner = std::invoke(flatten, container, index);
+                    inner.source()([&accept, &count](std::unordered_set<E> innerElement, function::Timestamp innerIndex) -> void {
+                        accept(innerElement, count); count++;
+                    }, [capturedInterrupt, &stop, &count](std::unordered_set<E> innerElement, function::Timestamp innerIndex) -> bool {
+                        if (capturedInterrupt(innerElement, count)) { stop = true; return true; } return false;
+                    });
+                }
+                else if constexpr (std::is_invocable_r_v<Semantic<std::unordered_set<E>>, Flatten, std::unordered_set<E>>)
+                {
+                    Semantic<std::unordered_set<E>> inner = std::invoke(flatten, container);
+                    inner.source()([&accept, &count](std::unordered_set<E> innerElement, function::Timestamp innerIndex) -> void {
+                        accept(innerElement, count); count++;
+                    }, [capturedInterrupt, &stop, &count](std::unordered_set<E> innerElement, function::Timestamp innerIndex) -> bool {
+                        if (capturedInterrupt(innerElement, count)) { stop = true; return true; } return false;
+                    });
+                } }, [&stop](std::unordered_set<E> container, function::Timestamp index) -> bool { return stop; });
+		},
+											   this->concurrent);
+	}
+
+	template <typename R, typename Flatten>
+	auto flatMap(Flatten &&flatten) const -> Semantic<R>
+	{
+		return Semantic<R>([generator = *(this->generator), flatten = std::forward<Flatten>(flatten)](function::BiConsumer<R, function::Timestamp> accept, function::BiPredicate<R, function::Timestamp> interrupt) -> void {
+			function::Timestamp count = 0LL;
+			bool stop = false;
+			auto capturedInterrupt = interrupt;
+			generator([&accept, &count, &stop, flatten, capturedInterrupt](std::unordered_set<E> container, function::Timestamp index) -> void {
+                if (stop) return;
+                if constexpr (std::is_invocable_r_v<Semantic<R>, Flatten, std::unordered_set<E>, function::Timestamp>)
+                {
+                    Semantic<R> inner = std::invoke(flatten, container, index);
+                    inner.source()([&accept, &count](R innerElement, function::Timestamp innerIndex) -> void {
+                        accept(innerElement, count); count++;
+                    }, [capturedInterrupt, &stop, &count](R innerElement, function::Timestamp innerIndex) -> bool {
+                        if (capturedInterrupt(innerElement, count)) { stop = true; return true; } return false;
+                    });
+                }
+                else if constexpr (std::is_invocable_r_v<Semantic<R>, Flatten, std::unordered_set<E>>)
+                {
+                    Semantic<R> inner = std::invoke(flatten, container);
+                    inner.source()([&accept, &count](R innerElement, function::Timestamp innerIndex) -> void {
+                        accept(innerElement, count); count++;
+                    }, [capturedInterrupt, &stop, &count](R innerElement, function::Timestamp innerIndex) -> bool {
+                        if (capturedInterrupt(innerElement, count)) { stop = true; return true; } return false;
+                    });
+                } }, [&stop](std::unordered_set<E> container, function::Timestamp index) -> bool { return stop; });
+		},
+						   this->concurrent);
+	}
+
+	auto reverse() const -> Semantic<std::unordered_set<E>>
+	{
+		return Semantic<std::unordered_set<E>>([generator = *(this->generator)](function::BiConsumer<std::unordered_set<E>, function::Timestamp> accept, function::BiPredicate<std::unordered_set<E>, function::Timestamp> interrupt) -> void {
+			bool stop = false;
+			auto capturedInterrupt = interrupt;
+			generator([&accept, &stop](std::unordered_set<E> container, function::Timestamp index) -> void {
+                if (stop) return; accept(container, -index); }, [&capturedInterrupt, &stop](std::unordered_set<E> container, function::Timestamp index) -> bool {
+                if (capturedInterrupt(container, -index)) { stop = true; return true; }
+                return false; });
+		},
+											   this->concurrent);
+	}
+
+	auto translate(const function::Timestamp &offset) const -> Semantic<std::unordered_set<E>>
+	{
+		return Semantic<std::unordered_set<E>>([generator = *(this->generator), offset](function::BiConsumer<std::unordered_set<E>, function::Timestamp> accept, function::BiPredicate<std::unordered_set<E>, function::Timestamp> interrupt) -> void {
+			bool stop = false;
+			auto capturedInterrupt = interrupt;
+			generator([&accept, &stop, offset](std::unordered_set<E> container, function::Timestamp index) -> void {
+                if (stop) return; accept(container, index + offset); }, [&capturedInterrupt, &stop, offset](std::unordered_set<E> container, function::Timestamp index) -> bool {
+                if (capturedInterrupt(container, index + offset)) { stop = true; return true; }
+                return false; });
+		},
+											   this->concurrent);
+	}
+
+	auto translate(const function::BiFunction<std::unordered_set<E>, function::Timestamp, function::Timestamp> &translator) const -> Semantic<std::unordered_set<E>>
+	{
+		return Semantic<std::unordered_set<E>>([generator = *(this->generator), translator](function::BiConsumer<std::unordered_set<E>, function::Timestamp> accept, function::BiPredicate<std::unordered_set<E>, function::Timestamp> interrupt) -> void {
+			bool stop = false;
+			auto capturedInterrupt = interrupt;
+			generator([&accept, &stop, translator](std::unordered_set<E> container, function::Timestamp index) -> void {
+                if (stop) return; accept(container, translator(container, index)); }, [&capturedInterrupt, &stop, translator](std::unordered_set<E> container, function::Timestamp index) -> bool {
+                if (capturedInterrupt(container, translator(container, index))) { stop = true; return true; }
+                return false; });
+		},
+											   this->concurrent);
+	}
+
+	auto redirect(const function::BiFunction<std::unordered_set<E>, function::Timestamp, std::unordered_set<E>> &redirector) const -> Semantic<std::unordered_set<E>>
+	{
+		return Semantic<std::unordered_set<E>>([generator = *(this->generator), redirector](function::BiConsumer<std::unordered_set<E>, function::Timestamp> accept, function::BiPredicate<std::unordered_set<E>, function::Timestamp> interrupt) -> void {
+			bool stop = false;
+			auto capturedInterrupt = interrupt;
+			generator([&accept, &stop, &redirector](std::unordered_set<E> container, function::Timestamp index) -> void {
+                if (stop) return; accept(redirector(container, index), index); }, [&capturedInterrupt, &stop, &redirector](std::unordered_set<E> container, function::Timestamp index) -> bool {
+                if (capturedInterrupt(redirector(container, index), index)) { stop = true; return true; }
+                return false; });
+		},
+											   this->concurrent);
+	}
+
+	auto sub(const function::Module &start, const function::Module &end) const -> Semantic<std::unordered_set<E>>
+	{
+		return Semantic<std::unordered_set<E>>([generator = *(this->generator), start, end](function::BiConsumer<std::unordered_set<E>, function::Timestamp> accept, function::BiPredicate<std::unordered_set<E>, function::Timestamp> interrupt) -> void {
+			function::Module count = 0;
+			bool stop = false;
+			auto capturedInterrupt = interrupt;
+			generator([&accept, &count, &stop, start, end](std::unordered_set<E> container, function::Timestamp index) -> void {
+                if (stop) return;
+                if (count >= start && count < end) { accept(container, count); }
+                count++; if (count >= end) { stop = true; } }, [&capturedInterrupt, &stop, &count](std::unordered_set<E> container, function::Timestamp index) -> bool {
+                if (capturedInterrupt(container, count)) { stop = true; return true; }
+                return stop; });
+		},
+											   this->concurrent);
+	}
+
+	auto parallel() const -> Semantic<std::unordered_set<E>> { return Semantic<std::unordered_set<E>>(this->source(), this->concurrent + 1); }
+	auto parallel(const function::Module &concurrent) const -> Semantic<std::unordered_set<E>> { return Semantic<std::unordered_set<E>>(this->source(), std::max(concurrent, 1ULL)); }
+
+	template <typename OtherContainer>
+	auto concatenate(OtherContainer &&otherContainer) const -> Semantic<std::unordered_set<E>>
+	{
+		if constexpr (std::is_same_v<std::decay_t<OtherContainer>, Semantic<std::unordered_set<E>>>)
+		{
+			return Semantic<std::unordered_set<E>>([generator = *(this->generator), other](function::BiConsumer<std::unordered_set<E>, function::Timestamp> accept, function::BiPredicate<std::unordered_set<E>, function::Timestamp> interrupt) -> void {
+				function::Timestamp count = 0LL;
+				bool stop = false;
+				auto capturedInterrupt = interrupt;
+				generator([&accept, &count, &stop](std::unordered_set<E> container, function::Timestamp index) -> void {
+                    if (stop) return; accept(container, count); count++; }, [&capturedInterrupt, &stop, &count](std::unordered_set<E> container, function::Timestamp index) -> bool {
+                    if (capturedInterrupt(container, count)) { stop = true; return true; } return false; });
+				if (!stop)
+				{
+					other.source()([&accept, &count, &stop](std::unordered_set<E> container, function::Timestamp index) -> void {
+                        if (stop) return; accept(container, count); count++; }, [&capturedInterrupt, &stop, &count](std::unordered_set<E> container, function::Timestamp index) -> bool {
+                        if (capturedInterrupt(container, count)) { stop = true; return true; } return false; });
+				}
+			},
+												   this->concurrent);
+		}
+		else if constexpr (std::is_same_v<std::decay_t<OtherContainer>, std::unordered_set<E>>)
+		{
+			return Semantic<std::unordered_set<E>>([generator = *(this->generator), elements = std::forward<OtherContainer>(otherContainer)](function::BiConsumer<std::unordered_set<E>, function::Timestamp> accept, function::BiPredicate<std::unordered_set<E>, function::Timestamp> interrupt) -> void {
+				function::Timestamp count = 0LL;
+				bool stop = false;
+				auto capturedInterrupt = interrupt;
+				generator([&accept, &count, &stop](std::unordered_set<E> container, function::Timestamp index) -> void {
+                    if (stop) return; accept(container, count); count++; }, [&capturedInterrupt, &stop, &count](std::unordered_set<E> container, function::Timestamp index) -> bool {
+                    if (capturedInterrupt(container, count)) { stop = true; return true; } return false; });
+				if (!stop)
+				{
+					if (!capturedInterrupt(elements, count))
+					{
+						accept(elements, count);
+					}
+				}
+			},
+												   this->concurrent);
+		}
+		else
+		{
+			return Semantic<std::unordered_set<E>>([generator = *(this->generator), elements = std::forward<OtherContainer>(otherContainer)](function::BiConsumer<std::unordered_set<E>, function::Timestamp> accept, function::BiPredicate<std::unordered_set<E>, function::Timestamp> interrupt) -> void {
+				function::Timestamp count = 0LL;
+				bool stop = false;
+				auto capturedInterrupt = interrupt;
+				generator([&accept, &count, &stop](std::unordered_set<E> container, function::Timestamp index) -> void {
+                    if (stop) return; accept(container, count); count++; }, [&capturedInterrupt, &stop, &count](std::unordered_set<E> container, function::Timestamp index) -> bool {
+                    if (capturedInterrupt(container, count)) { stop = true; return true; } return false; });
+				if (!stop)
+				{
+					for (const auto &element : elements)
+					{
+						if (stop)
+							break;
+						accept(element, count);
+						count++;
+					}
+				}
+			},
+												   this->concurrent);
+		}
+	}
+
+	auto toUnordered() const -> collectable::UnorderedCollectable<std::unordered_set<E>> { return collectable::UnorderedCollectable<std::unordered_set<E>>(this->source(), this->concurrent); }
+	auto toOrdered() const -> collectable::OrderedCollectable<std::unordered_set<E>> { return collectable::OrderedCollectable<std::unordered_set<E>>(this->source(), this->concurrent); }
+	auto toWindow() const -> collectable::WindowCollectable<std::unordered_set<E>> { return collectable::WindowCollectable<std::unordered_set<E>>(this->source(), this->concurrent); }
+	template <typename D>
+	auto toStatistics() const -> collectable::Statistics<std::unordered_set<E>, D> { return collectable::Statistics<std::unordered_set<E>, D>(this->source(), this->concurrent); }
+};
+
+template <typename E>
+class Semantic<std::deque<E>>
+{
+  private:
+	std::unique_ptr<function::Generator<std::deque<E>>> generator;
+	function::Module concurrent;
+
+  public:
+	using Element = std::deque<E>;
+
+	Semantic(std::deque<E> &&container) : generator(std::make_unique<function::Generator<std::deque<E>>>([elements = std::move(container)](function::BiConsumer<std::deque<E>, function::Timestamp> accept, function::BiPredicate<std::deque<E>, function::Timestamp> interrupt) -> void {
+											  accept(elements, 0LL);
+										  })),
+										  concurrent(1) {}
+
+	Semantic(std::deque<E> &&container, const function::Module &concurrent) : generator(std::make_unique<function::Generator<std::deque<E>>>([elements = std::move(container)](function::BiConsumer<std::deque<E>, function::Timestamp> accept, function::BiPredicate<std::deque<E>, function::Timestamp> interrupt) -> void {
+																				  accept(elements, 0LL);
+																			  })),
+																			  concurrent(concurrent) {}
+
+	Semantic(const function::Generator<std::deque<E>> &generator) : generator(std::make_unique<function::Generator<std::deque<E>>>(generator)), concurrent(1) {}
+
+	Semantic(const function::Generator<std::deque<E>> &generator, const function::Module &concurrent) : generator(std::make_unique<function::Generator<std::deque<E>>>(generator)), concurrent(concurrent) {}
+
+	Semantic(const Semantic<std::deque<E>> &other) : generator(std::make_unique<function::Generator<std::deque<E>>>(*other.generator)), concurrent(other.concurrent) {}
+
+	Semantic(Semantic<std::deque<E>> &&other) noexcept = default;
+
+	Semantic<std::deque<E>> &operator=(const Semantic<std::deque<E>> &other)
+	{
+		if (this != &other)
+		{
+			generator = std::make_unique<function::Generator<std::deque<E>>>(*other.generator);
+			concurrent = other.concurrent;
+		}
+		return *this;
+	}
+
+	Semantic<std::deque<E>> &operator=(Semantic<std::deque<E>> &&other) noexcept = default;
+
+	auto source() const -> function::Generator<std::deque<E>>
+	{
+		return [generator = *(this->generator)](function::BiConsumer<std::deque<E>, function::Timestamp> accept, function::BiPredicate<std::deque<E>, function::Timestamp> interrupt) -> void {
+			bool stop = false;
+			generator([&accept, &stop](std::deque<E> container, function::Timestamp index) -> void {
+                if (!stop) { accept(container, index); } }, [&interrupt, &stop](std::deque<E> container, function::Timestamp index) -> bool {
+                if (interrupt(container, index)) { stop = true; return true; }
+                return false; });
+		};
+	}
+
+	auto getConcurrent() const -> function::Module { return concurrent; }
+
+	template <typename Mapper>
+	auto map(Mapper &&mapper) const -> Semantic<decltype(std::declval<Mapper>()(std::declval<std::deque<E>>()))>
+	{
+		using R = decltype(std::declval<Mapper>()(std::declval<std::deque<E>>()));
+		return Semantic<R>([generator = *(this->generator), mapper = std::forward<Mapper>(mapper)](function::BiConsumer<R, function::Timestamp> accept, function::BiPredicate<R, function::Timestamp> interrupt) -> void {
+			bool stop = false;
+			auto capturedInterrupt = interrupt;
+			generator([&accept, &stop, &mapper](std::deque<E> container, function::Timestamp index) -> void {
+                if (stop) return;
+                if constexpr (std::is_invocable_r_v<R, Mapper, std::deque<E>, function::Timestamp>)
+                    accept(std::invoke(mapper, container, index), index);
+                else if constexpr (std::is_invocable_r_v<R, Mapper, std::deque<E>>)
+                    accept(std::invoke(mapper, container), index); }, [&capturedInterrupt, &stop](std::deque<E> container, function::Timestamp index) -> bool {
+                if (capturedInterrupt(container, index)) { stop = true; return true; }
+                return false; });
+		},
+						   this->concurrent);
+	}
+
+	template <typename Predicate>
+	auto filter(Predicate &&predicate) const -> Semantic<std::deque<E>>
+	{
+		return Semantic<std::deque<E>>([generator = *(this->generator), predicate = std::forward<Predicate>(predicate)](function::BiConsumer<std::deque<E>, function::Timestamp> accept, function::BiPredicate<std::deque<E>, function::Timestamp> interrupt) -> void {
+			function::Timestamp count = 0LL;
+			bool stop = false;
+			auto capturedInterrupt = interrupt;
+			generator([&accept, &count, &stop, predicate](std::deque<E> container, function::Timestamp index) -> void {
+                if (stop) return;
+                bool matches = false;
+                if constexpr (std::is_invocable_r_v<bool, Predicate, std::deque<E>, function::Timestamp>)
+                    matches = std::invoke(predicate, container, index);
+                else if constexpr (std::is_invocable_r_v<bool, Predicate, std::deque<E>>)
+                    matches = std::invoke(predicate, container);
+                if (matches) { accept(container, count); count++; } }, [&capturedInterrupt, &stop, &count](std::deque<E> container, function::Timestamp index) -> bool {
+                if (capturedInterrupt(container, count)) { stop = true; return true; }
+                return false; });
+		},
+									   this->concurrent);
+	}
+
+	template <typename Predicate>
+	auto takeWhile(Predicate &&predicate) const -> Semantic<std::deque<E>>
+	{
+		return Semantic<std::deque<E>>([generator = *(this->generator), predicate = std::forward<Predicate>(predicate)](function::BiConsumer<std::deque<E>, function::Timestamp> accept, function::BiPredicate<std::deque<E>, function::Timestamp> interrupt) -> void {
+			bool stop = false;
+			auto capturedInterrupt = interrupt;
+			generator([&accept, &stop, predicate](std::deque<E> container, function::Timestamp index) -> void {
+                if (stop) return;
+                bool matches = false;
+                if constexpr (std::is_invocable_r_v<bool, Predicate, std::deque<E>, function::Timestamp>)
+                    matches = std::invoke(predicate, container, index);
+                else if constexpr (std::is_invocable_r_v<bool, Predicate, std::deque<E>>)
+                    matches = std::invoke(predicate, container);
+                if (matches) accept(container, index); else stop = true; }, [&capturedInterrupt, &stop](std::deque<E> container, function::Timestamp index) -> bool {
+                if (capturedInterrupt(container, index)) { stop = true; return true; }
+                return stop; });
+		},
+									   this->concurrent);
+	}
+
+	template <typename Predicate>
+	auto dropWhile(Predicate &&predicate) const -> Semantic<std::deque<E>>
+	{
+		return Semantic<std::deque<E>>([generator = *(this->generator), predicate = std::forward<Predicate>(predicate)](function::BiConsumer<std::deque<E>, function::Timestamp> accept, function::BiPredicate<std::deque<E>, function::Timestamp> interrupt) -> void {
+			bool dropping = true;
+			function::Timestamp count = 0LL;
+			bool stop = false;
+			auto capturedInterrupt = interrupt;
+			generator([&accept, &dropping, &count, &stop, predicate](std::deque<E> container, function::Timestamp index) -> void {
+                if (stop) return;
+                if (dropping) {
+                    bool matches = false;
+                    if constexpr (std::is_invocable_r_v<bool, Predicate, std::deque<E>, function::Timestamp>)
+                        matches = std::invoke(predicate, container, index);
+                    else if constexpr (std::is_invocable_r_v<bool, Predicate, std::deque<E>>)
+                        matches = std::invoke(predicate, container);
+                    if (!matches) { dropping = false; accept(container, count); count++; }
+                } else { accept(container, count); count++; } }, [&capturedInterrupt, &stop, &count](std::deque<E> container, function::Timestamp index) -> bool {
+                if (capturedInterrupt(container, count)) { stop = true; return true; }
+                return false; });
+		},
+									   this->concurrent);
+	}
+
+	auto distinct() const -> Semantic<std::deque<E>>
+	{
+		return Semantic<std::deque<E>>([generator = *(this->generator)](function::BiConsumer<std::deque<E>, function::Timestamp> accept, function::BiPredicate<std::deque<E>, function::Timestamp> interrupt) -> void {
+			std::unordered_set<std::deque<E>> seen;
+			function::Timestamp count = 0LL;
+			bool stop = false;
+			auto capturedInterrupt = interrupt;
+			generator([&accept, &seen, &count, &stop](std::deque<E> container, function::Timestamp index) -> void {
+                if (stop) return;
+                if (seen.find(container) == seen.end()) { seen.insert(container); accept(container, count); count++; } }, [&capturedInterrupt, &stop, &count](std::deque<E> container, function::Timestamp index) -> bool {
+                if (capturedInterrupt(container, count)) { stop = true; return true; }
+                return false; });
+		},
+									   this->concurrent);
+	}
+
+	auto distinct(const function::Comparator<std::deque<E>> &comparator) const -> Semantic<std::deque<E>>
+	{
+		return Semantic<std::deque<E>>([generator = *(this->generator), comparator](function::BiConsumer<std::deque<E>, function::Timestamp> accept, function::BiPredicate<std::deque<E>, function::Timestamp> interrupt) -> void {
+			std::set<std::deque<E>, function::Comparator<std::deque<E>>> seen(comparator);
+			function::Timestamp count = 0LL;
+			bool stop = false;
+			auto capturedInterrupt = interrupt;
+			generator([&accept, &seen, &count, &stop](std::deque<E> container, function::Timestamp index) -> void {
+                if (stop) return;
+                if (seen.find(container) == seen.end()) { seen.insert(container); accept(container, count); count++; } }, [&capturedInterrupt, &stop, &count](std::deque<E> container, function::Timestamp index) -> bool {
+                if (capturedInterrupt(container, count)) { stop = true; return true; }
+                return false; });
+		},
+									   this->concurrent);
+	}
+
+	auto sort() const -> collectable::OrderedCollectable<std::deque<E>>
+	{
+		return collectable::OrderedCollectable<std::deque<E>>(this->source(), this->concurrent);
+	}
+
+	auto sort(const function::Comparator<std::deque<E>> &comparator) const -> collectable::OrderedCollectable<std::deque<E>>
+	{
+		return collectable::OrderedCollectable<std::deque<E>>(this->source(), comparator, this->concurrent);
+	}
+
+	auto limit(const function::Module &n) const -> Semantic<std::deque<E>>
+	{
+		return Semantic<std::deque<E>>([generator = *(this->generator), n](function::BiConsumer<std::deque<E>, function::Timestamp> accept, function::BiPredicate<std::deque<E>, function::Timestamp> interrupt) -> void {
+			function::Module count = 0;
+			bool stop = false;
+			auto capturedInterrupt = interrupt;
+			generator([&accept, &count, &stop, n](std::deque<E> container, function::Timestamp index) -> void {
+                if (stop) return;
+                if (count < n) { accept(container, count); count++; }
+                if (count >= n) { stop = true; } }, [&capturedInterrupt, &stop, &count](std::deque<E> container, function::Timestamp index) -> bool {
+                if (capturedInterrupt(container, count)) { stop = true; return true; }
+                return stop; });
+		},
+									   this->concurrent);
+	}
+
+	auto skip(const function::Module &n) const -> Semantic<std::deque<E>>
+	{
+		return Semantic<std::deque<E>>([generator = *(this->generator), n](function::BiConsumer<std::deque<E>, function::Timestamp> accept, function::BiPredicate<std::deque<E>, function::Timestamp> interrupt) -> void {
+			function::Module count = 0;
+			bool stop = false;
+			auto capturedInterrupt = interrupt;
+			generator([&accept, &count, &stop, n](std::deque<E> container, function::Timestamp index) -> void {
+                if (stop) return;
+                if (count >= n) { accept(container, count); }
+                count++; }, [&capturedInterrupt, &stop, &count](std::deque<E> container, function::Timestamp index) -> bool {
+                if (capturedInterrupt(container, count)) { stop = true; return true; }
+                return false; });
+		},
+									   this->concurrent);
+	}
+
+	template <typename Consumer>
+	auto peek(Consumer &&consumer) const -> Semantic<std::deque<E>>
+	{
+		return Semantic<std::deque<E>>([generator = *(this->generator), consumer = std::forward<Consumer>(consumer)](function::BiConsumer<std::deque<E>, function::Timestamp> accept, function::BiPredicate<std::deque<E>, function::Timestamp> interrupt) -> void {
+			bool stop = false;
+			auto capturedInterrupt = interrupt;
+			generator([&accept, &stop, &consumer](std::deque<E> container, function::Timestamp index) -> void {
+                if (stop) return;
+                if constexpr (std::is_invocable_r_v<void, Consumer, std::deque<E>, function::Timestamp>)
+                    std::invoke(consumer, container, index);
+                else if constexpr (std::is_invocable_r_v<void, Consumer, std::deque<E>>)
+                    std::invoke(consumer, container);
+                accept(container, index); }, [&capturedInterrupt, &stop](std::deque<E> container, function::Timestamp index) -> bool {
+                if (capturedInterrupt(container, index)) { stop = true; return true; }
+                return false; });
+		},
+									   this->concurrent);
+	}
+
+	template <typename Flatten>
+	auto flat(Flatten &&flatten) const -> Semantic<std::deque<E>>
+	{
+		return Semantic<std::deque<E>>([generator = *(this->generator), flatten = std::forward<Flatten>(flatten)](function::BiConsumer<std::deque<E>, function::Timestamp> accept, function::BiPredicate<std::deque<E>, function::Timestamp> interrupt) -> void {
+			function::Timestamp count = 0LL;
+			bool stop = false;
+			auto capturedInterrupt = interrupt;
+			generator([&accept, &count, &stop, flatten, capturedInterrupt](std::deque<E> container, function::Timestamp index) -> void {
+                if (stop) return;
+                if constexpr (std::is_invocable_r_v<Semantic<std::deque<E>>, Flatten, std::deque<E>, function::Timestamp>)
+                {
+                    Semantic<std::deque<E>> inner = std::invoke(flatten, container, index);
+                    inner.source()([&accept, &count](std::deque<E> innerElement, function::Timestamp innerIndex) -> void {
+                        accept(innerElement, count); count++;
+                    }, [capturedInterrupt, &stop, &count](std::deque<E> innerElement, function::Timestamp innerIndex) -> bool {
+                        if (capturedInterrupt(innerElement, count)) { stop = true; return true; } return false;
+                    });
+                }
+                else if constexpr (std::is_invocable_r_v<Semantic<std::deque<E>>, Flatten, std::deque<E>>)
+                {
+                    Semantic<std::deque<E>> inner = std::invoke(flatten, container);
+                    inner.source()([&accept, &count](std::deque<E> innerElement, function::Timestamp innerIndex) -> void {
+                        accept(innerElement, count); count++;
+                    }, [capturedInterrupt, &stop, &count](std::deque<E> innerElement, function::Timestamp innerIndex) -> bool {
+                        if (capturedInterrupt(innerElement, count)) { stop = true; return true; } return false;
+                    });
+                } }, [&stop](std::deque<E> container, function::Timestamp index) -> bool { return stop; });
+		},
+									   this->concurrent);
+	}
+
+	template <typename R, typename Flatten>
+	auto flatMap(Flatten &&flatten) const -> Semantic<R>
+	{
+		return Semantic<R>([generator = *(this->generator), flatten = std::forward<Flatten>(flatten)](function::BiConsumer<R, function::Timestamp> accept, function::BiPredicate<R, function::Timestamp> interrupt) -> void {
+			function::Timestamp count = 0LL;
+			bool stop = false;
+			auto capturedInterrupt = interrupt;
+			generator([&accept, &count, &stop, flatten, capturedInterrupt](std::deque<E> container, function::Timestamp index) -> void {
+                if (stop) return;
+                if constexpr (std::is_invocable_r_v<Semantic<R>, Flatten, std::deque<E>, function::Timestamp>)
+                {
+                    Semantic<R> inner = std::invoke(flatten, container, index);
+                    inner.source()([&accept, &count](R innerElement, function::Timestamp innerIndex) -> void {
+                        accept(innerElement, count); count++;
+                    }, [capturedInterrupt, &stop, &count](R innerElement, function::Timestamp innerIndex) -> bool {
+                        if (capturedInterrupt(innerElement, count)) { stop = true; return true; } return false;
+                    });
+                }
+                else if constexpr (std::is_invocable_r_v<Semantic<R>, Flatten, std::deque<E>>)
+                {
+                    Semantic<R> inner = std::invoke(flatten, container);
+                    inner.source()([&accept, &count](R innerElement, function::Timestamp innerIndex) -> void {
+                        accept(innerElement, count); count++;
+                    }, [capturedInterrupt, &stop, &count](R innerElement, function::Timestamp innerIndex) -> bool {
+                        if (capturedInterrupt(innerElement, count)) { stop = true; return true; } return false;
+                    });
+                } }, [&stop](std::deque<E> container, function::Timestamp index) -> bool { return stop; });
+		},
+						   this->concurrent);
+	}
+
+	auto reverse() const -> Semantic<std::deque<E>>
+	{
+		return Semantic<std::deque<E>>([generator = *(this->generator)](function::BiConsumer<std::deque<E>, function::Timestamp> accept, function::BiPredicate<std::deque<E>, function::Timestamp> interrupt) -> void {
+			bool stop = false;
+			auto capturedInterrupt = interrupt;
+			generator([&accept, &stop](std::deque<E> container, function::Timestamp index) -> void {
+                if (stop) return; accept(container, -index); }, [&capturedInterrupt, &stop](std::deque<E> container, function::Timestamp index) -> bool {
+                if (capturedInterrupt(container, -index)) { stop = true; return true; }
+                return false; });
+		},
+									   this->concurrent);
+	}
+
+	auto translate(const function::Timestamp &offset) const -> Semantic<std::deque<E>>
+	{
+		return Semantic<std::deque<E>>([generator = *(this->generator), offset](function::BiConsumer<std::deque<E>, function::Timestamp> accept, function::BiPredicate<std::deque<E>, function::Timestamp> interrupt) -> void {
+			bool stop = false;
+			auto capturedInterrupt = interrupt;
+			generator([&accept, &stop, offset](std::deque<E> container, function::Timestamp index) -> void {
+                if (stop) return; accept(container, index + offset); }, [&capturedInterrupt, &stop, offset](std::deque<E> container, function::Timestamp index) -> bool {
+                if (capturedInterrupt(container, index + offset)) { stop = true; return true; }
+                return false; });
+		},
+									   this->concurrent);
+	}
+
+	auto translate(const function::BiFunction<std::deque<E>, function::Timestamp, function::Timestamp> &translator) const -> Semantic<std::deque<E>>
+	{
+		return Semantic<std::deque<E>>([generator = *(this->generator), translator](function::BiConsumer<std::deque<E>, function::Timestamp> accept, function::BiPredicate<std::deque<E>, function::Timestamp> interrupt) -> void {
+			bool stop = false;
+			auto capturedInterrupt = interrupt;
+			generator([&accept, &stop, translator](std::deque<E> container, function::Timestamp index) -> void {
+                if (stop) return; accept(container, translator(container, index)); }, [&capturedInterrupt, &stop, translator](std::deque<E> container, function::Timestamp index) -> bool {
+                if (capturedInterrupt(container, translator(container, index))) { stop = true; return true; }
+                return false; });
+		},
+									   this->concurrent);
+	}
+
+	auto redirect(const function::BiFunction<std::deque<E>, function::Timestamp, std::deque<E>> &redirector) const -> Semantic<std::deque<E>>
+	{
+		return Semantic<std::deque<E>>([generator = *(this->generator), redirector](function::BiConsumer<std::deque<E>, function::Timestamp> accept, function::BiPredicate<std::deque<E>, function::Timestamp> interrupt) -> void {
+			bool stop = false;
+			auto capturedInterrupt = interrupt;
+			generator([&accept, &stop, &redirector](std::deque<E> container, function::Timestamp index) -> void {
+                if (stop) return; accept(redirector(container, index), index); }, [&capturedInterrupt, &stop, &redirector](std::deque<E> container, function::Timestamp index) -> bool {
+                if (capturedInterrupt(redirector(container, index), index)) { stop = true; return true; }
+                return false; });
+		},
+									   this->concurrent);
+	}
+
+	auto sub(const function::Module &start, const function::Module &end) const -> Semantic<std::deque<E>>
+	{
+		return Semantic<std::deque<E>>([generator = *(this->generator), start, end](function::BiConsumer<std::deque<E>, function::Timestamp> accept, function::BiPredicate<std::deque<E>, function::Timestamp> interrupt) -> void {
+			function::Module count = 0;
+			bool stop = false;
+			auto capturedInterrupt = interrupt;
+			generator([&accept, &count, &stop, start, end](std::deque<E> container, function::Timestamp index) -> void {
+                if (stop) return;
+                if (count >= start && count < end) { accept(container, count); }
+                count++; if (count >= end) { stop = true; } }, [&capturedInterrupt, &stop, &count](std::deque<E> container, function::Timestamp index) -> bool {
+                if (capturedInterrupt(container, count)) { stop = true; return true; }
+                return stop; });
+		},
+									   this->concurrent);
+	}
+
+	auto parallel() const -> Semantic<std::deque<E>> { return Semantic<std::deque<E>>(this->source(), this->concurrent + 1); }
+	auto parallel(const function::Module &concurrent) const -> Semantic<std::deque<E>> { return Semantic<std::deque<E>>(this->source(), std::max(concurrent, 1ULL)); }
+
+	template <typename OtherContainer>
+	auto concatenate(OtherContainer &&otherContainer) const -> Semantic<std::deque<E>>
+	{
+		if constexpr (std::is_same_v<std::decay_t<OtherContainer>, Semantic<std::deque<E>>>)
+		{
+			return Semantic<std::deque<E>>([generator = *(this->generator), other](function::BiConsumer<std::deque<E>, function::Timestamp> accept, function::BiPredicate<std::deque<E>, function::Timestamp> interrupt) -> void {
+				function::Timestamp count = 0LL;
+				bool stop = false;
+				auto capturedInterrupt = interrupt;
+				generator([&accept, &count, &stop](std::deque<E> container, function::Timestamp index) -> void {
+                    if (stop) return; accept(container, count); count++; }, [&capturedInterrupt, &stop, &count](std::deque<E> container, function::Timestamp index) -> bool {
+                    if (capturedInterrupt(container, count)) { stop = true; return true; } return false; });
+				if (!stop)
+				{
+					other.source()([&accept, &count, &stop](std::deque<E> container, function::Timestamp index) -> void {
+                        if (stop) return; accept(container, count); count++; }, [&capturedInterrupt, &stop, &count](std::deque<E> container, function::Timestamp index) -> bool {
+                        if (capturedInterrupt(container, count)) { stop = true; return true; } return false; });
+				}
+			},
+										   this->concurrent);
+		}
+		else if constexpr (std::is_same_v<std::decay_t<OtherContainer>, std::deque<E>>)
+		{
+			return Semantic<std::deque<E>>([generator = *(this->generator), elements = std::forward<OtherContainer>(otherContainer)](function::BiConsumer<std::deque<E>, function::Timestamp> accept, function::BiPredicate<std::deque<E>, function::Timestamp> interrupt) -> void {
+				function::Timestamp count = 0LL;
+				bool stop = false;
+				auto capturedInterrupt = interrupt;
+				generator([&accept, &count, &stop](std::deque<E> container, function::Timestamp index) -> void {
+                    if (stop) return; accept(container, count); count++; }, [&capturedInterrupt, &stop, &count](std::deque<E> container, function::Timestamp index) -> bool {
+                    if (capturedInterrupt(container, count)) { stop = true; return true; } return false; });
+				if (!stop)
+				{
+					if (!capturedInterrupt(elements, count))
+					{
+						accept(elements, count);
+					}
+				}
+			},
+										   this->concurrent);
+		}
+		else
+		{
+			return Semantic<std::deque<E>>([generator = *(this->generator), elements = std::forward<OtherContainer>(otherContainer)](function::BiConsumer<std::deque<E>, function::Timestamp> accept, function::BiPredicate<std::deque<E>, function::Timestamp> interrupt) -> void {
+				function::Timestamp count = 0LL;
+				bool stop = false;
+				auto capturedInterrupt = interrupt;
+				generator([&accept, &count, &stop](std::deque<E> container, function::Timestamp index) -> void {
+                    if (stop) return; accept(container, count); count++; }, [&capturedInterrupt, &stop, &count](std::deque<E> container, function::Timestamp index) -> bool {
+                    if (capturedInterrupt(container, count)) { stop = true; return true; } return false; });
+				if (!stop)
+				{
+					for (const auto &element : elements)
+					{
+						if (stop)
+							break;
+						accept(element, count);
+						count++;
+					}
+				}
+			},
+										   this->concurrent);
+		}
+	}
+
+	auto toUnordered() const -> collectable::UnorderedCollectable<std::deque<E>> { return collectable::UnorderedCollectable<std::deque<E>>(this->source(), this->concurrent); }
+	auto toOrdered() const -> collectable::OrderedCollectable<std::deque<E>> { return collectable::OrderedCollectable<std::deque<E>>(this->source(), this->concurrent); }
+	auto toWindow() const -> collectable::WindowCollectable<std::deque<E>> { return collectable::WindowCollectable<std::deque<E>>(this->source(), this->concurrent); }
+	template <typename D>
+	auto toStatistics() const -> collectable::Statistics<std::deque<E>, D> { return collectable::Statistics<std::deque<E>, D>(this->source(), this->concurrent); }
+};
+
+template <typename E>
+class Semantic<std::queue<E>>
+{
+  private:
+	std::unique_ptr<function::Generator<std::queue<E>>> generator;
+	function::Module concurrent;
+
+  public:
+	using Element = std::queue<E>;
+
+	Semantic(std::queue<E> &&container) : generator(std::make_unique<function::Generator<std::queue<E>>>([elements = std::move(container)](function::BiConsumer<std::queue<E>, function::Timestamp> accept, function::BiPredicate<std::queue<E>, function::Timestamp> interrupt) -> void {
+											  accept(elements, 0LL);
+										  })),
+										  concurrent(1) {}
+
+	Semantic(std::queue<E> &&container, const function::Module &concurrent) : generator(std::make_unique<function::Generator<std::queue<E>>>([elements = std::move(container)](function::BiConsumer<std::queue<E>, function::Timestamp> accept, function::BiPredicate<std::queue<E>, function::Timestamp> interrupt) -> void {
+																				  accept(elements, 0LL);
+																			  })),
+																			  concurrent(concurrent) {}
+
+	Semantic(const function::Generator<std::queue<E>> &generator) : generator(std::make_unique<function::Generator<std::queue<E>>>(generator)), concurrent(1) {}
+
+	Semantic(const function::Generator<std::queue<E>> &generator, const function::Module &concurrent) : generator(std::make_unique<function::Generator<std::queue<E>>>(generator)), concurrent(concurrent) {}
+
+	Semantic(const Semantic<std::queue<E>> &other) : generator(std::make_unique<function::Generator<std::queue<E>>>(*other.generator)), concurrent(other.concurrent) {}
+
+	Semantic(Semantic<std::queue<E>> &&other) noexcept = default;
+
+	Semantic<std::queue<E>> &operator=(const Semantic<std::queue<E>> &other)
+	{
+		if (this != &other)
+		{
+			generator = std::make_unique<function::Generator<std::queue<E>>>(*other.generator);
+			concurrent = other.concurrent;
+		}
+		return *this;
+	}
+
+	Semantic<std::queue<E>> &operator=(Semantic<std::queue<E>> &&other) noexcept = default;
+
+	auto source() const -> function::Generator<std::queue<E>>
+	{
+		return [generator = *(this->generator)](function::BiConsumer<std::queue<E>, function::Timestamp> accept, function::BiPredicate<std::queue<E>, function::Timestamp> interrupt) -> void {
+			bool stop = false;
+			generator([&accept, &stop](std::queue<E> container, function::Timestamp index) -> void {
+                if (!stop) { accept(container, index); } }, [&interrupt, &stop](std::queue<E> container, function::Timestamp index) -> bool {
+                if (interrupt(container, index)) { stop = true; return true; }
+                return false; });
+		};
+	}
+
+	auto getConcurrent() const -> function::Module { return concurrent; }
+
+	template <typename Mapper>
+	auto map(Mapper &&mapper) const -> Semantic<decltype(std::declval<Mapper>()(std::declval<std::queue<E>>()))>
+	{
+		using R = decltype(std::declval<Mapper>()(std::declval<std::queue<E>>()));
+		return Semantic<R>([generator = *(this->generator), mapper = std::forward<Mapper>(mapper)](function::BiConsumer<R, function::Timestamp> accept, function::BiPredicate<R, function::Timestamp> interrupt) -> void {
+			bool stop = false;
+			auto capturedInterrupt = interrupt;
+			generator([&accept, &stop, &mapper](std::queue<E> container, function::Timestamp index) -> void {
+                if (stop) return;
+                if constexpr (std::is_invocable_r_v<R, Mapper, std::queue<E>, function::Timestamp>)
+                    accept(std::invoke(mapper, container, index), index);
+                else if constexpr (std::is_invocable_r_v<R, Mapper, std::queue<E>>)
+                    accept(std::invoke(mapper, container), index); }, [&capturedInterrupt, &stop](std::queue<E> container, function::Timestamp index) -> bool {
+                if (capturedInterrupt(container, index)) { stop = true; return true; }
+                return false; });
+		},
+						   this->concurrent);
+	}
+
+	template <typename Predicate>
+	auto filter(Predicate &&predicate) const -> Semantic<std::queue<E>>
+	{
+		return Semantic<std::queue<E>>([generator = *(this->generator), predicate = std::forward<Predicate>(predicate)](function::BiConsumer<std::queue<E>, function::Timestamp> accept, function::BiPredicate<std::queue<E>, function::Timestamp> interrupt) -> void {
+			function::Timestamp count = 0LL;
+			bool stop = false;
+			auto capturedInterrupt = interrupt;
+			generator([&accept, &count, &stop, predicate](std::queue<E> container, function::Timestamp index) -> void {
+                if (stop) return;
+                bool matches = false;
+                if constexpr (std::is_invocable_r_v<bool, Predicate, std::queue<E>, function::Timestamp>)
+                    matches = std::invoke(predicate, container, index);
+                else if constexpr (std::is_invocable_r_v<bool, Predicate, std::queue<E>>)
+                    matches = std::invoke(predicate, container);
+                if (matches) { accept(container, count); count++; } }, [&capturedInterrupt, &stop, &count](std::queue<E> container, function::Timestamp index) -> bool {
+                if (capturedInterrupt(container, count)) { stop = true; return true; }
+                return false; });
+		},
+									   this->concurrent);
+	}
+
+	template <typename Predicate>
+	auto takeWhile(Predicate &&predicate) const -> Semantic<std::queue<E>>
+	{
+		return Semantic<std::queue<E>>([generator = *(this->generator), predicate = std::forward<Predicate>(predicate)](function::BiConsumer<std::queue<E>, function::Timestamp> accept, function::BiPredicate<std::queue<E>, function::Timestamp> interrupt) -> void {
+			bool stop = false;
+			auto capturedInterrupt = interrupt;
+			generator([&accept, &stop, predicate](std::queue<E> container, function::Timestamp index) -> void {
+                if (stop) return;
+                bool matches = false;
+                if constexpr (std::is_invocable_r_v<bool, Predicate, std::queue<E>, function::Timestamp>)
+                    matches = std::invoke(predicate, container, index);
+                else if constexpr (std::is_invocable_r_v<bool, Predicate, std::queue<E>>)
+                    matches = std::invoke(predicate, container);
+                if (matches) accept(container, index); else stop = true; }, [&capturedInterrupt, &stop](std::queue<E> container, function::Timestamp index) -> bool {
+                if (capturedInterrupt(container, index)) { stop = true; return true; }
+                return stop; });
+		},
+									   this->concurrent);
+	}
+
+	template <typename Predicate>
+	auto dropWhile(Predicate &&predicate) const -> Semantic<std::queue<E>>
+	{
+		return Semantic<std::queue<E>>([generator = *(this->generator), predicate = std::forward<Predicate>(predicate)](function::BiConsumer<std::queue<E>, function::Timestamp> accept, function::BiPredicate<std::queue<E>, function::Timestamp> interrupt) -> void {
+			bool dropping = true;
+			function::Timestamp count = 0LL;
+			bool stop = false;
+			auto capturedInterrupt = interrupt;
+			generator([&accept, &dropping, &count, &stop, predicate](std::queue<E> container, function::Timestamp index) -> void {
+                if (stop) return;
+                if (dropping) {
+                    bool matches = false;
+                    if constexpr (std::is_invocable_r_v<bool, Predicate, std::queue<E>, function::Timestamp>)
+                        matches = std::invoke(predicate, container, index);
+                    else if constexpr (std::is_invocable_r_v<bool, Predicate, std::queue<E>>)
+                        matches = std::invoke(predicate, container);
+                    if (!matches) { dropping = false; accept(container, count); count++; }
+                } else { accept(container, count); count++; } }, [&capturedInterrupt, &stop, &count](std::queue<E> container, function::Timestamp index) -> bool {
+                if (capturedInterrupt(container, count)) { stop = true; return true; }
+                return false; });
+		},
+									   this->concurrent);
+	}
+
+	auto distinct() const -> Semantic<std::queue<E>>
+	{
+		return Semantic<std::queue<E>>([generator = *(this->generator)](function::BiConsumer<std::queue<E>, function::Timestamp> accept, function::BiPredicate<std::queue<E>, function::Timestamp> interrupt) -> void {
+			std::unordered_set<std::queue<E>> seen;
+			function::Timestamp count = 0LL;
+			bool stop = false;
+			auto capturedInterrupt = interrupt;
+			generator([&accept, &seen, &count, &stop](std::queue<E> container, function::Timestamp index) -> void {
+                if (stop) return;
+                if (seen.find(container) == seen.end()) { seen.insert(container); accept(container, count); count++; } }, [&capturedInterrupt, &stop, &count](std::queue<E> container, function::Timestamp index) -> bool {
+                if (capturedInterrupt(container, count)) { stop = true; return true; }
+                return false; });
+		},
+									   this->concurrent);
+	}
+
+	auto distinct(const function::Comparator<std::queue<E>> &comparator) const -> Semantic<std::queue<E>>
+	{
+		return Semantic<std::queue<E>>([generator = *(this->generator), comparator](function::BiConsumer<std::queue<E>, function::Timestamp> accept, function::BiPredicate<std::queue<E>, function::Timestamp> interrupt) -> void {
+			std::set<std::queue<E>, function::Comparator<std::queue<E>>> seen(comparator);
+			function::Timestamp count = 0LL;
+			bool stop = false;
+			auto capturedInterrupt = interrupt;
+			generator([&accept, &seen, &count, &stop](std::queue<E> container, function::Timestamp index) -> void {
+                if (stop) return;
+                if (seen.find(container) == seen.end()) { seen.insert(container); accept(container, count); count++; } }, [&capturedInterrupt, &stop, &count](std::queue<E> container, function::Timestamp index) -> bool {
+                if (capturedInterrupt(container, count)) { stop = true; return true; }
+                return false; });
+		},
+									   this->concurrent);
+	}
+
+	auto sort() const -> collectable::OrderedCollectable<std::queue<E>>
+	{
+		return collectable::OrderedCollectable<std::queue<E>>(this->source(), this->concurrent);
+	}
+
+	auto sort(const function::Comparator<std::queue<E>> &comparator) const -> collectable::OrderedCollectable<std::queue<E>>
+	{
+		return collectable::OrderedCollectable<std::queue<E>>(this->source(), comparator, this->concurrent);
+	}
+
+	auto limit(const function::Module &n) const -> Semantic<std::queue<E>>
+	{
+		return Semantic<std::queue<E>>([generator = *(this->generator), n](function::BiConsumer<std::queue<E>, function::Timestamp> accept, function::BiPredicate<std::queue<E>, function::Timestamp> interrupt) -> void {
+			function::Module count = 0;
+			bool stop = false;
+			auto capturedInterrupt = interrupt;
+			generator([&accept, &count, &stop, n](std::queue<E> container, function::Timestamp index) -> void {
+                if (stop) return;
+                if (count < n) { accept(container, count); count++; }
+                if (count >= n) { stop = true; } }, [&capturedInterrupt, &stop, &count](std::queue<E> container, function::Timestamp index) -> bool {
+                if (capturedInterrupt(container, count)) { stop = true; return true; }
+                return stop; });
+		},
+									   this->concurrent);
+	}
+
+	auto skip(const function::Module &n) const -> Semantic<std::queue<E>>
+	{
+		return Semantic<std::queue<E>>([generator = *(this->generator), n](function::BiConsumer<std::queue<E>, function::Timestamp> accept, function::BiPredicate<std::queue<E>, function::Timestamp> interrupt) -> void {
+			function::Module count = 0;
+			bool stop = false;
+			auto capturedInterrupt = interrupt;
+			generator([&accept, &count, &stop, n](std::queue<E> container, function::Timestamp index) -> void {
+                if (stop) return;
+                if (count >= n) { accept(container, count); }
+                count++; }, [&capturedInterrupt, &stop, &count](std::queue<E> container, function::Timestamp index) -> bool {
+                if (capturedInterrupt(container, count)) { stop = true; return true; }
+                return false; });
+		},
+									   this->concurrent);
+	}
+
+	template <typename Consumer>
+	auto peek(Consumer &&consumer) const -> Semantic<std::queue<E>>
+	{
+		return Semantic<std::queue<E>>([generator = *(this->generator), consumer = std::forward<Consumer>(consumer)](function::BiConsumer<std::queue<E>, function::Timestamp> accept, function::BiPredicate<std::queue<E>, function::Timestamp> interrupt) -> void {
+			bool stop = false;
+			auto capturedInterrupt = interrupt;
+			generator([&accept, &stop, &consumer](std::queue<E> container, function::Timestamp index) -> void {
+                if (stop) return;
+                if constexpr (std::is_invocable_r_v<void, Consumer, std::queue<E>, function::Timestamp>)
+                    std::invoke(consumer, container, index);
+                else if constexpr (std::is_invocable_r_v<void, Consumer, std::queue<E>>)
+                    std::invoke(consumer, container);
+                accept(container, index); }, [&capturedInterrupt, &stop](std::queue<E> container, function::Timestamp index) -> bool {
+                if (capturedInterrupt(container, index)) { stop = true; return true; }
+                return false; });
+		},
+									   this->concurrent);
+	}
+
+	template <typename Flatten>
+	auto flat(Flatten &&flatten) const -> Semantic<std::queue<E>>
+	{
+		return Semantic<std::queue<E>>([generator = *(this->generator), flatten = std::forward<Flatten>(flatten)](function::BiConsumer<std::queue<E>, function::Timestamp> accept, function::BiPredicate<std::queue<E>, function::Timestamp> interrupt) -> void {
+			function::Timestamp count = 0LL;
+			bool stop = false;
+			auto capturedInterrupt = interrupt;
+			generator([&accept, &count, &stop, flatten, capturedInterrupt](std::queue<E> container, function::Timestamp index) -> void {
+                if (stop) return;
+                if constexpr (std::is_invocable_r_v<Semantic<std::queue<E>>, Flatten, std::queue<E>, function::Timestamp>)
+                {
+                    Semantic<std::queue<E>> inner = std::invoke(flatten, container, index);
+                    inner.source()([&accept, &count](std::queue<E> innerElement, function::Timestamp innerIndex) -> void {
+                        accept(innerElement, count); count++;
+                    }, [capturedInterrupt, &stop, &count](std::queue<E> innerElement, function::Timestamp innerIndex) -> bool {
+                        if (capturedInterrupt(innerElement, count)) { stop = true; return true; } return false;
+                    });
+                }
+                else if constexpr (std::is_invocable_r_v<Semantic<std::queue<E>>, Flatten, std::queue<E>>)
+                {
+                    Semantic<std::queue<E>> inner = std::invoke(flatten, container);
+                    inner.source()([&accept, &count](std::queue<E> innerElement, function::Timestamp innerIndex) -> void {
+                        accept(innerElement, count); count++;
+                    }, [capturedInterrupt, &stop, &count](std::queue<E> innerElement, function::Timestamp innerIndex) -> bool {
+                        if (capturedInterrupt(innerElement, count)) { stop = true; return true; } return false;
+                    });
+                } }, [&stop](std::queue<E> container, function::Timestamp index) -> bool { return stop; });
+		},
+									   this->concurrent);
+	}
+
+	template <typename R, typename Flatten>
+	auto flatMap(Flatten &&flatten) const -> Semantic<R>
+	{
+		return Semantic<R>([generator = *(this->generator), flatten = std::forward<Flatten>(flatten)](function::BiConsumer<R, function::Timestamp> accept, function::BiPredicate<R, function::Timestamp> interrupt) -> void {
+			function::Timestamp count = 0LL;
+			bool stop = false;
+			auto capturedInterrupt = interrupt;
+			generator([&accept, &count, &stop, flatten, capturedInterrupt](std::queue<E> container, function::Timestamp index) -> void {
+                if (stop) return;
+                if constexpr (std::is_invocable_r_v<Semantic<R>, Flatten, std::queue<E>, function::Timestamp>)
+                {
+                    Semantic<R> inner = std::invoke(flatten, container, index);
+                    inner.source()([&accept, &count](R innerElement, function::Timestamp innerIndex) -> void {
+                        accept(innerElement, count); count++;
+                    }, [capturedInterrupt, &stop, &count](R innerElement, function::Timestamp innerIndex) -> bool {
+                        if (capturedInterrupt(innerElement, count)) { stop = true; return true; } return false;
+                    });
+                }
+                else if constexpr (std::is_invocable_r_v<Semantic<R>, Flatten, std::queue<E>>)
+                {
+                    Semantic<R> inner = std::invoke(flatten, container);
+                    inner.source()([&accept, &count](R innerElement, function::Timestamp innerIndex) -> void {
+                        accept(innerElement, count); count++;
+                    }, [capturedInterrupt, &stop, &count](R innerElement, function::Timestamp innerIndex) -> bool {
+                        if (capturedInterrupt(innerElement, count)) { stop = true; return true; } return false;
+                    });
+                } }, [&stop](std::queue<E> container, function::Timestamp index) -> bool { return stop; });
+		},
+						   this->concurrent);
+	}
+
+	auto reverse() const -> Semantic<std::queue<E>>
+	{
+		return Semantic<std::queue<E>>([generator = *(this->generator)](function::BiConsumer<std::queue<E>, function::Timestamp> accept, function::BiPredicate<std::queue<E>, function::Timestamp> interrupt) -> void {
+			bool stop = false;
+			auto capturedInterrupt = interrupt;
+			generator([&accept, &stop](std::queue<E> container, function::Timestamp index) -> void {
+                if (stop) return; accept(container, -index); }, [&capturedInterrupt, &stop](std::queue<E> container, function::Timestamp index) -> bool {
+                if (capturedInterrupt(container, -index)) { stop = true; return true; }
+                return false; });
+		},
+									   this->concurrent);
+	}
+
+	auto translate(const function::Timestamp &offset) const -> Semantic<std::queue<E>>
+	{
+		return Semantic<std::queue<E>>([generator = *(this->generator), offset](function::BiConsumer<std::queue<E>, function::Timestamp> accept, function::BiPredicate<std::queue<E>, function::Timestamp> interrupt) -> void {
+			bool stop = false;
+			auto capturedInterrupt = interrupt;
+			generator([&accept, &stop, offset](std::queue<E> container, function::Timestamp index) -> void {
+                if (stop) return; accept(container, index + offset); }, [&capturedInterrupt, &stop, offset](std::queue<E> container, function::Timestamp index) -> bool {
+                if (capturedInterrupt(container, index + offset)) { stop = true; return true; }
+                return false; });
+		},
+									   this->concurrent);
+	}
+
+	auto translate(const function::BiFunction<std::queue<E>, function::Timestamp, function::Timestamp> &translator) const -> Semantic<std::queue<E>>
+	{
+		return Semantic<std::queue<E>>([generator = *(this->generator), translator](function::BiConsumer<std::queue<E>, function::Timestamp> accept, function::BiPredicate<std::queue<E>, function::Timestamp> interrupt) -> void {
+			bool stop = false;
+			auto capturedInterrupt = interrupt;
+			generator([&accept, &stop, translator](std::queue<E> container, function::Timestamp index) -> void {
+                if (stop) return; accept(container, translator(container, index)); }, [&capturedInterrupt, &stop, translator](std::queue<E> container, function::Timestamp index) -> bool {
+                if (capturedInterrupt(container, translator(container, index))) { stop = true; return true; }
+                return false; });
+		},
+									   this->concurrent);
+	}
+
+	auto redirect(const function::BiFunction<std::queue<E>, function::Timestamp, std::queue<E>> &redirector) const -> Semantic<std::queue<E>>
+	{
+		return Semantic<std::queue<E>>([generator = *(this->generator), redirector](function::BiConsumer<std::queue<E>, function::Timestamp> accept, function::BiPredicate<std::queue<E>, function::Timestamp> interrupt) -> void {
+			bool stop = false;
+			auto capturedInterrupt = interrupt;
+			generator([&accept, &stop, &redirector](std::queue<E> container, function::Timestamp index) -> void {
+                if (stop) return; accept(redirector(container, index), index); }, [&capturedInterrupt, &stop, &redirector](std::queue<E> container, function::Timestamp index) -> bool {
+                if (capturedInterrupt(redirector(container, index), index)) { stop = true; return true; }
+                return false; });
+		},
+									   this->concurrent);
+	}
+
+	auto sub(const function::Module &start, const function::Module &end) const -> Semantic<std::queue<E>>
+	{
+		return Semantic<std::queue<E>>([generator = *(this->generator), start, end](function::BiConsumer<std::queue<E>, function::Timestamp> accept, function::BiPredicate<std::queue<E>, function::Timestamp> interrupt) -> void {
+			function::Module count = 0;
+			bool stop = false;
+			auto capturedInterrupt = interrupt;
+			generator([&accept, &count, &stop, start, end](std::queue<E> container, function::Timestamp index) -> void {
+                if (stop) return;
+                if (count >= start && count < end) { accept(container, count); }
+                count++; if (count >= end) { stop = true; } }, [&capturedInterrupt, &stop, &count](std::queue<E> container, function::Timestamp index) -> bool {
+                if (capturedInterrupt(container, count)) { stop = true; return true; }
+                return stop; });
+		},
+									   this->concurrent);
+	}
+
+	auto parallel() const -> Semantic<std::queue<E>> { return Semantic<std::queue<E>>(this->source(), this->concurrent + 1); }
+	auto parallel(const function::Module &concurrent) const -> Semantic<std::queue<E>> { return Semantic<std::queue<E>>(this->source(), std::max(concurrent, 1ULL)); }
+
+	template <typename OtherContainer>
+	auto concatenate(OtherContainer &&otherContainer) const -> Semantic<std::queue<E>>
+	{
+		if constexpr (std::is_same_v<std::decay_t<OtherContainer>, Semantic<std::queue<E>>>)
+		{
+			return Semantic<std::queue<E>>([generator = *(this->generator), other](function::BiConsumer<std::queue<E>, function::Timestamp> accept, function::BiPredicate<std::queue<E>, function::Timestamp> interrupt) -> void {
+				function::Timestamp count = 0LL;
+				bool stop = false;
+				auto capturedInterrupt = interrupt;
+				generator([&accept, &count, &stop](std::queue<E> container, function::Timestamp index) -> void {
+                    if (stop) return; accept(container, count); count++; }, [&capturedInterrupt, &stop, &count](std::queue<E> container, function::Timestamp index) -> bool {
+                    if (capturedInterrupt(container, count)) { stop = true; return true; } return false; });
+				if (!stop)
+				{
+					other.source()([&accept, &count, &stop](std::queue<E> container, function::Timestamp index) -> void {
+                        if (stop) return; accept(container, count); count++; }, [&capturedInterrupt, &stop, &count](std::queue<E> container, function::Timestamp index) -> bool {
+                        if (capturedInterrupt(container, count)) { stop = true; return true; } return false; });
+				}
+			},
+										   this->concurrent);
+		}
+		else if constexpr (std::is_same_v<std::decay_t<OtherContainer>, std::queue<E>>)
+		{
+			return Semantic<std::queue<E>>([generator = *(this->generator), elements = std::forward<OtherContainer>(otherContainer)](function::BiConsumer<std::queue<E>, function::Timestamp> accept, function::BiPredicate<std::queue<E>, function::Timestamp> interrupt) -> void {
+				function::Timestamp count = 0LL;
+				bool stop = false;
+				auto capturedInterrupt = interrupt;
+				generator([&accept, &count, &stop](std::queue<E> container, function::Timestamp index) -> void {
+                    if (stop) return; accept(container, count); count++; }, [&capturedInterrupt, &stop, &count](std::queue<E> container, function::Timestamp index) -> bool {
+                    if (capturedInterrupt(container, count)) { stop = true; return true; } return false; });
+				if (!stop)
+				{
+					if (!capturedInterrupt(elements, count))
+					{
+						accept(elements, count);
+					}
+				}
+			},
+										   this->concurrent);
+		}
+		else
+		{
+			return Semantic<std::queue<E>>([generator = *(this->generator), elements = std::forward<OtherContainer>(otherContainer)](function::BiConsumer<std::queue<E>, function::Timestamp> accept, function::BiPredicate<std::queue<E>, function::Timestamp> interrupt) -> void {
+				function::Timestamp count = 0LL;
+				bool stop = false;
+				auto capturedInterrupt = interrupt;
+				generator([&accept, &count, &stop](std::queue<E> container, function::Timestamp index) -> void {
+                    if (stop) return; accept(container, count); count++; }, [&capturedInterrupt, &stop, &count](std::queue<E> container, function::Timestamp index) -> bool {
+                    if (capturedInterrupt(container, count)) { stop = true; return true; } return false; });
+				if (!stop)
+				{
+					for (const auto &element : elements)
+					{
+						if (stop)
+							break;
+						accept(element, count);
+						count++;
+					}
+				}
+			},
+										   this->concurrent);
+		}
+	}
+
+	auto toUnordered() const -> collectable::UnorderedCollectable<std::queue<E>> { return collectable::UnorderedCollectable<std::queue<E>>(this->source(), this->concurrent); }
+	auto toOrdered() const -> collectable::OrderedCollectable<std::queue<E>> { return collectable::OrderedCollectable<std::queue<E>>(this->source(), this->concurrent); }
+	auto toWindow() const -> collectable::WindowCollectable<std::queue<E>> { return collectable::WindowCollectable<std::queue<E>>(this->source(), this->concurrent); }
+	template <typename D>
+	auto toStatistics() const -> collectable::Statistics<std::queue<E>, D> { return collectable::Statistics<std::queue<E>, D>(this->source(), this->concurrent); }
+};
+
+template <typename E>
+class Semantic<std::stack<E>>
+{
+  private:
+	std::unique_ptr<function::Generator<std::stack<E>>> generator;
+	function::Module concurrent;
+
+  public:
+	using Element = std::stack<E>;
+
+	Semantic(std::stack<E> &&container) : generator(std::make_unique<function::Generator<std::stack<E>>>([elements = std::move(container)](function::BiConsumer<std::stack<E>, function::Timestamp> accept, function::BiPredicate<std::stack<E>, function::Timestamp> interrupt) -> void {
+											  accept(elements, 0LL);
+										  })),
+										  concurrent(1) {}
+
+	Semantic(std::stack<E> &&container, const function::Module &concurrent) : generator(std::make_unique<function::Generator<std::stack<E>>>([elements = std::move(container)](function::BiConsumer<std::stack<E>, function::Timestamp> accept, function::BiPredicate<std::stack<E>, function::Timestamp> interrupt) -> void {
+																				  accept(elements, 0LL);
+																			  })),
+																			  concurrent(concurrent) {}
+
+	Semantic(const function::Generator<std::stack<E>> &generator) : generator(std::make_unique<function::Generator<std::stack<E>>>(generator)), concurrent(1) {}
+
+	Semantic(const function::Generator<std::stack<E>> &generator, const function::Module &concurrent) : generator(std::make_unique<function::Generator<std::stack<E>>>(generator)), concurrent(concurrent) {}
+
+	Semantic(const Semantic<std::stack<E>> &other) : generator(std::make_unique<function::Generator<std::stack<E>>>(*other.generator)), concurrent(other.concurrent) {}
+
+	Semantic(Semantic<std::stack<E>> &&other) noexcept = default;
+
+	Semantic<std::stack<E>> &operator=(const Semantic<std::stack<E>> &other)
+	{
+		if (this != &other)
+		{
+			generator = std::make_unique<function::Generator<std::stack<E>>>(*other.generator);
+			concurrent = other.concurrent;
+		}
+		return *this;
+	}
+
+	Semantic<std::stack<E>> &operator=(Semantic<std::stack<E>> &&other) noexcept = default;
+
+	auto source() const -> function::Generator<std::stack<E>>
+	{
+		return [generator = *(this->generator)](function::BiConsumer<std::stack<E>, function::Timestamp> accept, function::BiPredicate<std::stack<E>, function::Timestamp> interrupt) -> void {
+			bool stop = false;
+			generator([&accept, &stop](std::stack<E> container, function::Timestamp index) -> void {
+                if (!stop) { accept(container, index); } }, [&interrupt, &stop](std::stack<E> container, function::Timestamp index) -> bool {
+                if (interrupt(container, index)) { stop = true; return true; }
+                return false; });
+		};
+	}
+
+	auto getConcurrent() const -> function::Module { return concurrent; }
+
+	template <typename Mapper>
+	auto map(Mapper &&mapper) const -> Semantic<decltype(std::declval<Mapper>()(std::declval<std::stack<E>>()))>
+	{
+		using R = decltype(std::declval<Mapper>()(std::declval<std::stack<E>>()));
+		return Semantic<R>([generator = *(this->generator), mapper = std::forward<Mapper>(mapper)](function::BiConsumer<R, function::Timestamp> accept, function::BiPredicate<R, function::Timestamp> interrupt) -> void {
+			bool stop = false;
+			auto capturedInterrupt = interrupt;
+			generator([&accept, &stop, &mapper](std::stack<E> container, function::Timestamp index) -> void {
+                if (stop) return;
+                if constexpr (std::is_invocable_r_v<R, Mapper, std::stack<E>, function::Timestamp>)
+                    accept(std::invoke(mapper, container, index), index);
+                else if constexpr (std::is_invocable_r_v<R, Mapper, std::stack<E>>)
+                    accept(std::invoke(mapper, container), index); }, [&capturedInterrupt, &stop](std::stack<E> container, function::Timestamp index) -> bool {
+                if (capturedInterrupt(container, index)) { stop = true; return true; }
+                return false; });
+		},
+						   this->concurrent);
+	}
+
+	template <typename Predicate>
+	auto filter(Predicate &&predicate) const -> Semantic<std::stack<E>>
+	{
+		return Semantic<std::stack<E>>([generator = *(this->generator), predicate = std::forward<Predicate>(predicate)](function::BiConsumer<std::stack<E>, function::Timestamp> accept, function::BiPredicate<std::stack<E>, function::Timestamp> interrupt) -> void {
+			function::Timestamp count = 0LL;
+			bool stop = false;
+			auto capturedInterrupt = interrupt;
+			generator([&accept, &count, &stop, predicate](std::stack<E> container, function::Timestamp index) -> void {
+                if (stop) return;
+                bool matches = false;
+                if constexpr (std::is_invocable_r_v<bool, Predicate, std::stack<E>, function::Timestamp>)
+                    matches = std::invoke(predicate, container, index);
+                else if constexpr (std::is_invocable_r_v<bool, Predicate, std::stack<E>>)
+                    matches = std::invoke(predicate, container);
+                if (matches) { accept(container, count); count++; } }, [&capturedInterrupt, &stop, &count](std::stack<E> container, function::Timestamp index) -> bool {
+                if (capturedInterrupt(container, count)) { stop = true; return true; }
+                return false; });
+		},
+									   this->concurrent);
+	}
+
+	template <typename Predicate>
+	auto takeWhile(Predicate &&predicate) const -> Semantic<std::stack<E>>
+	{
+		return Semantic<std::stack<E>>([generator = *(this->generator), predicate = std::forward<Predicate>(predicate)](function::BiConsumer<std::stack<E>, function::Timestamp> accept, function::BiPredicate<std::stack<E>, function::Timestamp> interrupt) -> void {
+			bool stop = false;
+			auto capturedInterrupt = interrupt;
+			generator([&accept, &stop, predicate](std::stack<E> container, function::Timestamp index) -> void {
+                if (stop) return;
+                bool matches = false;
+                if constexpr (std::is_invocable_r_v<bool, Predicate, std::stack<E>, function::Timestamp>)
+                    matches = std::invoke(predicate, container, index);
+                else if constexpr (std::is_invocable_r_v<bool, Predicate, std::stack<E>>)
+                    matches = std::invoke(predicate, container);
+                if (matches) accept(container, index); else stop = true; }, [&capturedInterrupt, &stop](std::stack<E> container, function::Timestamp index) -> bool {
+                if (capturedInterrupt(container, index)) { stop = true; return true; }
+                return stop; });
+		},
+									   this->concurrent);
+	}
+
+	template <typename Predicate>
+	auto dropWhile(Predicate &&predicate) const -> Semantic<std::stack<E>>
+	{
+		return Semantic<std::stack<E>>([generator = *(this->generator), predicate = std::forward<Predicate>(predicate)](function::BiConsumer<std::stack<E>, function::Timestamp> accept, function::BiPredicate<std::stack<E>, function::Timestamp> interrupt) -> void {
+			bool dropping = true;
+			function::Timestamp count = 0LL;
+			bool stop = false;
+			auto capturedInterrupt = interrupt;
+			generator([&accept, &dropping, &count, &stop, predicate](std::stack<E> container, function::Timestamp index) -> void {
+                if (stop) return;
+                if (dropping) {
+                    bool matches = false;
+                    if constexpr (std::is_invocable_r_v<bool, Predicate, std::stack<E>, function::Timestamp>)
+                        matches = std::invoke(predicate, container, index);
+                    else if constexpr (std::is_invocable_r_v<bool, Predicate, std::stack<E>>)
+                        matches = std::invoke(predicate, container);
+                    if (!matches) { dropping = false; accept(container, count); count++; }
+                } else { accept(container, count); count++; } }, [&capturedInterrupt, &stop, &count](std::stack<E> container, function::Timestamp index) -> bool {
+                if (capturedInterrupt(container, count)) { stop = true; return true; }
+                return false; });
+		},
+									   this->concurrent);
+	}
+
+	auto distinct() const -> Semantic<std::stack<E>>
+	{
+		return Semantic<std::stack<E>>([generator = *(this->generator)](function::BiConsumer<std::stack<E>, function::Timestamp> accept, function::BiPredicate<std::stack<E>, function::Timestamp> interrupt) -> void {
+			std::unordered_set<std::stack<E>> seen;
+			function::Timestamp count = 0LL;
+			bool stop = false;
+			auto capturedInterrupt = interrupt;
+			generator([&accept, &seen, &count, &stop](std::stack<E> container, function::Timestamp index) -> void {
+                if (stop) return;
+                if (seen.find(container) == seen.end()) { seen.insert(container); accept(container, count); count++; } }, [&capturedInterrupt, &stop, &count](std::stack<E> container, function::Timestamp index) -> bool {
+                if (capturedInterrupt(container, count)) { stop = true; return true; }
+                return false; });
+		},
+									   this->concurrent);
+	}
+
+	auto distinct(const function::Comparator<std::stack<E>> &comparator) const -> Semantic<std::stack<E>>
+	{
+		return Semantic<std::stack<E>>([generator = *(this->generator), comparator](function::BiConsumer<std::stack<E>, function::Timestamp> accept, function::BiPredicate<std::stack<E>, function::Timestamp> interrupt) -> void {
+			std::set<std::stack<E>, function::Comparator<std::stack<E>>> seen(comparator);
+			function::Timestamp count = 0LL;
+			bool stop = false;
+			auto capturedInterrupt = interrupt;
+			generator([&accept, &seen, &count, &stop](std::stack<E> container, function::Timestamp index) -> void {
+                if (stop) return;
+                if (seen.find(container) == seen.end()) { seen.insert(container); accept(container, count); count++; } }, [&capturedInterrupt, &stop, &count](std::stack<E> container, function::Timestamp index) -> bool {
+                if (capturedInterrupt(container, count)) { stop = true; return true; }
+                return false; });
+		},
+									   this->concurrent);
+	}
+
+	auto sort() const -> collectable::OrderedCollectable<std::stack<E>>
+	{
+		return collectable::OrderedCollectable<std::stack<E>>(this->source(), this->concurrent);
+	}
+
+	auto sort(const function::Comparator<std::stack<E>> &comparator) const -> collectable::OrderedCollectable<std::stack<E>>
+	{
+		return collectable::OrderedCollectable<std::stack<E>>(this->source(), comparator, this->concurrent);
+	}
+
+	auto limit(const function::Module &n) const -> Semantic<std::stack<E>>
+	{
+		return Semantic<std::stack<E>>([generator = *(this->generator), n](function::BiConsumer<std::stack<E>, function::Timestamp> accept, function::BiPredicate<std::stack<E>, function::Timestamp> interrupt) -> void {
+			function::Module count = 0;
+			bool stop = false;
+			auto capturedInterrupt = interrupt;
+			generator([&accept, &count, &stop, n](std::stack<E> container, function::Timestamp index) -> void {
+                if (stop) return;
+                if (count < n) { accept(container, count); count++; }
+                if (count >= n) { stop = true; } }, [&capturedInterrupt, &stop, &count](std::stack<E> container, function::Timestamp index) -> bool {
+                if (capturedInterrupt(container, count)) { stop = true; return true; }
+                return stop; });
+		},
+									   this->concurrent);
+	}
+
+	auto skip(const function::Module &n) const -> Semantic<std::stack<E>>
+	{
+		return Semantic<std::stack<E>>([generator = *(this->generator), n](function::BiConsumer<std::stack<E>, function::Timestamp> accept, function::BiPredicate<std::stack<E>, function::Timestamp> interrupt) -> void {
+			function::Module count = 0;
+			bool stop = false;
+			auto capturedInterrupt = interrupt;
+			generator([&accept, &count, &stop, n](std::stack<E> container, function::Timestamp index) -> void {
+                if (stop) return;
+                if (count >= n) { accept(container, count); }
+                count++; }, [&capturedInterrupt, &stop, &count](std::stack<E> container, function::Timestamp index) -> bool {
+                if (capturedInterrupt(container, count)) { stop = true; return true; }
+                return false; });
+		},
+									   this->concurrent);
+	}
+
+	template <typename Consumer>
+	auto peek(Consumer &&consumer) const -> Semantic<std::stack<E>>
+	{
+		return Semantic<std::stack<E>>([generator = *(this->generator), consumer = std::forward<Consumer>(consumer)](function::BiConsumer<std::stack<E>, function::Timestamp> accept, function::BiPredicate<std::stack<E>, function::Timestamp> interrupt) -> void {
+			bool stop = false;
+			auto capturedInterrupt = interrupt;
+			generator([&accept, &stop, &consumer](std::stack<E> container, function::Timestamp index) -> void {
+                if (stop) return;
+                if constexpr (std::is_invocable_r_v<void, Consumer, std::stack<E>, function::Timestamp>)
+                    std::invoke(consumer, container, index);
+                else if constexpr (std::is_invocable_r_v<void, Consumer, std::stack<E>>)
+                    std::invoke(consumer, container);
+                accept(container, index); }, [&capturedInterrupt, &stop](std::stack<E> container, function::Timestamp index) -> bool {
+                if (capturedInterrupt(container, index)) { stop = true; return true; }
+                return false; });
+		},
+									   this->concurrent);
+	}
+
+	template <typename Flatten>
+	auto flat(Flatten &&flatten) const -> Semantic<std::stack<E>>
+	{
+		return Semantic<std::stack<E>>([generator = *(this->generator), flatten = std::forward<Flatten>(flatten)](function::BiConsumer<std::stack<E>, function::Timestamp> accept, function::BiPredicate<std::stack<E>, function::Timestamp> interrupt) -> void {
+			function::Timestamp count = 0LL;
+			bool stop = false;
+			auto capturedInterrupt = interrupt;
+			generator([&accept, &count, &stop, flatten, capturedInterrupt](std::stack<E> container, function::Timestamp index) -> void {
+                if (stop) return;
+                if constexpr (std::is_invocable_r_v<Semantic<std::stack<E>>, Flatten, std::stack<E>, function::Timestamp>)
+                {
+                    Semantic<std::stack<E>> inner = std::invoke(flatten, container, index);
+                    inner.source()([&accept, &count](std::stack<E> innerElement, function::Timestamp innerIndex) -> void {
+                        accept(innerElement, count); count++;
+                    }, [capturedInterrupt, &stop, &count](std::stack<E> innerElement, function::Timestamp innerIndex) -> bool {
+                        if (capturedInterrupt(innerElement, count)) { stop = true; return true; } return false;
+                    });
+                }
+                else if constexpr (std::is_invocable_r_v<Semantic<std::stack<E>>, Flatten, std::stack<E>>)
+                {
+                    Semantic<std::stack<E>> inner = std::invoke(flatten, container);
+                    inner.source()([&accept, &count](std::stack<E> innerElement, function::Timestamp innerIndex) -> void {
+                        accept(innerElement, count); count++;
+                    }, [capturedInterrupt, &stop, &count](std::stack<E> innerElement, function::Timestamp innerIndex) -> bool {
+                        if (capturedInterrupt(innerElement, count)) { stop = true; return true; } return false;
+                    });
+                } }, [&stop](std::stack<E> container, function::Timestamp index) -> bool { return stop; });
+		},
+									   this->concurrent);
+	}
+
+	template <typename R, typename Flatten>
+	auto flatMap(Flatten &&flatten) const -> Semantic<R>
+	{
+		return Semantic<R>([generator = *(this->generator), flatten = std::forward<Flatten>(flatten)](function::BiConsumer<R, function::Timestamp> accept, function::BiPredicate<R, function::Timestamp> interrupt) -> void {
+			function::Timestamp count = 0LL;
+			bool stop = false;
+			auto capturedInterrupt = interrupt;
+			generator([&accept, &count, &stop, flatten, capturedInterrupt](std::stack<E> container, function::Timestamp index) -> void {
+                if (stop) return;
+                if constexpr (std::is_invocable_r_v<Semantic<R>, Flatten, std::stack<E>, function::Timestamp>)
+                {
+                    Semantic<R> inner = std::invoke(flatten, container, index);
+                    inner.source()([&accept, &count](R innerElement, function::Timestamp innerIndex) -> void {
+                        accept(innerElement, count); count++;
+                    }, [capturedInterrupt, &stop, &count](R innerElement, function::Timestamp innerIndex) -> bool {
+                        if (capturedInterrupt(innerElement, count)) { stop = true; return true; } return false;
+                    });
+                }
+                else if constexpr (std::is_invocable_r_v<Semantic<R>, Flatten, std::stack<E>>)
+                {
+                    Semantic<R> inner = std::invoke(flatten, container);
+                    inner.source()([&accept, &count](R innerElement, function::Timestamp innerIndex) -> void {
+                        accept(innerElement, count); count++;
+                    }, [capturedInterrupt, &stop, &count](R innerElement, function::Timestamp innerIndex) -> bool {
+                        if (capturedInterrupt(innerElement, count)) { stop = true; return true; } return false;
+                    });
+                } }, [&stop](std::stack<E> container, function::Timestamp index) -> bool { return stop; });
+		},
+						   this->concurrent);
+	}
+
+	auto reverse() const -> Semantic<std::stack<E>>
+	{
+		return Semantic<std::stack<E>>([generator = *(this->generator)](function::BiConsumer<std::stack<E>, function::Timestamp> accept, function::BiPredicate<std::stack<E>, function::Timestamp> interrupt) -> void {
+			bool stop = false;
+			auto capturedInterrupt = interrupt;
+			generator([&accept, &stop](std::stack<E> container, function::Timestamp index) -> void {
+                if (stop) return; accept(container, -index); }, [&capturedInterrupt, &stop](std::stack<E> container, function::Timestamp index) -> bool {
+                if (capturedInterrupt(container, -index)) { stop = true; return true; }
+                return false; });
+		},
+									   this->concurrent);
+	}
+
+	auto translate(const function::Timestamp &offset) const -> Semantic<std::stack<E>>
+	{
+		return Semantic<std::stack<E>>([generator = *(this->generator), offset](function::BiConsumer<std::stack<E>, function::Timestamp> accept, function::BiPredicate<std::stack<E>, function::Timestamp> interrupt) -> void {
+			bool stop = false;
+			auto capturedInterrupt = interrupt;
+			generator([&accept, &stop, offset](std::stack<E> container, function::Timestamp index) -> void {
+                if (stop) return; accept(container, index + offset); }, [&capturedInterrupt, &stop, offset](std::stack<E> container, function::Timestamp index) -> bool {
+                if (capturedInterrupt(container, index + offset)) { stop = true; return true; }
+                return false; });
+		},
+									   this->concurrent);
+	}
+
+	auto translate(const function::BiFunction<std::stack<E>, function::Timestamp, function::Timestamp> &translator) const -> Semantic<std::stack<E>>
+	{
+		return Semantic<std::stack<E>>([generator = *(this->generator), translator](function::BiConsumer<std::stack<E>, function::Timestamp> accept, function::BiPredicate<std::stack<E>, function::Timestamp> interrupt) -> void {
+			bool stop = false;
+			auto capturedInterrupt = interrupt;
+			generator([&accept, &stop, translator](std::stack<E> container, function::Timestamp index) -> void {
+                if (stop) return; accept(container, translator(container, index)); }, [&capturedInterrupt, &stop, translator](std::stack<E> container, function::Timestamp index) -> bool {
+                if (capturedInterrupt(container, translator(container, index))) { stop = true; return true; }
+                return false; });
+		},
+									   this->concurrent);
+	}
+
+	auto redirect(const function::BiFunction<std::stack<E>, function::Timestamp, std::stack<E>> &redirector) const -> Semantic<std::stack<E>>
+	{
+		return Semantic<std::stack<E>>([generator = *(this->generator), redirector](function::BiConsumer<std::stack<E>, function::Timestamp> accept, function::BiPredicate<std::stack<E>, function::Timestamp> interrupt) -> void {
+			bool stop = false;
+			auto capturedInterrupt = interrupt;
+			generator([&accept, &stop, &redirector](std::stack<E> container, function::Timestamp index) -> void {
+                if (stop) return; accept(redirector(container, index), index); }, [&capturedInterrupt, &stop, &redirector](std::stack<E> container, function::Timestamp index) -> bool {
+                if (capturedInterrupt(redirector(container, index), index)) { stop = true; return true; }
+                return false; });
+		},
+									   this->concurrent);
+	}
+
+	auto sub(const function::Module &start, const function::Module &end) const -> Semantic<std::stack<E>>
+	{
+		return Semantic<std::stack<E>>([generator = *(this->generator), start, end](function::BiConsumer<std::stack<E>, function::Timestamp> accept, function::BiPredicate<std::stack<E>, function::Timestamp> interrupt) -> void {
+			function::Module count = 0;
+			bool stop = false;
+			auto capturedInterrupt = interrupt;
+			generator([&accept, &count, &stop, start, end](std::stack<E> container, function::Timestamp index) -> void {
+                if (stop) return;
+                if (count >= start && count < end) { accept(container, count); }
+                count++; if (count >= end) { stop = true; } }, [&capturedInterrupt, &stop, &count](std::stack<E> container, function::Timestamp index) -> bool {
+                if (capturedInterrupt(container, count)) { stop = true; return true; }
+                return stop; });
+		},
+									   this->concurrent);
+	}
+
+	auto parallel() const -> Semantic<std::stack<E>> { return Semantic<std::stack<E>>(this->source(), this->concurrent + 1); }
+	auto parallel(const function::Module &concurrent) const -> Semantic<std::stack<E>> { return Semantic<std::stack<E>>(this->source(), std::max(concurrent, 1ULL)); }
+
+	template <typename OtherContainer>
+	auto concatenate(OtherContainer &&otherContainer) const -> Semantic<std::stack<E>>
+	{
+		if constexpr (std::is_same_v<std::decay_t<OtherContainer>, Semantic<std::stack<E>>>)
+		{
+			return Semantic<std::stack<E>>([generator = *(this->generator), other](function::BiConsumer<std::stack<E>, function::Timestamp> accept, function::BiPredicate<std::stack<E>, function::Timestamp> interrupt) -> void {
+				function::Timestamp count = 0LL;
+				bool stop = false;
+				auto capturedInterrupt = interrupt;
+				generator([&accept, &count, &stop](std::stack<E> container, function::Timestamp index) -> void {
+                    if (stop) return; accept(container, count); count++; }, [&capturedInterrupt, &stop, &count](std::stack<E> container, function::Timestamp index) -> bool {
+                    if (capturedInterrupt(container, count)) { stop = true; return true; } return false; });
+				if (!stop)
+				{
+					other.source()([&accept, &count, &stop](std::stack<E> container, function::Timestamp index) -> void {
+                        if (stop) return; accept(container, count); count++; }, [&capturedInterrupt, &stop, &count](std::stack<E> container, function::Timestamp index) -> bool {
+                        if (capturedInterrupt(container, count)) { stop = true; return true; } return false; });
+				}
+			},
+										   this->concurrent);
+		}
+		else if constexpr (std::is_same_v<std::decay_t<OtherContainer>, std::stack<E>>)
+		{
+			return Semantic<std::stack<E>>([generator = *(this->generator), elements = std::forward<OtherContainer>(otherContainer)](function::BiConsumer<std::stack<E>, function::Timestamp> accept, function::BiPredicate<std::stack<E>, function::Timestamp> interrupt) -> void {
+				function::Timestamp count = 0LL;
+				bool stop = false;
+				auto capturedInterrupt = interrupt;
+				generator([&accept, &count, &stop](std::stack<E> container, function::Timestamp index) -> void {
+                    if (stop) return; accept(container, count); count++; }, [&capturedInterrupt, &stop, &count](std::stack<E> container, function::Timestamp index) -> bool {
+                    if (capturedInterrupt(container, count)) { stop = true; return true; } return false; });
+				if (!stop)
+				{
+					if (!capturedInterrupt(elements, count))
+					{
+						accept(elements, count);
+					}
+				}
+			},
+										   this->concurrent);
+		}
+		else
+		{
+			return Semantic<std::stack<E>>([generator = *(this->generator), elements = std::forward<OtherContainer>(otherContainer)](function::BiConsumer<std::stack<E>, function::Timestamp> accept, function::BiPredicate<std::stack<E>, function::Timestamp> interrupt) -> void {
+				function::Timestamp count = 0LL;
+				bool stop = false;
+				auto capturedInterrupt = interrupt;
+				generator([&accept, &count, &stop](std::stack<E> container, function::Timestamp index) -> void {
+                    if (stop) return; accept(container, count); count++; }, [&capturedInterrupt, &stop, &count](std::stack<E> container, function::Timestamp index) -> bool {
+                    if (capturedInterrupt(container, count)) { stop = true; return true; } return false; });
+				if (!stop)
+				{
+					for (const auto &element : elements)
+					{
+						if (stop)
+							break;
+						accept(element, count);
+						count++;
+					}
+				}
+			},
+										   this->concurrent);
+		}
+	}
+
+	auto toUnordered() const -> collectable::UnorderedCollectable<std::stack<E>> { return collectable::UnorderedCollectable<std::stack<E>>(this->source(), this->concurrent); }
+	auto toOrdered() const -> collectable::OrderedCollectable<std::stack<E>> { return collectable::OrderedCollectable<std::stack<E>>(this->source(), this->concurrent); }
+	auto toWindow() const -> collectable::WindowCollectable<std::stack<E>> { return collectable::WindowCollectable<std::stack<E>>(this->source(), this->concurrent); }
+	template <typename D>
+	auto toStatistics() const -> collectable::Statistics<std::stack<E>, D> { return collectable::Statistics<std::stack<E>, D>(this->source(), this->concurrent); }
+};
+
+template <typename E>
+class Semantic<std::initializer_list<E>>
+{
+  private:
+	std::vector<E> elements;
+	function::Module concurrent;
+
+  public:
+	using Element = std::initializer_list<E>;
+
+	Semantic(std::initializer_list<E> list) : elements(list), concurrent(1) {}
+
+	Semantic(std::initializer_list<E> list, const function::Module &concurrent) : elements(list), concurrent(concurrent) {}
+
+	Semantic(const Semantic &other) : elements(other.elements), concurrent(other.concurrent) {}
+
+	Semantic(Semantic &&other) noexcept : elements(std::move(other.elements)), concurrent(other.concurrent) {}
+
+	Semantic &operator=(const Semantic &other)
+	{
+		if (this != &other)
+		{
+			elements = other.elements;
+			concurrent = other.concurrent;
+		}
+		return *this;
+	}
+
+	Semantic &operator=(Semantic &&other) noexcept
+	{
+		if (this != &other)
+		{
+			elements = std::move(other.elements);
+			concurrent = other.concurrent;
+		}
+		return *this;
+	}
+
+	auto source() const -> function::Generator<std::initializer_list<E>>
+	{
+		return [elements = this->elements](function::BiConsumer<std::initializer_list<E>, function::Timestamp> accept, function::BiPredicate<std::initializer_list<E>, function::Timestamp> interrupt) -> void {
+			std::initializer_list<E> list = {elements.begin(), elements.end()};
+			accept(list, 0LL);
+		};
+	}
+
+	auto getConcurrent() const -> function::Module { return concurrent; }
+
+	template <typename Mapper>
+	auto map(Mapper &&mapper) const -> Semantic<decltype(std::declval<Mapper>()(std::declval<std::initializer_list<E>>()))>
+	{
+		using R = decltype(std::declval<Mapper>()(std::declval<std::initializer_list<E>>()));
+		return Semantic<R>([generator = this->source(), mapper = std::forward<Mapper>(mapper)](function::BiConsumer<R, function::Timestamp> accept, function::BiPredicate<R, function::Timestamp> interrupt) -> void {
+			bool stop = false;
+			auto capturedInterrupt = interrupt;
+			generator([&accept, &stop, &mapper](std::initializer_list<E> list, function::Timestamp index) -> void {
+                if (stop) return;
+                if constexpr (std::is_invocable_r_v<R, Mapper, std::initializer_list<E>, function::Timestamp>)
+                    accept(std::invoke(mapper, list, index), index);
+                else if constexpr (std::is_invocable_r_v<R, Mapper, std::initializer_list<E>>)
+                    accept(std::invoke(mapper, list), index); }, [&capturedInterrupt, &stop](std::initializer_list<E> list, function::Timestamp index) -> bool {
+                if (capturedInterrupt(list, index)) { stop = true; return true; }
+                return false; });
+		},
+						   this->concurrent);
+	}
+
+	template <typename Predicate>
+	auto filter(Predicate &&predicate) const -> Semantic<std::initializer_list<E>>
+	{
+		return Semantic<std::initializer_list<E>>([generator = this->source(), predicate = std::forward<Predicate>(predicate)](function::BiConsumer<std::initializer_list<E>, function::Timestamp> accept, function::BiPredicate<std::initializer_list<E>, function::Timestamp> interrupt) -> void {
+			function::Timestamp count = 0LL;
+			bool stop = false;
+			auto capturedInterrupt = interrupt;
+			generator([&accept, &count, &stop, predicate](std::initializer_list<E> list, function::Timestamp index) -> void {
+                if (stop) return;
+                bool matches = false;
+                if constexpr (std::is_invocable_r_v<bool, Predicate, std::initializer_list<E>, function::Timestamp>)
+                    matches = std::invoke(predicate, list, index);
+                else if constexpr (std::is_invocable_r_v<bool, Predicate, std::initializer_list<E>>)
+                    matches = std::invoke(predicate, list);
+                if (matches) { accept(list, count); count++; } }, [&capturedInterrupt, &stop, &count](std::initializer_list<E> list, function::Timestamp index) -> bool {
+                if (capturedInterrupt(list, count)) { stop = true; return true; }
+                return false; });
+		},
+												  this->concurrent);
+	}
+
+	template <typename Predicate>
+	auto takeWhile(Predicate &&predicate) const -> Semantic<std::initializer_list<E>>
+	{
+		return Semantic<std::initializer_list<E>>([generator = this->source(), predicate = std::forward<Predicate>(predicate)](function::BiConsumer<std::initializer_list<E>, function::Timestamp> accept, function::BiPredicate<std::initializer_list<E>, function::Timestamp> interrupt) -> void {
+			bool stop = false;
+			auto capturedInterrupt = interrupt;
+			generator([&accept, &stop, predicate](std::initializer_list<E> list, function::Timestamp index) -> void {
+                if (stop) return;
+                bool matches = false;
+                if constexpr (std::is_invocable_r_v<bool, Predicate, std::initializer_list<E>, function::Timestamp>)
+                    matches = std::invoke(predicate, list, index);
+                else if constexpr (std::is_invocable_r_v<bool, Predicate, std::initializer_list<E>>)
+                    matches = std::invoke(predicate, list);
+                if (matches) accept(list, index); else stop = true; }, [&capturedInterrupt, &stop](std::initializer_list<E> list, function::Timestamp index) -> bool {
+                if (capturedInterrupt(list, index)) { stop = true; return true; }
+                return stop; });
+		},
+												  this->concurrent);
+	}
+
+	template <typename Predicate>
+	auto dropWhile(Predicate &&predicate) const -> Semantic<std::initializer_list<E>>
+	{
+		return Semantic<std::initializer_list<E>>([generator = this->source(), predicate = std::forward<Predicate>(predicate)](function::BiConsumer<std::initializer_list<E>, function::Timestamp> accept, function::BiPredicate<std::initializer_list<E>, function::Timestamp> interrupt) -> void {
+			bool dropping = true;
+			function::Timestamp count = 0LL;
+			bool stop = false;
+			auto capturedInterrupt = interrupt;
+			generator([&accept, &dropping, &count, &stop, predicate](std::initializer_list<E> list, function::Timestamp index) -> void {
+                if (stop) return;
+                if (dropping) {
+                    bool matches = false;
+                    if constexpr (std::is_invocable_r_v<bool, Predicate, std::initializer_list<E>, function::Timestamp>)
+                        matches = std::invoke(predicate, list, index);
+                    else if constexpr (std::is_invocable_r_v<bool, Predicate, std::initializer_list<E>>)
+                        matches = std::invoke(predicate, list);
+                    if (!matches) { dropping = false; accept(list, count); count++; }
+                } else { accept(list, count); count++; } }, [&capturedInterrupt, &stop, &count](std::initializer_list<E> list, function::Timestamp index) -> bool {
+                if (capturedInterrupt(list, count)) { stop = true; return true; }
+                return false; });
+		},
+												  this->concurrent);
+	}
+
+	auto distinct() const -> Semantic<std::initializer_list<E>>
+	{
+		return Semantic<std::initializer_list<E>>([generator = this->source()](function::BiConsumer<std::initializer_list<E>, function::Timestamp> accept, function::BiPredicate<std::initializer_list<E>, function::Timestamp> interrupt) -> void {
+			std::unordered_set<std::initializer_list<E>> seen;
+			function::Timestamp count = 0LL;
+			bool stop = false;
+			auto capturedInterrupt = interrupt;
+			generator([&accept, &seen, &count, &stop](std::initializer_list<E> list, function::Timestamp index) -> void {
+                if (stop) return;
+                if (seen.find(list) == seen.end()) { seen.insert(list); accept(list, count); count++; } }, [&capturedInterrupt, &stop, &count](std::initializer_list<E> list, function::Timestamp index) -> bool {
+                if (capturedInterrupt(list, count)) { stop = true; return true; }
+                return false; });
+		},
+												  this->concurrent);
+	}
+
+	auto distinct(const function::Comparator<std::initializer_list<E>> &comparator) const -> Semantic<std::initializer_list<E>>
+	{
+		return Semantic<std::initializer_list<E>>([generator = this->source(), comparator](function::BiConsumer<std::initializer_list<E>, function::Timestamp> accept, function::BiPredicate<std::initializer_list<E>, function::Timestamp> interrupt) -> void {
+			std::set<std::initializer_list<E>, function::Comparator<std::initializer_list<E>>> seen(comparator);
+			function::Timestamp count = 0LL;
+			bool stop = false;
+			auto capturedInterrupt = interrupt;
+			generator([&accept, &seen, &count, &stop](std::initializer_list<E> list, function::Timestamp index) -> void {
+                if (stop) return;
+                if (seen.find(list) == seen.end()) { seen.insert(list); accept(list, count); count++; } }, [&capturedInterrupt, &stop, &count](std::initializer_list<E> list, function::Timestamp index) -> bool {
+                if (capturedInterrupt(list, count)) { stop = true; return true; }
+                return false; });
+		},
+												  this->concurrent);
+	}
+
+	auto sort() const -> collectable::OrderedCollectable<std::initializer_list<E>>
+	{
+		return collectable::OrderedCollectable<std::initializer_list<E>>(this->source(), this->concurrent);
+	}
+
+	auto sort(const function::Comparator<std::initializer_list<E>> &comparator) const -> collectable::OrderedCollectable<std::initializer_list<E>>
+	{
+		return collectable::OrderedCollectable<std::initializer_list<E>>(this->source(), comparator, this->concurrent);
+	}
+
+	auto limit(const function::Module &n) const -> Semantic<std::initializer_list<E>>
+	{
+		return Semantic<std::initializer_list<E>>([generator = this->source(), n](function::BiConsumer<std::initializer_list<E>, function::Timestamp> accept, function::BiPredicate<std::initializer_list<E>, function::Timestamp> interrupt) -> void {
+			function::Module count = 0;
+			bool stop = false;
+			auto capturedInterrupt = interrupt;
+			generator([&accept, &count, &stop, n](std::initializer_list<E> list, function::Timestamp index) -> void {
+                if (stop) return;
+                if (count < n) { accept(list, count); count++; }
+                if (count >= n) { stop = true; } }, [&capturedInterrupt, &stop, &count](std::initializer_list<E> list, function::Timestamp index) -> bool {
+                if (capturedInterrupt(list, count)) { stop = true; return true; }
+                return stop; });
+		},
+												  this->concurrent);
+	}
+
+	auto skip(const function::Module &n) const -> Semantic<std::initializer_list<E>>
+	{
+		return Semantic<std::initializer_list<E>>([generator = this->source(), n](function::BiConsumer<std::initializer_list<E>, function::Timestamp> accept, function::BiPredicate<std::initializer_list<E>, function::Timestamp> interrupt) -> void {
+			function::Module count = 0;
+			bool stop = false;
+			auto capturedInterrupt = interrupt;
+			generator([&accept, &count, &stop, n](std::initializer_list<E> list, function::Timestamp index) -> void {
+                if (stop) return;
+                if (count >= n) { accept(list, count); }
+                count++; }, [&capturedInterrupt, &stop, &count](std::initializer_list<E> list, function::Timestamp index) -> bool {
+                if (capturedInterrupt(list, count)) { stop = true; return true; }
+                return false; });
+		},
+												  this->concurrent);
+	}
+
+	template <typename Consumer>
+	auto peek(Consumer &&consumer) const -> Semantic<std::initializer_list<E>>
+	{
+		return Semantic<std::initializer_list<E>>([generator = this->source(), consumer = std::forward<Consumer>(consumer)](function::BiConsumer<std::initializer_list<E>, function::Timestamp> accept, function::BiPredicate<std::initializer_list<E>, function::Timestamp> interrupt) -> void {
+			bool stop = false;
+			auto capturedInterrupt = interrupt;
+			generator([&accept, &stop, &consumer](std::initializer_list<E> list, function::Timestamp index) -> void {
+                if (stop) return;
+                if constexpr (std::is_invocable_r_v<void, Consumer, std::initializer_list<E>, function::Timestamp>)
+                    std::invoke(consumer, list, index);
+                else if constexpr (std::is_invocable_r_v<void, Consumer, std::initializer_list<E>>)
+                    std::invoke(consumer, list);
+                accept(list, index); }, [&capturedInterrupt, &stop](std::initializer_list<E> list, function::Timestamp index) -> bool {
+                if (capturedInterrupt(list, index)) { stop = true; return true; }
+                return false; });
+		},
+												  this->concurrent);
+	}
+
+	template <typename Flatten>
+	auto flat(Flatten &&flatten) const -> Semantic<std::initializer_list<E>>
+	{
+		return Semantic<std::initializer_list<E>>([generator = this->source(), flatten = std::forward<Flatten>(flatten)](function::BiConsumer<std::initializer_list<E>, function::Timestamp> accept, function::BiPredicate<std::initializer_list<E>, function::Timestamp> interrupt) -> void {
+			function::Timestamp count = 0LL;
+			bool stop = false;
+			auto capturedInterrupt = interrupt;
+			generator([&accept, &count, &stop, flatten, capturedInterrupt](std::initializer_list<E> list, function::Timestamp index) -> void {
+                if (stop) return;
+                if constexpr (std::is_invocable_r_v<Semantic<std::initializer_list<E>>, Flatten, std::initializer_list<E>, function::Timestamp>)
+                {
+                    Semantic<std::initializer_list<E>> inner = std::invoke(flatten, list, index);
+                    inner.source()([&accept, &count](std::initializer_list<E> innerElement, function::Timestamp innerIndex) -> void {
+                        accept(innerElement, count); count++;
+                    }, [capturedInterrupt, &stop, &count](std::initializer_list<E> innerElement, function::Timestamp innerIndex) -> bool {
+                        if (capturedInterrupt(innerElement, count)) { stop = true; return true; } return false;
+                    });
+                }
+                else if constexpr (std::is_invocable_r_v<Semantic<std::initializer_list<E>>, Flatten, std::initializer_list<E>>)
+                {
+                    Semantic<std::initializer_list<E>> inner = std::invoke(flatten, list);
+                    inner.source()([&accept, &count](std::initializer_list<E> innerElement, function::Timestamp innerIndex) -> void {
+                        accept(innerElement, count); count++;
+                    }, [capturedInterrupt, &stop, &count](std::initializer_list<E> innerElement, function::Timestamp innerIndex) -> bool {
+                        if (capturedInterrupt(innerElement, count)) { stop = true; return true; } return false;
+                    });
+                } }, [&stop](std::initializer_list<E> list, function::Timestamp index) -> bool { return stop; });
+		},
+												  this->concurrent);
+	}
+
+	template <typename R, typename Flatten>
+	auto flatMap(Flatten &&flatten) const -> Semantic<R>
+	{
+		return Semantic<R>([generator = this->source(), flatten = std::forward<Flatten>(flatten)](function::BiConsumer<R, function::Timestamp> accept, function::BiPredicate<R, function::Timestamp> interrupt) -> void {
+			function::Timestamp count = 0LL;
+			bool stop = false;
+			auto capturedInterrupt = interrupt;
+			generator([&accept, &count, &stop, flatten, capturedInterrupt](std::initializer_list<E> list, function::Timestamp index) -> void {
+                if (stop) return;
+                if constexpr (std::is_invocable_r_v<Semantic<R>, Flatten, std::initializer_list<E>, function::Timestamp>)
+                {
+                    Semantic<R> inner = std::invoke(flatten, list, index);
+                    inner.source()([&accept, &count](R innerElement, function::Timestamp innerIndex) -> void {
+                        accept(innerElement, count); count++;
+                    }, [capturedInterrupt, &stop, &count](R innerElement, function::Timestamp innerIndex) -> bool {
+                        if (capturedInterrupt(innerElement, count)) { stop = true; return true; } return false;
+                    });
+                }
+                else if constexpr (std::is_invocable_r_v<Semantic<R>, Flatten, std::initializer_list<E>>)
+                {
+                    Semantic<R> inner = std::invoke(flatten, list);
+                    inner.source()([&accept, &count](R innerElement, function::Timestamp innerIndex) -> void {
+                        accept(innerElement, count); count++;
+                    }, [capturedInterrupt, &stop, &count](R innerElement, function::Timestamp innerIndex) -> bool {
+                        if (capturedInterrupt(innerElement, count)) { stop = true; return true; } return false;
+                    });
+                } }, [&stop](std::initializer_list<E> list, function::Timestamp index) -> bool { return stop; });
+		},
+						   this->concurrent);
+	}
+
+	auto reverse() const -> Semantic<std::initializer_list<E>>
+	{
+		return Semantic<std::initializer_list<E>>([generator = this->source()](function::BiConsumer<std::initializer_list<E>, function::Timestamp> accept, function::BiPredicate<std::initializer_list<E>, function::Timestamp> interrupt) -> void {
+			bool stop = false;
+			auto capturedInterrupt = interrupt;
+			generator([&accept, &stop](std::initializer_list<E> list, function::Timestamp index) -> void {
+                if (stop) return; accept(list, -index); }, [&capturedInterrupt, &stop](std::initializer_list<E> list, function::Timestamp index) -> bool {
+                if (capturedInterrupt(list, -index)) { stop = true; return true; }
+                return false; });
+		},
+												  this->concurrent);
+	}
+
+	auto translate(const function::Timestamp &offset) const -> Semantic<std::initializer_list<E>>
+	{
+		return Semantic<std::initializer_list<E>>([generator = this->source(), offset](function::BiConsumer<std::initializer_list<E>, function::Timestamp> accept, function::BiPredicate<std::initializer_list<E>, function::Timestamp> interrupt) -> void {
+			bool stop = false;
+			auto capturedInterrupt = interrupt;
+			generator([&accept, &stop, offset](std::initializer_list<E> list, function::Timestamp index) -> void {
+                if (stop) return; accept(list, index + offset); }, [&capturedInterrupt, &stop, offset](std::initializer_list<E> list, function::Timestamp index) -> bool {
+                if (capturedInterrupt(list, index + offset)) { stop = true; return true; }
+                return false; });
+		},
+												  this->concurrent);
+	}
+
+	auto translate(const function::BiFunction<std::initializer_list<E>, function::Timestamp, function::Timestamp> &translator) const -> Semantic<std::initializer_list<E>>
+	{
+		return Semantic<std::initializer_list<E>>([generator = this->source(), translator](function::BiConsumer<std::initializer_list<E>, function::Timestamp> accept, function::BiPredicate<std::initializer_list<E>, function::Timestamp> interrupt) -> void {
+			bool stop = false;
+			auto capturedInterrupt = interrupt;
+			generator([&accept, &stop, translator](std::initializer_list<E> list, function::Timestamp index) -> void {
+                if (stop) return; accept(list, translator(list, index)); }, [&capturedInterrupt, &stop, translator](std::initializer_list<E> list, function::Timestamp index) -> bool {
+                if (capturedInterrupt(list, translator(list, index))) { stop = true; return true; }
+                return false; });
+		},
+												  this->concurrent);
+	}
+
+	auto redirect(const function::BiFunction<std::initializer_list<E>, function::Timestamp, std::initializer_list<E>> &redirector) const -> Semantic<std::initializer_list<E>>
+	{
+		return Semantic<std::initializer_list<E>>([generator = this->source(), redirector](function::BiConsumer<std::initializer_list<E>, function::Timestamp> accept, function::BiPredicate<std::initializer_list<E>, function::Timestamp> interrupt) -> void {
+			bool stop = false;
+			auto capturedInterrupt = interrupt;
+			generator([&accept, &stop, &redirector](std::initializer_list<E> list, function::Timestamp index) -> void {
+                if (stop) return; accept(redirector(list, index), index); }, [&capturedInterrupt, &stop, &redirector](std::initializer_list<E> list, function::Timestamp index) -> bool {
+                if (capturedInterrupt(redirector(list, index), index)) { stop = true; return true; }
+                return false; });
+		},
+												  this->concurrent);
+	}
+
+	auto sub(const function::Module &start, const function::Module &end) const -> Semantic<std::initializer_list<E>>
+	{
+		return Semantic<std::initializer_list<E>>([generator = this->source(), start, end](function::BiConsumer<std::initializer_list<E>, function::Timestamp> accept, function::BiPredicate<std::initializer_list<E>, function::Timestamp> interrupt) -> void {
+			function::Module count = 0;
+			bool stop = false;
+			auto capturedInterrupt = interrupt;
+			generator([&accept, &count, &stop, start, end](std::initializer_list<E> list, function::Timestamp index) -> void {
+                if (stop) return;
+                if (count >= start && count < end) { accept(list, count); }
+                count++; if (count >= end) { stop = true; } }, [&capturedInterrupt, &stop, &count](std::initializer_list<E> list, function::Timestamp index) -> bool {
+                if (capturedInterrupt(list, count)) { stop = true; return true; }
+                return stop; });
+		},
+												  this->concurrent);
+	}
+
+	auto parallel() const -> Semantic<std::initializer_list<E>> { return Semantic<std::initializer_list<E>>(this->source(), this->concurrent + 1); }
+	auto parallel(const function::Module &concurrent) const -> Semantic<std::initializer_list<E>> { return Semantic<std::initializer_list<E>>(this->source(), std::max(concurrent, 1ULL)); }
+
+	template <typename OtherContainer>
+	auto concatenate(OtherContainer &&otherContainer) const -> Semantic<std::initializer_list<E>>
+	{
+		if constexpr (std::is_same_v<std::decay_t<OtherContainer>, Semantic<std::initializer_list<E>>>)
+		{
+			return Semantic<std::initializer_list<E>>([generator = this->source(), other](function::BiConsumer<std::initializer_list<E>, function::Timestamp> accept, function::BiPredicate<std::initializer_list<E>, function::Timestamp> interrupt) -> void {
+				function::Timestamp count = 0LL;
+				bool stop = false;
+				auto capturedInterrupt = interrupt;
+				generator([&accept, &count, &stop](std::initializer_list<E> list, function::Timestamp index) -> void {
+                    if (stop) return; accept(list, count); count++; }, [&capturedInterrupt, &stop, &count](std::initializer_list<E> list, function::Timestamp index) -> bool {
+                    if (capturedInterrupt(list, count)) { stop = true; return true; } return false; });
+				if (!stop)
+				{
+					other.source()([&accept, &count, &stop](std::initializer_list<E> list, function::Timestamp index) -> void {
+                        if (stop) return; accept(list, count); count++; }, [&capturedInterrupt, &stop, &count](std::initializer_list<E> list, function::Timestamp index) -> bool {
+                        if (capturedInterrupt(list, count)) { stop = true; return true; } return false; });
+				}
+			},
+													  this->concurrent);
+		}
+		else
+		{
+			return Semantic<std::initializer_list<E>>([generator = this->source(), elements = std::forward<OtherContainer>(otherContainer)](function::BiConsumer<std::initializer_list<E>, function::Timestamp> accept, function::BiPredicate<std::initializer_list<E>, function::Timestamp> interrupt) -> void {
+				function::Timestamp count = 0LL;
+				bool stop = false;
+				auto capturedInterrupt = interrupt;
+				generator([&accept, &count, &stop](std::initializer_list<E> list, function::Timestamp index) -> void {
+                    if (stop) return; accept(list, count); count++; }, [&capturedInterrupt, &stop, &count](std::initializer_list<E> list, function::Timestamp index) -> bool {
+                    if (capturedInterrupt(list, count)) { stop = true; return true; } return false; });
+				if (!stop)
+				{
+					for (const auto &element : elements)
+					{
+						if (stop)
+							break;
+						accept(element, count);
+						count++;
+					}
+				}
+			},
+													  this->concurrent);
+		}
+	}
+
+	auto toUnordered() const -> collectable::UnorderedCollectable<std::initializer_list<E>> { return collectable::UnorderedCollectable<std::initializer_list<E>>(this->source(), this->concurrent); }
+	auto toOrdered() const -> collectable::OrderedCollectable<std::initializer_list<E>> { return collectable::OrderedCollectable<std::initializer_list<E>>(this->source(), this->concurrent); }
+	auto toWindow() const -> collectable::WindowCollectable<std::initializer_list<E>> { return collectable::WindowCollectable<std::initializer_list<E>>(this->source(), this->concurrent); }
+	template <typename D>
+	auto toStatistics() const -> collectable::Statistics<std::initializer_list<E>, D> { return collectable::Statistics<std::initializer_list<E>, D>(this->source(), this->concurrent); }
+};
+
+template <typename K, typename V>
+class Semantic<std::map<K, V>>
+{
+  private:
+	std::unique_ptr<function::Generator<std::map<K, V>>> generator;
+	function::Module concurrent;
+
+  public:
+	using Element = std::map<K, V>;
+
+	Semantic(std::map<K, V> &&container) : generator(std::make_unique<function::Generator<std::map<K, V>>>([elements = std::move(container)](function::BiConsumer<std::map<K, V>, function::Timestamp> accept, function::BiPredicate<std::map<K, V>, function::Timestamp> interrupt) -> void {
+											   accept(elements, 0LL);
+										   })),
+										   concurrent(1) {}
+
+	Semantic(std::map<K, V> &&container, const function::Module &concurrent) : generator(std::make_unique<function::Generator<std::map<K, V>>>([elements = std::move(container)](function::BiConsumer<std::map<K, V>, function::Timestamp> accept, function::BiPredicate<std::map<K, V>, function::Timestamp> interrupt) -> void {
+																				   accept(elements, 0LL);
+																			   })),
+																			   concurrent(concurrent) {}
+
+	Semantic(const function::Generator<std::map<K, V>> &generator) : generator(std::make_unique<function::Generator<std::map<K, V>>>(generator)), concurrent(1) {}
+
+	Semantic(const function::Generator<std::map<K, V>> &generator, const function::Module &concurrent) : generator(std::make_unique<function::Generator<std::map<K, V>>>(generator)), concurrent(concurrent) {}
+
+	Semantic(const Semantic<std::map<K, V>> &other) : generator(std::make_unique<function::Generator<std::map<K, V>>>(*other.generator)), concurrent(other.concurrent) {}
+
+	Semantic(Semantic<std::map<K, V>> &&other) noexcept = default;
+
+	Semantic<std::map<K, V>> &operator=(const Semantic<std::map<K, V>> &other)
+	{
+		if (this != &other)
+		{
+			generator = std::make_unique<function::Generator<std::map<K, V>>>(*other.generator);
+			concurrent = other.concurrent;
+		}
+		return *this;
+	}
+
+	Semantic<std::map<K, V>> &operator=(Semantic<std::map<K, V>> &&other) noexcept = default;
+
+	auto source() const -> function::Generator<std::map<K, V>>
+	{
+		return [generator = *(this->generator)](function::BiConsumer<std::map<K, V>, function::Timestamp> accept, function::BiPredicate<std::map<K, V>, function::Timestamp> interrupt) -> void {
+			bool stop = false;
+			generator([&accept, &stop](std::map<K, V> container, function::Timestamp index) -> void {
+                if (!stop) { accept(container, index); } }, [&interrupt, &stop](std::map<K, V> container, function::Timestamp index) -> bool {
+                if (interrupt(container, index)) { stop = true; return true; }
+                return false; });
+		};
+	}
+
+	auto getConcurrent() const -> function::Module { return concurrent; }
+
+	template <typename Mapper>
+	auto map(Mapper &&mapper) const -> Semantic<decltype(std::declval<Mapper>()(std::declval<std::map<K, V>>()))>
+	{
+		using R = decltype(std::declval<Mapper>()(std::declval<std::map<K, V>>()));
+		return Semantic<R>([generator = *(this->generator), mapper = std::forward<Mapper>(mapper)](function::BiConsumer<R, function::Timestamp> accept, function::BiPredicate<R, function::Timestamp> interrupt) -> void {
+			bool stop = false;
+			auto capturedInterrupt = interrupt;
+			generator([&accept, &stop, &mapper](std::map<K, V> container, function::Timestamp index) -> void {
+                if (stop) return;
+                if constexpr (std::is_invocable_r_v<R, Mapper, std::map<K, V>, function::Timestamp>)
+                    accept(std::invoke(mapper, container, index), index);
+                else if constexpr (std::is_invocable_r_v<R, Mapper, std::map<K, V>>)
+                    accept(std::invoke(mapper, container), index); }, [&capturedInterrupt, &stop](std::map<K, V> container, function::Timestamp index) -> bool {
+                if (capturedInterrupt(container, index)) { stop = true; return true; }
+                return false; });
+		},
+						   this->concurrent);
+	}
+
+	template <typename Predicate>
+	auto filter(Predicate &&predicate) const -> Semantic<std::map<K, V>>
+	{
+		return Semantic<std::map<K, V>>([generator = *(this->generator), predicate = std::forward<Predicate>(predicate)](function::BiConsumer<std::map<K, V>, function::Timestamp> accept, function::BiPredicate<std::map<K, V>, function::Timestamp> interrupt) -> void {
+			function::Timestamp count = 0LL;
+			bool stop = false;
+			auto capturedInterrupt = interrupt;
+			generator([&accept, &count, &stop, predicate](std::map<K, V> container, function::Timestamp index) -> void {
+                if (stop) return;
+                bool matches = false;
+                if constexpr (std::is_invocable_r_v<bool, Predicate, std::map<K, V>, function::Timestamp>)
+                    matches = std::invoke(predicate, container, index);
+                else if constexpr (std::is_invocable_r_v<bool, Predicate, std::map<K, V>>)
+                    matches = std::invoke(predicate, container);
+                if (matches) { accept(container, count); count++; } }, [&capturedInterrupt, &stop, &count](std::map<K, V> container, function::Timestamp index) -> bool {
+                if (capturedInterrupt(container, count)) { stop = true; return true; }
+                return false; });
+		},
+										this->concurrent);
+	}
+
+	template <typename Predicate>
+	auto takeWhile(Predicate &&predicate) const -> Semantic<std::map<K, V>>
+	{
+		return Semantic<std::map<K, V>>([generator = *(this->generator), predicate = std::forward<Predicate>(predicate)](function::BiConsumer<std::map<K, V>, function::Timestamp> accept, function::BiPredicate<std::map<K, V>, function::Timestamp> interrupt) -> void {
+			bool stop = false;
+			auto capturedInterrupt = interrupt;
+			generator([&accept, &stop, predicate](std::map<K, V> container, function::Timestamp index) -> void {
+                if (stop) return;
+                bool matches = false;
+                if constexpr (std::is_invocable_r_v<bool, Predicate, std::map<K, V>, function::Timestamp>)
+                    matches = std::invoke(predicate, container, index);
+                else if constexpr (std::is_invocable_r_v<bool, Predicate, std::map<K, V>>)
+                    matches = std::invoke(predicate, container);
+                if (matches) accept(container, index); else stop = true; }, [&capturedInterrupt, &stop](std::map<K, V> container, function::Timestamp index) -> bool {
+                if (capturedInterrupt(container, index)) { stop = true; return true; }
+                return stop; });
+		},
+										this->concurrent);
+	}
+
+	template <typename Predicate>
+	auto dropWhile(Predicate &&predicate) const -> Semantic<std::map<K, V>>
+	{
+		return Semantic<std::map<K, V>>([generator = *(this->generator), predicate = std::forward<Predicate>(predicate)](function::BiConsumer<std::map<K, V>, function::Timestamp> accept, function::BiPredicate<std::map<K, V>, function::Timestamp> interrupt) -> void {
+			bool dropping = true;
+			function::Timestamp count = 0LL;
+			bool stop = false;
+			auto capturedInterrupt = interrupt;
+			generator([&accept, &dropping, &count, &stop, predicate](std::map<K, V> container, function::Timestamp index) -> void {
+                if (stop) return;
+                if (dropping) {
+                    bool matches = false;
+                    if constexpr (std::is_invocable_r_v<bool, Predicate, std::map<K, V>, function::Timestamp>)
+                        matches = std::invoke(predicate, container, index);
+                    else if constexpr (std::is_invocable_r_v<bool, Predicate, std::map<K, V>>)
+                        matches = std::invoke(predicate, container);
+                    if (!matches) { dropping = false; accept(container, count); count++; }
+                } else { accept(container, count); count++; } }, [&capturedInterrupt, &stop, &count](std::map<K, V> container, function::Timestamp index) -> bool {
+                if (capturedInterrupt(container, count)) { stop = true; return true; }
+                return false; });
+		},
+										this->concurrent);
+	}
+
+	auto distinct() const -> Semantic<std::map<K, V>>
+	{
+		return Semantic<std::map<K, V>>([generator = *(this->generator)](function::BiConsumer<std::map<K, V>, function::Timestamp> accept, function::BiPredicate<std::map<K, V>, function::Timestamp> interrupt) -> void {
+			std::unordered_set<std::map<K, V>> seen;
+			function::Timestamp count = 0LL;
+			bool stop = false;
+			auto capturedInterrupt = interrupt;
+			generator([&accept, &seen, &count, &stop](std::map<K, V> container, function::Timestamp index) -> void {
+                if (stop) return;
+                if (seen.find(container) == seen.end()) { seen.insert(container); accept(container, count); count++; } }, [&capturedInterrupt, &stop, &count](std::map<K, V> container, function::Timestamp index) -> bool {
+                if (capturedInterrupt(container, count)) { stop = true; return true; }
+                return false; });
+		},
+										this->concurrent);
+	}
+
+	auto distinct(const function::Comparator<std::map<K, V>> &comparator) const -> Semantic<std::map<K, V>>
+	{
+		return Semantic<std::map<K, V>>([generator = *(this->generator), comparator](function::BiConsumer<std::map<K, V>, function::Timestamp> accept, function::BiPredicate<std::map<K, V>, function::Timestamp> interrupt) -> void {
+			std::set<std::map<K, V>, function::Comparator<std::map<K, V>>> seen(comparator);
+			function::Timestamp count = 0LL;
+			bool stop = false;
+			auto capturedInterrupt = interrupt;
+			generator([&accept, &seen, &count, &stop](std::map<K, V> container, function::Timestamp index) -> void {
+                if (stop) return;
+                if (seen.find(container) == seen.end()) { seen.insert(container); accept(container, count); count++; } }, [&capturedInterrupt, &stop, &count](std::map<K, V> container, function::Timestamp index) -> bool {
+                if (capturedInterrupt(container, count)) { stop = true; return true; }
+                return false; });
+		},
+										this->concurrent);
+	}
+
+	auto sort() const -> collectable::OrderedCollectable<std::map<K, V>>
+	{
+		return collectable::OrderedCollectable<std::map<K, V>>(this->source(), this->concurrent);
+	}
+
+	auto sort(const function::Comparator<std::map<K, V>> &comparator) const -> collectable::OrderedCollectable<std::map<K, V>>
+	{
+		return collectable::OrderedCollectable<std::map<K, V>>(this->source(), comparator, this->concurrent);
+	}
+
+	auto limit(const function::Module &n) const -> Semantic<std::map<K, V>>
+	{
+		return Semantic<std::map<K, V>>([generator = *(this->generator), n](function::BiConsumer<std::map<K, V>, function::Timestamp> accept, function::BiPredicate<std::map<K, V>, function::Timestamp> interrupt) -> void {
+			function::Module count = 0;
+			bool stop = false;
+			auto capturedInterrupt = interrupt;
+			generator([&accept, &count, &stop, n](std::map<K, V> container, function::Timestamp index) -> void {
+                if (stop) return;
+                if (count < n) { accept(container, count); count++; }
+                if (count >= n) { stop = true; } }, [&capturedInterrupt, &stop, &count](std::map<K, V> container, function::Timestamp index) -> bool {
+                if (capturedInterrupt(container, count)) { stop = true; return true; }
+                return stop; });
+		},
+										this->concurrent);
+	}
+
+	auto skip(const function::Module &n) const -> Semantic<std::map<K, V>>
+	{
+		return Semantic<std::map<K, V>>([generator = *(this->generator), n](function::BiConsumer<std::map<K, V>, function::Timestamp> accept, function::BiPredicate<std::map<K, V>, function::Timestamp> interrupt) -> void {
+			function::Module count = 0;
+			bool stop = false;
+			auto capturedInterrupt = interrupt;
+			generator([&accept, &count, &stop, n](std::map<K, V> container, function::Timestamp index) -> void {
+                if (stop) return;
+                if (count >= n) { accept(container, count); }
+                count++; }, [&capturedInterrupt, &stop, &count](std::map<K, V> container, function::Timestamp index) -> bool {
+                if (capturedInterrupt(container, count)) { stop = true; return true; }
+                return false; });
+		},
+										this->concurrent);
+	}
+
+	template <typename Consumer>
+	auto peek(Consumer &&consumer) const -> Semantic<std::map<K, V>>
+	{
+		return Semantic<std::map<K, V>>([generator = *(this->generator), consumer = std::forward<Consumer>(consumer)](function::BiConsumer<std::map<K, V>, function::Timestamp> accept, function::BiPredicate<std::map<K, V>, function::Timestamp> interrupt) -> void {
+			bool stop = false;
+			auto capturedInterrupt = interrupt;
+			generator([&accept, &stop, &consumer](std::map<K, V> container, function::Timestamp index) -> void {
+                if (stop) return;
+                if constexpr (std::is_invocable_r_v<void, Consumer, std::map<K, V>, function::Timestamp>)
+                    std::invoke(consumer, container, index);
+                else if constexpr (std::is_invocable_r_v<void, Consumer, std::map<K, V>>)
+                    std::invoke(consumer, container);
+                accept(container, index); }, [&capturedInterrupt, &stop](std::map<K, V> container, function::Timestamp index) -> bool {
+                if (capturedInterrupt(container, index)) { stop = true; return true; }
+                return false; });
+		},
+										this->concurrent);
+	}
+
+	template <typename Flatten>
+	auto flat(Flatten &&flatten) const -> Semantic<std::map<K, V>>
+	{
+		return Semantic<std::map<K, V>>([generator = *(this->generator), flatten = std::forward<Flatten>(flatten)](function::BiConsumer<std::map<K, V>, function::Timestamp> accept, function::BiPredicate<std::map<K, V>, function::Timestamp> interrupt) -> void {
+			function::Timestamp count = 0LL;
+			bool stop = false;
+			auto capturedInterrupt = interrupt;
+			generator([&accept, &count, &stop, flatten, capturedInterrupt](std::map<K, V> container, function::Timestamp index) -> void {
+                if (stop) return;
+                if constexpr (std::is_invocable_r_v<Semantic<std::map<K, V>>, Flatten, std::map<K, V>, function::Timestamp>)
+                {
+                    Semantic<std::map<K, V>> inner = std::invoke(flatten, container, index);
+                    inner.source()([&accept, &count](std::map<K, V> innerElement, function::Timestamp innerIndex) -> void {
+                        accept(innerElement, count); count++;
+                    }, [capturedInterrupt, &stop, &count](std::map<K, V> innerElement, function::Timestamp innerIndex) -> bool {
+                        if (capturedInterrupt(innerElement, count)) { stop = true; return true; } return false;
+                    });
+                }
+                else if constexpr (std::is_invocable_r_v<Semantic<std::map<K, V>>, Flatten, std::map<K, V>>)
+                {
+                    Semantic<std::map<K, V>> inner = std::invoke(flatten, container);
+                    inner.source()([&accept, &count](std::map<K, V> innerElement, function::Timestamp innerIndex) -> void {
+                        accept(innerElement, count); count++;
+                    }, [capturedInterrupt, &stop, &count](std::map<K, V> innerElement, function::Timestamp innerIndex) -> bool {
+                        if (capturedInterrupt(innerElement, count)) { stop = true; return true; } return false;
+                    });
+                } }, [&stop](std::map<K, V> container, function::Timestamp index) -> bool { return stop; });
+		},
+										this->concurrent);
+	}
+
+	template <typename R, typename Flatten>
+	auto flatMap(Flatten &&flatten) const -> Semantic<R>
+	{
+		return Semantic<R>([generator = *(this->generator), flatten = std::forward<Flatten>(flatten)](function::BiConsumer<R, function::Timestamp> accept, function::BiPredicate<R, function::Timestamp> interrupt) -> void {
+			function::Timestamp count = 0LL;
+			bool stop = false;
+			auto capturedInterrupt = interrupt;
+			generator([&accept, &count, &stop, flatten, capturedInterrupt](std::map<K, V> container, function::Timestamp index) -> void {
+                if (stop) return;
+                if constexpr (std::is_invocable_r_v<Semantic<R>, Flatten, std::map<K, V>, function::Timestamp>)
+                {
+                    Semantic<R> inner = std::invoke(flatten, container, index);
+                    inner.source()([&accept, &count](R innerElement, function::Timestamp innerIndex) -> void {
+                        accept(innerElement, count); count++;
+                    }, [capturedInterrupt, &stop, &count](R innerElement, function::Timestamp innerIndex) -> bool {
+                        if (capturedInterrupt(innerElement, count)) { stop = true; return true; } return false;
+                    });
+                }
+                else if constexpr (std::is_invocable_r_v<Semantic<R>, Flatten, std::map<K, V>>)
+                {
+                    Semantic<R> inner = std::invoke(flatten, container);
+                    inner.source()([&accept, &count](R innerElement, function::Timestamp innerIndex) -> void {
+                        accept(innerElement, count); count++;
+                    }, [capturedInterrupt, &stop, &count](R innerElement, function::Timestamp innerIndex) -> bool {
+                        if (capturedInterrupt(innerElement, count)) { stop = true; return true; } return false;
+                    });
+                } }, [&stop](std::map<K, V> container, function::Timestamp index) -> bool { return stop; });
+		},
+						   this->concurrent);
+	}
+
+	auto reverse() const -> Semantic<std::map<K, V>>
+	{
+		return Semantic<std::map<K, V>>([generator = *(this->generator)](function::BiConsumer<std::map<K, V>, function::Timestamp> accept, function::BiPredicate<std::map<K, V>, function::Timestamp> interrupt) -> void {
+			bool stop = false;
+			auto capturedInterrupt = interrupt;
+			generator([&accept, &stop](std::map<K, V> container, function::Timestamp index) -> void {
+                if (stop) return; accept(container, -index); }, [&capturedInterrupt, &stop](std::map<K, V> container, function::Timestamp index) -> bool {
+                if (capturedInterrupt(container, -index)) { stop = true; return true; }
+                return false; });
+		},
+										this->concurrent);
+	}
+
+	auto translate(const function::Timestamp &offset) const -> Semantic<std::map<K, V>>
+	{
+		return Semantic<std::map<K, V>>([generator = *(this->generator), offset](function::BiConsumer<std::map<K, V>, function::Timestamp> accept, function::BiPredicate<std::map<K, V>, function::Timestamp> interrupt) -> void {
+			bool stop = false;
+			auto capturedInterrupt = interrupt;
+			generator([&accept, &stop, offset](std::map<K, V> container, function::Timestamp index) -> void {
+                if (stop) return; accept(container, index + offset); }, [&capturedInterrupt, &stop, offset](std::map<K, V> container, function::Timestamp index) -> bool {
+                if (capturedInterrupt(container, index + offset)) { stop = true; return true; }
+                return false; });
+		},
+										this->concurrent);
+	}
+
+	auto translate(const function::BiFunction<std::map<K, V>, function::Timestamp, function::Timestamp> &translator) const -> Semantic<std::map<K, V>>
+	{
+		return Semantic<std::map<K, V>>([generator = *(this->generator), translator](function::BiConsumer<std::map<K, V>, function::Timestamp> accept, function::BiPredicate<std::map<K, V>, function::Timestamp> interrupt) -> void {
+			bool stop = false;
+			auto capturedInterrupt = interrupt;
+			generator([&accept, &stop, translator](std::map<K, V> container, function::Timestamp index) -> void {
+                if (stop) return; accept(container, translator(container, index)); }, [&capturedInterrupt, &stop, translator](std::map<K, V> container, function::Timestamp index) -> bool {
+                if (capturedInterrupt(container, translator(container, index))) { stop = true; return true; }
+                return false; });
+		},
+										this->concurrent);
+	}
+
+	auto redirect(const function::BiFunction<std::map<K, V>, function::Timestamp, std::map<K, V>> &redirector) const -> Semantic<std::map<K, V>>
+	{
+		return Semantic<std::map<K, V>>([generator = *(this->generator), redirector](function::BiConsumer<std::map<K, V>, function::Timestamp> accept, function::BiPredicate<std::map<K, V>, function::Timestamp> interrupt) -> void {
+			bool stop = false;
+			auto capturedInterrupt = interrupt;
+			generator([&accept, &stop, &redirector](std::map<K, V> container, function::Timestamp index) -> void {
+                if (stop) return; accept(redirector(container, index), index); }, [&capturedInterrupt, &stop, &redirector](std::map<K, V> container, function::Timestamp index) -> bool {
+                if (capturedInterrupt(redirector(container, index), index)) { stop = true; return true; }
+                return false; });
+		},
+										this->concurrent);
+	}
+
+	auto sub(const function::Module &start, const function::Module &end) const -> Semantic<std::map<K, V>>
+	{
+		return Semantic<std::map<K, V>>([generator = *(this->generator), start, end](function::BiConsumer<std::map<K, V>, function::Timestamp> accept, function::BiPredicate<std::map<K, V>, function::Timestamp> interrupt) -> void {
+			function::Module count = 0;
+			bool stop = false;
+			auto capturedInterrupt = interrupt;
+			generator([&accept, &count, &stop, start, end](std::map<K, V> container, function::Timestamp index) -> void {
+                if (stop) return;
+                if (count >= start && count < end) { accept(container, count); }
+                count++; if (count >= end) { stop = true; } }, [&capturedInterrupt, &stop, &count](std::map<K, V> container, function::Timestamp index) -> bool {
+                if (capturedInterrupt(container, count)) { stop = true; return true; }
+                return stop; });
+		},
+										this->concurrent);
+	}
+
+	auto parallel() const -> Semantic<std::map<K, V>> { return Semantic<std::map<K, V>>(this->source(), this->concurrent + 1); }
+	auto parallel(const function::Module &concurrent) const -> Semantic<std::map<K, V>> { return Semantic<std::map<K, V>>(this->source(), std::max(concurrent, 1ULL)); }
+
+	template <typename OtherContainer>
+	auto concatenate(OtherContainer &&otherContainer) const -> Semantic<std::map<K, V>>
+	{
+		if constexpr (std::is_same_v<std::decay_t<OtherContainer>, Semantic<std::map<K, V>>>)
+		{
+			return Semantic<std::map<K, V>>([generator = *(this->generator), other](function::BiConsumer<std::map<K, V>, function::Timestamp> accept, function::BiPredicate<std::map<K, V>, function::Timestamp> interrupt) -> void {
+				function::Timestamp count = 0LL;
+				bool stop = false;
+				auto capturedInterrupt = interrupt;
+				generator([&accept, &count, &stop](std::map<K, V> container, function::Timestamp index) -> void {
+                    if (stop) return; accept(container, count); count++; }, [&capturedInterrupt, &stop, &count](std::map<K, V> container, function::Timestamp index) -> bool {
+                    if (capturedInterrupt(container, count)) { stop = true; return true; } return false; });
+				if (!stop)
+				{
+					other.source()([&accept, &count, &stop](std::map<K, V> container, function::Timestamp index) -> void {
+                        if (stop) return; accept(container, count); count++; }, [&capturedInterrupt, &stop, &count](std::map<K, V> container, function::Timestamp index) -> bool {
+                        if (capturedInterrupt(container, count)) { stop = true; return true; } return false; });
+				}
+			},
+											this->concurrent);
+		}
+		else if constexpr (std::is_same_v<std::decay_t<OtherContainer>, std::map<K, V>>)
+		{
+			return Semantic<std::map<K, V>>([generator = *(this->generator), elements = std::forward<OtherContainer>(otherContainer)](function::BiConsumer<std::map<K, V>, function::Timestamp> accept, function::BiPredicate<std::map<K, V>, function::Timestamp> interrupt) -> void {
+				function::Timestamp count = 0LL;
+				bool stop = false;
+				auto capturedInterrupt = interrupt;
+				generator([&accept, &count, &stop](std::map<K, V> container, function::Timestamp index) -> void {
+                    if (stop) return; accept(container, count); count++; }, [&capturedInterrupt, &stop, &count](std::map<K, V> container, function::Timestamp index) -> bool {
+                    if (capturedInterrupt(container, count)) { stop = true; return true; } return false; });
+				if (!stop)
+				{
+					if (!capturedInterrupt(elements, count))
+					{
+						accept(elements, count);
+					}
+				}
+			},
+											this->concurrent);
+		}
+		else
+		{
+			return Semantic<std::map<K, V>>([generator = *(this->generator), elements = std::forward<OtherContainer>(otherContainer)](function::BiConsumer<std::map<K, V>, function::Timestamp> accept, function::BiPredicate<std::map<K, V>, function::Timestamp> interrupt) -> void {
+				function::Timestamp count = 0LL;
+				bool stop = false;
+				auto capturedInterrupt = interrupt;
+				generator([&accept, &count, &stop](std::map<K, V> container, function::Timestamp index) -> void {
+                    if (stop) return; accept(container, count); count++; }, [&capturedInterrupt, &stop, &count](std::map<K, V> container, function::Timestamp index) -> bool {
+                    if (capturedInterrupt(container, count)) { stop = true; return true; } return false; });
+				if (!stop)
+				{
+					for (const auto &element : elements)
+					{
+						if (stop)
+							break;
+						accept(element, count);
+						count++;
+					}
+				}
+			},
+											this->concurrent);
+		}
+	}
+
+	auto toUnordered() const -> collectable::UnorderedCollectable<std::map<K, V>> { return collectable::UnorderedCollectable<std::map<K, V>>(this->source(), this->concurrent); }
+	auto toOrdered() const -> collectable::OrderedCollectable<std::map<K, V>> { return collectable::OrderedCollectable<std::map<K, V>>(this->source(), this->concurrent); }
+	auto toWindow() const -> collectable::WindowCollectable<std::map<K, V>> { return collectable::WindowCollectable<std::map<K, V>>(this->source(), this->concurrent); }
+	template <typename D>
+	auto toStatistics() const -> collectable::Statistics<std::map<K, V>, D> { return collectable::Statistics<std::map<K, V>, D>(this->source(), this->concurrent); }
+};
+
+template <typename K, typename V>
+class Semantic<std::unordered_map<K, V>>
+{
+  private:
+	std::unique_ptr<function::Generator<std::unordered_map<K, V>>> generator;
+	function::Module concurrent;
+
+  public:
+	using Element = std::unordered_map<K, V>;
+
+	Semantic(std::unordered_map<K, V> &&container) : generator(std::make_unique<function::Generator<std::unordered_map<K, V>>>([elements = std::move(container)](function::BiConsumer<std::unordered_map<K, V>, function::Timestamp> accept, function::BiPredicate<std::unordered_map<K, V>, function::Timestamp> interrupt) -> void {
+														 accept(elements, 0LL);
+													 })),
+													 concurrent(1) {}
+
+	Semantic(std::unordered_map<K, V> &&container, const function::Module &concurrent) : generator(std::make_unique<function::Generator<std::unordered_map<K, V>>>([elements = std::move(container)](function::BiConsumer<std::unordered_map<K, V>, function::Timestamp> accept, function::BiPredicate<std::unordered_map<K, V>, function::Timestamp> interrupt) -> void {
+																							 accept(elements, 0LL);
+																						 })),
+																						 concurrent(concurrent) {}
+
+	Semantic(const function::Generator<std::unordered_map<K, V>> &generator) : generator(std::make_unique<function::Generator<std::unordered_map<K, V>>>(generator)), concurrent(1) {}
+
+	Semantic(const function::Generator<std::unordered_map<K, V>> &generator, const function::Module &concurrent) : generator(std::make_unique<function::Generator<std::unordered_map<K, V>>>(generator)), concurrent(concurrent) {}
+
+	Semantic(const Semantic<std::unordered_map<K, V>> &other) : generator(std::make_unique<function::Generator<std::unordered_map<K, V>>>(*other.generator)), concurrent(other.concurrent) {}
+
+	Semantic(Semantic<std::unordered_map<K, V>> &&other) noexcept = default;
+
+	Semantic<std::unordered_map<K, V>> &operator=(const Semantic<std::unordered_map<K, V>> &other)
+	{
+		if (this != &other)
+		{
+			generator = std::make_unique<function::Generator<std::unordered_map<K, V>>>(*other.generator);
+			concurrent = other.concurrent;
+		}
+		return *this;
+	}
+
+	Semantic<std::unordered_map<K, V>> &operator=(Semantic<std::unordered_map<K, V>> &&other) noexcept = default;
+
+	auto source() const -> function::Generator<std::unordered_map<K, V>>
+	{
+		return [generator = *(this->generator)](function::BiConsumer<std::unordered_map<K, V>, function::Timestamp> accept, function::BiPredicate<std::unordered_map<K, V>, function::Timestamp> interrupt) -> void {
+			bool stop = false;
+			generator([&accept, &stop](std::unordered_map<K, V> container, function::Timestamp index) -> void {
+                if (!stop) { accept(container, index); } }, [&interrupt, &stop](std::unordered_map<K, V> container, function::Timestamp index) -> bool {
+                if (interrupt(container, index)) { stop = true; return true; }
+                return false; });
+		};
+	}
+
+	auto getConcurrent() const -> function::Module { return concurrent; }
+
+	template <typename Mapper>
+	auto map(Mapper &&mapper) const -> Semantic<decltype(std::declval<Mapper>()(std::declval<std::unordered_map<K, V>>()))>
+	{
+		using R = decltype(std::declval<Mapper>()(std::declval<std::unordered_map<K, V>>()));
+		return Semantic<R>([generator = *(this->generator), mapper = std::forward<Mapper>(mapper)](function::BiConsumer<R, function::Timestamp> accept, function::BiPredicate<R, function::Timestamp> interrupt) -> void {
+			bool stop = false;
+			auto capturedInterrupt = interrupt;
+			generator([&accept, &stop, &mapper](std::unordered_map<K, V> container, function::Timestamp index) -> void {
+                if (stop) return;
+                if constexpr (std::is_invocable_r_v<R, Mapper, std::unordered_map<K, V>, function::Timestamp>)
+                    accept(std::invoke(mapper, container, index), index);
+                else if constexpr (std::is_invocable_r_v<R, Mapper, std::unordered_map<K, V>>)
+                    accept(std::invoke(mapper, container), index); }, [&capturedInterrupt, &stop](std::unordered_map<K, V> container, function::Timestamp index) -> bool {
+                if (capturedInterrupt(container, index)) { stop = true; return true; }
+                return false; });
+		},
+						   this->concurrent);
+	}
+
+	template <typename Predicate>
+	auto filter(Predicate &&predicate) const -> Semantic<std::unordered_map<K, V>>
+	{
+		return Semantic<std::unordered_map<K, V>>([generator = *(this->generator), predicate = std::forward<Predicate>(predicate)](function::BiConsumer<std::unordered_map<K, V>, function::Timestamp> accept, function::BiPredicate<std::unordered_map<K, V>, function::Timestamp> interrupt) -> void {
+			function::Timestamp count = 0LL;
+			bool stop = false;
+			auto capturedInterrupt = interrupt;
+			generator([&accept, &count, &stop, predicate](std::unordered_map<K, V> container, function::Timestamp index) -> void {
+                if (stop) return;
+                bool matches = false;
+                if constexpr (std::is_invocable_r_v<bool, Predicate, std::unordered_map<K, V>, function::Timestamp>)
+                    matches = std::invoke(predicate, container, index);
+                else if constexpr (std::is_invocable_r_v<bool, Predicate, std::unordered_map<K, V>>)
+                    matches = std::invoke(predicate, container);
+                if (matches) { accept(container, count); count++; } }, [&capturedInterrupt, &stop, &count](std::unordered_map<K, V> container, function::Timestamp index) -> bool {
+                if (capturedInterrupt(container, count)) { stop = true; return true; }
+                return false; });
+		},
+												  this->concurrent);
+	}
+
+	template <typename Predicate>
+	auto takeWhile(Predicate &&predicate) const -> Semantic<std::unordered_map<K, V>>
+	{
+		return Semantic<std::unordered_map<K, V>>([generator = *(this->generator), predicate = std::forward<Predicate>(predicate)](function::BiConsumer<std::unordered_map<K, V>, function::Timestamp> accept, function::BiPredicate<std::unordered_map<K, V>, function::Timestamp> interrupt) -> void {
+			bool stop = false;
+			auto capturedInterrupt = interrupt;
+			generator([&accept, &stop, predicate](std::unordered_map<K, V> container, function::Timestamp index) -> void {
+                if (stop) return;
+                bool matches = false;
+                if constexpr (std::is_invocable_r_v<bool, Predicate, std::unordered_map<K, V>, function::Timestamp>)
+                    matches = std::invoke(predicate, container, index);
+                else if constexpr (std::is_invocable_r_v<bool, Predicate, std::unordered_map<K, V>>)
+                    matches = std::invoke(predicate, container);
+                if (matches) accept(container, index); else stop = true; }, [&capturedInterrupt, &stop](std::unordered_map<K, V> container, function::Timestamp index) -> bool {
+                if (capturedInterrupt(container, index)) { stop = true; return true; }
+                return stop; });
+		},
+												  this->concurrent);
+	}
+
+	template <typename Predicate>
+	auto dropWhile(Predicate &&predicate) const -> Semantic<std::unordered_map<K, V>>
+	{
+		return Semantic<std::unordered_map<K, V>>([generator = *(this->generator), predicate = std::forward<Predicate>(predicate)](function::BiConsumer<std::unordered_map<K, V>, function::Timestamp> accept, function::BiPredicate<std::unordered_map<K, V>, function::Timestamp> interrupt) -> void {
+			bool dropping = true;
+			function::Timestamp count = 0LL;
+			bool stop = false;
+			auto capturedInterrupt = interrupt;
+			generator([&accept, &dropping, &count, &stop, predicate](std::unordered_map<K, V> container, function::Timestamp index) -> void {
+                if (stop) return;
+                if (dropping) {
+                    bool matches = false;
+                    if constexpr (std::is_invocable_r_v<bool, Predicate, std::unordered_map<K, V>, function::Timestamp>)
+                        matches = std::invoke(predicate, container, index);
+                    else if constexpr (std::is_invocable_r_v<bool, Predicate, std::unordered_map<K, V>>)
+                        matches = std::invoke(predicate, container);
+                    if (!matches) { dropping = false; accept(container, count); count++; }
+                } else { accept(container, count); count++; } }, [&capturedInterrupt, &stop, &count](std::unordered_map<K, V> container, function::Timestamp index) -> bool {
+                if (capturedInterrupt(container, count)) { stop = true; return true; }
+                return false; });
+		},
+												  this->concurrent);
+	}
+
+	auto distinct() const -> Semantic<std::unordered_map<K, V>>
+	{
+		return Semantic<std::unordered_map<K, V>>([generator = *(this->generator)](function::BiConsumer<std::unordered_map<K, V>, function::Timestamp> accept, function::BiPredicate<std::unordered_map<K, V>, function::Timestamp> interrupt) -> void {
+			std::unordered_set<std::unordered_map<K, V>> seen;
+			function::Timestamp count = 0LL;
+			bool stop = false;
+			auto capturedInterrupt = interrupt;
+			generator([&accept, &seen, &count, &stop](std::unordered_map<K, V> container, function::Timestamp index) -> void {
+                if (stop) return;
+                if (seen.find(container) == seen.end()) { seen.insert(container); accept(container, count); count++; } }, [&capturedInterrupt, &stop, &count](std::unordered_map<K, V> container, function::Timestamp index) -> bool {
+                if (capturedInterrupt(container, count)) { stop = true; return true; }
+                return false; });
+		},
+												  this->concurrent);
+	}
+
+	auto distinct(const function::Comparator<std::unordered_map<K, V>> &comparator) const -> Semantic<std::unordered_map<K, V>>
+	{
+		return Semantic<std::unordered_map<K, V>>([generator = *(this->generator), comparator](function::BiConsumer<std::unordered_map<K, V>, function::Timestamp> accept, function::BiPredicate<std::unordered_map<K, V>, function::Timestamp> interrupt) -> void {
+			std::set<std::unordered_map<K, V>, function::Comparator<std::unordered_map<K, V>>> seen(comparator);
+			function::Timestamp count = 0LL;
+			bool stop = false;
+			auto capturedInterrupt = interrupt;
+			generator([&accept, &seen, &count, &stop](std::unordered_map<K, V> container, function::Timestamp index) -> void {
+                if (stop) return;
+                if (seen.find(container) == seen.end()) { seen.insert(container); accept(container, count); count++; } }, [&capturedInterrupt, &stop, &count](std::unordered_map<K, V> container, function::Timestamp index) -> bool {
+                if (capturedInterrupt(container, count)) { stop = true; return true; }
+                return false; });
+		},
+												  this->concurrent);
+	}
+
+	auto sort() const -> collectable::OrderedCollectable<std::unordered_map<K, V>>
+	{
+		return collectable::OrderedCollectable<std::unordered_map<K, V>>(this->source(), this->concurrent);
+	}
+
+	auto sort(const function::Comparator<std::unordered_map<K, V>> &comparator) const -> collectable::OrderedCollectable<std::unordered_map<K, V>>
+	{
+		return collectable::OrderedCollectable<std::unordered_map<K, V>>(this->source(), comparator, this->concurrent);
+	}
+
+	auto limit(const function::Module &n) const -> Semantic<std::unordered_map<K, V>>
+	{
+		return Semantic<std::unordered_map<K, V>>([generator = *(this->generator), n](function::BiConsumer<std::unordered_map<K, V>, function::Timestamp> accept, function::BiPredicate<std::unordered_map<K, V>, function::Timestamp> interrupt) -> void {
+			function::Module count = 0;
+			bool stop = false;
+			auto capturedInterrupt = interrupt;
+			generator([&accept, &count, &stop, n](std::unordered_map<K, V> container, function::Timestamp index) -> void {
+                if (stop) return;
+                if (count < n) { accept(container, count); count++; }
+                if (count >= n) { stop = true; } }, [&capturedInterrupt, &stop, &count](std::unordered_map<K, V> container, function::Timestamp index) -> bool {
+                if (capturedInterrupt(container, count)) { stop = true; return true; }
+                return stop; });
+		},
+												  this->concurrent);
+	}
+
+	auto skip(const function::Module &n) const -> Semantic<std::unordered_map<K, V>>
+	{
+		return Semantic<std::unordered_map<K, V>>([generator = *(this->generator), n](function::BiConsumer<std::unordered_map<K, V>, function::Timestamp> accept, function::BiPredicate<std::unordered_map<K, V>, function::Timestamp> interrupt) -> void {
+			function::Module count = 0;
+			bool stop = false;
+			auto capturedInterrupt = interrupt;
+			generator([&accept, &count, &stop, n](std::unordered_map<K, V> container, function::Timestamp index) -> void {
+                if (stop) return;
+                if (count >= n) { accept(container, count); }
+                count++; }, [&capturedInterrupt, &stop, &count](std::unordered_map<K, V> container, function::Timestamp index) -> bool {
+                if (capturedInterrupt(container, count)) { stop = true; return true; }
+                return false; });
+		},
+												  this->concurrent);
+	}
+
+	template <typename Consumer>
+	auto peek(Consumer &&consumer) const -> Semantic<std::unordered_map<K, V>>
+	{
+		return Semantic<std::unordered_map<K, V>>([generator = *(this->generator), consumer = std::forward<Consumer>(consumer)](function::BiConsumer<std::unordered_map<K, V>, function::Timestamp> accept, function::BiPredicate<std::unordered_map<K, V>, function::Timestamp> interrupt) -> void {
+			bool stop = false;
+			auto capturedInterrupt = interrupt;
+			generator([&accept, &stop, &consumer](std::unordered_map<K, V> container, function::Timestamp index) -> void {
+                if (stop) return;
+                if constexpr (std::is_invocable_r_v<void, Consumer, std::unordered_map<K, V>, function::Timestamp>)
+                    std::invoke(consumer, container, index);
+                else if constexpr (std::is_invocable_r_v<void, Consumer, std::unordered_map<K, V>>)
+                    std::invoke(consumer, container);
+                accept(container, index); }, [&capturedInterrupt, &stop](std::unordered_map<K, V> container, function::Timestamp index) -> bool {
+                if (capturedInterrupt(container, index)) { stop = true; return true; }
+                return false; });
+		},
+												  this->concurrent);
+	}
+
+	template <typename Flatten>
+	auto flat(Flatten &&flatten) const -> Semantic<std::unordered_map<K, V>>
+	{
+		return Semantic<std::unordered_map<K, V>>([generator = *(this->generator), flatten = std::forward<Flatten>(flatten)](function::BiConsumer<std::unordered_map<K, V>, function::Timestamp> accept, function::BiPredicate<std::unordered_map<K, V>, function::Timestamp> interrupt) -> void {
+			function::Timestamp count = 0LL;
+			bool stop = false;
+			auto capturedInterrupt = interrupt;
+			generator([&accept, &count, &stop, flatten, capturedInterrupt](std::unordered_map<K, V> container, function::Timestamp index) -> void {
+                if (stop) return;
+                if constexpr (std::is_invocable_r_v<Semantic<std::unordered_map<K, V>>, Flatten, std::unordered_map<K, V>, function::Timestamp>)
+                {
+                    Semantic<std::unordered_map<K, V>> inner = std::invoke(flatten, container, index);
+                    inner.source()([&accept, &count](std::unordered_map<K, V> innerElement, function::Timestamp innerIndex) -> void {
+                        accept(innerElement, count); count++;
+                    }, [capturedInterrupt, &stop, &count](std::unordered_map<K, V> innerElement, function::Timestamp innerIndex) -> bool {
+                        if (capturedInterrupt(innerElement, count)) { stop = true; return true; } return false;
+                    });
+                }
+                else if constexpr (std::is_invocable_r_v<Semantic<std::unordered_map<K, V>>, Flatten, std::unordered_map<K, V>>)
+                {
+                    Semantic<std::unordered_map<K, V>> inner = std::invoke(flatten, container);
+                    inner.source()([&accept, &count](std::unordered_map<K, V> innerElement, function::Timestamp innerIndex) -> void {
+                        accept(innerElement, count); count++;
+                    }, [capturedInterrupt, &stop, &count](std::unordered_map<K, V> innerElement, function::Timestamp innerIndex) -> bool {
+                        if (capturedInterrupt(innerElement, count)) { stop = true; return true; } return false;
+                    });
+                } }, [&stop](std::unordered_map<K, V> container, function::Timestamp index) -> bool { return stop; });
+		},
+												  this->concurrent);
+	}
+
+	template <typename R, typename Flatten>
+	auto flatMap(Flatten &&flatten) const -> Semantic<R>
+	{
+		return Semantic<R>([generator = *(this->generator), flatten = std::forward<Flatten>(flatten)](function::BiConsumer<R, function::Timestamp> accept, function::BiPredicate<R, function::Timestamp> interrupt) -> void {
+			function::Timestamp count = 0LL;
+			bool stop = false;
+			auto capturedInterrupt = interrupt;
+			generator([&accept, &count, &stop, flatten, capturedInterrupt](std::unordered_map<K, V> container, function::Timestamp index) -> void {
+                if (stop) return;
+                if constexpr (std::is_invocable_r_v<Semantic<R>, Flatten, std::unordered_map<K, V>, function::Timestamp>)
+                {
+                    Semantic<R> inner = std::invoke(flatten, container, index);
+                    inner.source()([&accept, &count](R innerElement, function::Timestamp innerIndex) -> void {
+                        accept(innerElement, count); count++;
+                    }, [capturedInterrupt, &stop, &count](R innerElement, function::Timestamp innerIndex) -> bool {
+                        if (capturedInterrupt(innerElement, count)) { stop = true; return true; } return false;
+                    });
+                }
+                else if constexpr (std::is_invocable_r_v<Semantic<R>, Flatten, std::unordered_map<K, V>>)
+                {
+                    Semantic<R> inner = std::invoke(flatten, container);
+                    inner.source()([&accept, &count](R innerElement, function::Timestamp innerIndex) -> void {
+                        accept(innerElement, count); count++;
+                    }, [capturedInterrupt, &stop, &count](R innerElement, function::Timestamp innerIndex) -> bool {
+                        if (capturedInterrupt(innerElement, count)) { stop = true; return true; } return false;
+                    });
+                } }, [&stop](std::unordered_map<K, V> container, function::Timestamp index) -> bool { return stop; });
+		},
+						   this->concurrent);
+	}
+
+	auto reverse() const -> Semantic<std::unordered_map<K, V>>
+	{
+		return Semantic<std::unordered_map<K, V>>([generator = *(this->generator)](function::BiConsumer<std::unordered_map<K, V>, function::Timestamp> accept, function::BiPredicate<std::unordered_map<K, V>, function::Timestamp> interrupt) -> void {
+			bool stop = false;
+			auto capturedInterrupt = interrupt;
+			generator([&accept, &stop](std::unordered_map<K, V> container, function::Timestamp index) -> void {
+                if (stop) return; accept(container, -index); }, [&capturedInterrupt, &stop](std::unordered_map<K, V> container, function::Timestamp index) -> bool {
+                if (capturedInterrupt(container, -index)) { stop = true; return true; }
+                return false; });
+		},
+												  this->concurrent);
+	}
+
+	auto translate(const function::Timestamp &offset) const -> Semantic<std::unordered_map<K, V>>
+	{
+		return Semantic<std::unordered_map<K, V>>([generator = *(this->generator), offset](function::BiConsumer<std::unordered_map<K, V>, function::Timestamp> accept, function::BiPredicate<std::unordered_map<K, V>, function::Timestamp> interrupt) -> void {
+			bool stop = false;
+			auto capturedInterrupt = interrupt;
+			generator([&accept, &stop, offset](std::unordered_map<K, V> container, function::Timestamp index) -> void {
+                if (stop) return; accept(container, index + offset); }, [&capturedInterrupt, &stop, offset](std::unordered_map<K, V> container, function::Timestamp index) -> bool {
+                if (capturedInterrupt(container, index + offset)) { stop = true; return true; }
+                return false; });
+		},
+												  this->concurrent);
+	}
+
+	auto translate(const function::BiFunction<std::unordered_map<K, V>, function::Timestamp, function::Timestamp> &translator) const -> Semantic<std::unordered_map<K, V>>
+	{
+		return Semantic<std::unordered_map<K, V>>([generator = *(this->generator), translator](function::BiConsumer<std::unordered_map<K, V>, function::Timestamp> accept, function::BiPredicate<std::unordered_map<K, V>, function::Timestamp> interrupt) -> void {
+			bool stop = false;
+			auto capturedInterrupt = interrupt;
+			generator([&accept, &stop, translator](std::unordered_map<K, V> container, function::Timestamp index) -> void {
+                if (stop) return; accept(container, translator(container, index)); }, [&capturedInterrupt, &stop, translator](std::unordered_map<K, V> container, function::Timestamp index) -> bool {
+                if (capturedInterrupt(container, translator(container, index))) { stop = true; return true; }
+                return false; });
+		},
+												  this->concurrent);
+	}
+
+	auto redirect(const function::BiFunction<std::unordered_map<K, V>, function::Timestamp, std::unordered_map<K, V>> &redirector) const -> Semantic<std::unordered_map<K, V>>
+	{
+		return Semantic<std::unordered_map<K, V>>([generator = *(this->generator), redirector](function::BiConsumer<std::unordered_map<K, V>, function::Timestamp> accept, function::BiPredicate<std::unordered_map<K, V>, function::Timestamp> interrupt) -> void {
+			bool stop = false;
+			auto capturedInterrupt = interrupt;
+			generator([&accept, &stop, &redirector](std::unordered_map<K, V> container, function::Timestamp index) -> void {
+                if (stop) return; accept(redirector(container, index), index); }, [&capturedInterrupt, &stop, &redirector](std::unordered_map<K, V> container, function::Timestamp index) -> bool {
+                if (capturedInterrupt(redirector(container, index), index)) { stop = true; return true; }
+                return false; });
+		},
+												  this->concurrent);
+	}
+
+	auto sub(const function::Module &start, const function::Module &end) const -> Semantic<std::unordered_map<K, V>>
+	{
+		return Semantic<std::unordered_map<K, V>>([generator = *(this->generator), start, end](function::BiConsumer<std::unordered_map<K, V>, function::Timestamp> accept, function::BiPredicate<std::unordered_map<K, V>, function::Timestamp> interrupt) -> void {
+			function::Module count = 0;
+			bool stop = false;
+			auto capturedInterrupt = interrupt;
+			generator([&accept, &count, &stop, start, end](std::unordered_map<K, V> container, function::Timestamp index) -> void {
+                if (stop) return;
+                if (count >= start && count < end) { accept(container, count); }
+                count++; if (count >= end) { stop = true; } }, [&capturedInterrupt, &stop, &count](std::unordered_map<K, V> container, function::Timestamp index) -> bool {
+                if (capturedInterrupt(container, count)) { stop = true; return true; }
+                return stop; });
+		},
+												  this->concurrent);
+	}
+
+	auto parallel() const -> Semantic<std::unordered_map<K, V>> { return Semantic<std::unordered_map<K, V>>(this->source(), this->concurrent + 1); }
+	auto parallel(const function::Module &concurrent) const -> Semantic<std::unordered_map<K, V>> { return Semantic<std::unordered_map<K, V>>(this->source(), std::max(concurrent, 1ULL)); }
+
+	template <typename OtherContainer>
+	auto concatenate(OtherContainer &&otherContainer) const -> Semantic<std::unordered_map<K, V>>
+	{
+		if constexpr (std::is_same_v<std::decay_t<OtherContainer>, Semantic<std::unordered_map<K, V>>>)
+		{
+			return Semantic<std::unordered_map<K, V>>([generator = *(this->generator), other](function::BiConsumer<std::unordered_map<K, V>, function::Timestamp> accept, function::BiPredicate<std::unordered_map<K, V>, function::Timestamp> interrupt) -> void {
+				function::Timestamp count = 0LL;
+				bool stop = false;
+				auto capturedInterrupt = interrupt;
+				generator([&accept, &count, &stop](std::unordered_map<K, V> container, function::Timestamp index) -> void {
+                    if (stop) return; accept(container, count); count++; }, [&capturedInterrupt, &stop, &count](std::unordered_map<K, V> container, function::Timestamp index) -> bool {
+                    if (capturedInterrupt(container, count)) { stop = true; return true; } return false; });
+				if (!stop)
+				{
+					other.source()([&accept, &count, &stop](std::unordered_map<K, V> container, function::Timestamp index) -> void {
+                        if (stop) return; accept(container, count); count++; }, [&capturedInterrupt, &stop, &count](std::unordered_map<K, V> container, function::Timestamp index) -> bool {
+                        if (capturedInterrupt(container, count)) { stop = true; return true; } return false; });
+				}
+			},
+													  this->concurrent);
+		}
+		else if constexpr (std::is_same_v<std::decay_t<OtherContainer>, std::unordered_map<K, V>>)
+		{
+			return Semantic<std::unordered_map<K, V>>([generator = *(this->generator), elements = std::forward<OtherContainer>(otherContainer)](function::BiConsumer<std::unordered_map<K, V>, function::Timestamp> accept, function::BiPredicate<std::unordered_map<K, V>, function::Timestamp> interrupt) -> void {
+				function::Timestamp count = 0LL;
+				bool stop = false;
+				auto capturedInterrupt = interrupt;
+				generator([&accept, &count, &stop](std::unordered_map<K, V> container, function::Timestamp index) -> void {
+                    if (stop) return; accept(container, count); count++; }, [&capturedInterrupt, &stop, &count](std::unordered_map<K, V> container, function::Timestamp index) -> bool {
+                    if (capturedInterrupt(container, count)) { stop = true; return true; } return false; });
+				if (!stop)
+				{
+					if (!capturedInterrupt(elements, count))
+					{
+						accept(elements, count);
+					}
+				}
+			},
+													  this->concurrent);
+		}
+		else
+		{
+			return Semantic<std::unordered_map<K, V>>([generator = *(this->generator), elements = std::forward<OtherContainer>(otherContainer)](function::BiConsumer<std::unordered_map<K, V>, function::Timestamp> accept, function::BiPredicate<std::unordered_map<K, V>, function::Timestamp> interrupt) -> void {
+				function::Timestamp count = 0LL;
+				bool stop = false;
+				auto capturedInterrupt = interrupt;
+				generator([&accept, &count, &stop](std::unordered_map<K, V> container, function::Timestamp index) -> void {
+                    if (stop) return; accept(container, count); count++; }, [&capturedInterrupt, &stop, &count](std::unordered_map<K, V> container, function::Timestamp index) -> bool {
+                    if (capturedInterrupt(container, count)) { stop = true; return true; } return false; });
+				if (!stop)
+				{
+					for (const auto &element : elements)
+					{
+						if (stop)
+							break;
+						accept(element, count);
+						count++;
+					}
+				}
+			},
+													  this->concurrent);
+		}
+	}
+
+	auto toUnordered() const -> collectable::UnorderedCollectable<std::unordered_map<K, V>> { return collectable::UnorderedCollectable<std::unordered_map<K, V>>(this->source(), this->concurrent); }
+	auto toOrdered() const -> collectable::OrderedCollectable<std::unordered_map<K, V>> { return collectable::OrderedCollectable<std::unordered_map<K, V>>(this->source(), this->concurrent); }
+	auto toWindow() const -> collectable::WindowCollectable<std::unordered_map<K, V>> { return collectable::WindowCollectable<std::unordered_map<K, V>>(this->source(), this->concurrent); }
+	template <typename D>
+	auto toStatistics() const -> collectable::Statistics<std::unordered_map<K, V>, D> { return collectable::Statistics<std::unordered_map<K, V>, D>(this->source(), this->concurrent); }
+};
+} // namespace semantic
+
+template <typename E>
+auto collectable::WindowCollectable<E>::slide(const function::Module &size, const function::Timestamp &step) const -> semantic::Semantic<semantic::Semantic<E>>
+{
+	return semantic::Semantic<semantic::Semantic<E>>([buffer = this->buffer, size, step](auto accept, auto interrupt) -> void {
+		function::Module total = buffer.size();
+		function::Module outerIndex = 0LL;
+		bool stop = false;
+		for (function::Module start = 0; start < total && !stop; start += step)
+		{
+			function::Module end = std::min(start + size, total);
+			if (start < end)
+			{
+				std::vector<E> window;
+				for (function::Module i = start; i < end; i++)
+				{
+					window.push_back(buffer.at(i));
+				}
+				auto inner = semantic::Semantic<E>([window = std::move(window)](function::BiConsumer<E, function::Timestamp> innerAccept, function::BiPredicate<E, function::Timestamp> innerInterrupt) -> void {
+					function::Timestamp innerIdx = 0LL;
+					bool innerStop = false;
+					for (const auto &element : window)
+					{
+						if (innerInterrupt(element, innerIdx))
+						{
+							innerStop = true;
+							break;
+						}
+						if (!innerStop)
+						{
+							innerAccept(element, innerIdx);
+							innerIdx++;
+						}
+					}
+				},
+												   1LL);
+				if (interrupt(inner, outerIndex))
+				{
+					break;
+				}
+				accept(inner, outerIndex);
+				outerIndex++;
+			}
+		}
+	},
+													 this->concurrent);
+}

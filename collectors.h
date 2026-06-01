@@ -440,7 +440,8 @@ auto useFindNegativeAt(const function::Timestamp &index) -> Collector<E, std::pa
 			if (accumulatorValue.second == 0)
 				return std::nullopt;
 			function::Module size = accumulatorValue.second;
-			function::Module target = (size + index % size) % size;
+			function::Module absIndex = static_cast<function::Module>(std::abs(index));
+			function::Module target = (size - (absIndex % size)) % size;
 			if (target < accumulatorValue.first.size())
 				return std::optional<E>(accumulatorValue.first[target]);
 			return std::nullopt;

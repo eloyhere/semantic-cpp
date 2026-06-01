@@ -1,24 +1,26 @@
 #pragma once
-#include "function.h"
+
+#include "charsequence.h"
 #include "collector.h"
 #include "collectors.h"
-#include "charsequence.h"
-#include <memory>
-#include <functional>
-#include <unordered_set>
-#include <set>
-#include <vector>
-#include <deque>
-#include <list>
-#include <array>
-#include <forward_list>
-#include <stack>
-#include <queue>
-#include <map>
-#include <unordered_map>
-#include <optional>
+#include "function.h"
+
 #include <algorithm>
+#include <array>
+#include <deque>
+#include <forward_list>
+#include <functional>
+#include <list>
+#include <map>
+#include <memory>
+#include <optional>
+#include <queue>
+#include <set>
+#include <stack>
 #include <type_traits>
+#include <unordered_map>
+#include <unordered_set>
+#include <vector>
 
 namespace semantic
 {
@@ -75,19 +77,19 @@ class Collectable
 
 	auto error() const -> void
 	{
-		collector::Collector<E, charsequence::Charsequence, charsequence::Charsequence> collectorValue = collector::useError<E>();
+		collector::Collector<E, charsequence::Builder, charsequence::Charsequence> collectorValue = collector::useError<E>();
 		collectorValue.collect(this->source(), this->concurrent);
 	}
 
 	auto error(const charsequence::Charsequence &delimiter) const -> void
 	{
-		collector::Collector<E, charsequence::Charsequence, charsequence::Charsequence> collectorValue = collector::useError<E>(delimiter);
+		collector::Collector<E, charsequence::Builder, charsequence::Charsequence> collectorValue = collector::useError<E>(delimiter);
 		collectorValue.collect(this->source(), this->concurrent);
 	}
 
 	auto error(const charsequence::Charsequence &prefix, const charsequence::Charsequence &delimiter, const charsequence::Charsequence &suffix) const -> void
 	{
-		collector::Collector<E, charsequence::Charsequence, charsequence::Charsequence> collectorValue = collector::useError<E>(prefix, delimiter, suffix);
+		collector::Collector<E, charsequence::Builder, charsequence::Charsequence> collectorValue = collector::useError<E>(prefix, delimiter, suffix);
 		collectorValue.collect(this->source(), this->concurrent);
 	}
 
@@ -169,19 +171,19 @@ class Collectable
 
 	auto join() const -> charsequence::Charsequence
 	{
-		collector::Collector<E, charsequence::Charsequence, charsequence::Charsequence> collectorValue = collector::useJoin<E>();
+		collector::Collector<E, charsequence::Builder, charsequence::Charsequence> collectorValue = collector::useJoin<E>();
 		return collectorValue.collect(this->source(), this->concurrent);
 	}
 
 	auto join(const charsequence::Charsequence &delimiter) const -> charsequence::Charsequence
 	{
-		collector::Collector<E, charsequence::Charsequence, charsequence::Charsequence> collectorValue = collector::useJoin<E>(delimiter);
+		collector::Collector<E, charsequence::Builder, charsequence::Charsequence> collectorValue = collector::useJoin<E>(delimiter);
 		return collectorValue.collect(this->source(), this->concurrent);
 	}
 
 	auto join(const charsequence::Charsequence &prefix, const charsequence::Charsequence &delimiter, const charsequence::Charsequence &suffix) const -> charsequence::Charsequence
 	{
-		collector::Collector<E, charsequence::Charsequence, charsequence::Charsequence> collectorValue = collector::useJoin<E>(prefix, delimiter, suffix);
+		collector::Collector<E, charsequence::Builder, charsequence::Charsequence> collectorValue = collector::useJoin<E>(prefix, delimiter, suffix);
 		return collectorValue.collect(this->source(), this->concurrent);
 	}
 
@@ -193,19 +195,19 @@ class Collectable
 
 	auto out() const -> charsequence::Charsequence
 	{
-		collector::Collector<E, charsequence::Charsequence, charsequence::Charsequence> collectorValue = collector::useOut<E>();
+		collector::Collector<E, charsequence::Builder, charsequence::Charsequence> collectorValue = collector::useOut<E>();
 		return collectorValue.collect(this->source(), this->concurrent);
 	}
 
 	auto out(const charsequence::Charsequence &delimiter) const -> charsequence::Charsequence
 	{
-		collector::Collector<E, charsequence::Charsequence, charsequence::Charsequence> collectorValue = collector::useOut<E>(delimiter);
+		collector::Collector<E, charsequence::Builder, charsequence::Charsequence> collectorValue = collector::useOut<E>(delimiter);
 		return collectorValue.collect(this->source(), this->concurrent);
 	}
 
 	auto out(const charsequence::Charsequence &prefix, const charsequence::Charsequence &delimiter, const charsequence::Charsequence &suffix) const -> charsequence::Charsequence
 	{
-		collector::Collector<E, charsequence::Charsequence, charsequence::Charsequence> collectorValue = collector::useOut<E>(prefix, delimiter, suffix);
+		collector::Collector<E, charsequence::Builder, charsequence::Charsequence> collectorValue = collector::useOut<E>(prefix, delimiter, suffix);
 		return collectorValue.collect(this->source(), this->concurrent);
 	}
 
@@ -243,6 +245,25 @@ class Collectable
 
 	virtual auto source() const -> function::Generator<E> = 0;
 
+	template <std::size_t N>
+	auto toArray() const -> std::array<E, N>
+	{
+		collector::Collector<E, std::array<E, N>, std::array<E, N>> collectorValue = collector::useToArray<E, N>();
+		return collectorValue.collect(this->source(), this->concurrent);
+	}
+
+	auto toDeque() const -> std::deque<E>
+	{
+		collector::Collector<E, std::deque<E>, std::deque<E>> collectorValue = collector::useToDeque<E>();
+		return collectorValue.collect(this->source(), this->concurrent);
+	}
+
+	auto toForwardList() const -> std::forward_list<E>
+	{
+		collector::Collector<E, std::forward_list<E>, std::forward_list<E>> collectorValue = collector::useToForwardList<E>();
+		return collectorValue.collect(this->source(), this->concurrent);
+	}
+
 	auto toList() const -> std::list<E>
 	{
 		collector::Collector<E, std::list<E>, std::list<E>> collectorValue = collector::useToList<E>();
@@ -263,9 +284,80 @@ class Collectable
 		return collectorValue.collect(this->source(), this->concurrent);
 	}
 
+	template <typename K, typename KeyExtractor>
+	auto toMultimap(KeyExtractor &&keyExtractor) const -> std::multimap<K, E>
+	{
+		collector::Collector<E, std::multimap<K, E>, std::multimap<K, E>> collectorValue = collector::useToMultimap<E, K, KeyExtractor>(std::forward<KeyExtractor>(keyExtractor));
+		return collectorValue.collect(this->source(), this->concurrent);
+	}
+
+	template <typename K, typename V, typename KeyExtractor, typename ValueExtractor>
+	auto toMultimap(KeyExtractor &&keyExtractor, ValueExtractor &&valueExtractor) const -> std::multimap<K, V>
+	{
+		collector::Collector<E, std::multimap<K, V>, std::multimap<K, V>> collectorValue = collector::useToMultimap<E, K, V, KeyExtractor, ValueExtractor>(std::forward<KeyExtractor>(keyExtractor), std::forward<ValueExtractor>(valueExtractor));
+		return collectorValue.collect(this->source(), this->concurrent);
+	}
+
+	auto toMultiset() const -> std::multiset<E>
+	{
+		collector::Collector<E, std::multiset<E>, std::multiset<E>> collectorValue = collector::useToMultiset<E>();
+		return collectorValue.collect(this->source(), this->concurrent);
+	}
+
+	auto toPriorityQueue() const -> std::priority_queue<E>
+	{
+		collector::Collector<E, std::priority_queue<E>, std::priority_queue<E>> collectorValue = collector::useToPriorityQueue<E>();
+		return collectorValue.collect(this->source(), this->concurrent);
+	}
+
+	auto toQueue() const -> std::queue<E>
+	{
+		collector::Collector<E, std::queue<E>, std::queue<E>> collectorValue = collector::useToQueue<E>();
+		return collectorValue.collect(this->source(), this->concurrent);
+	}
+
 	auto toSet() const -> std::set<E>
 	{
 		collector::Collector<E, std::set<E>, std::set<E>> collectorValue = collector::useToSet<E>();
+		return collectorValue.collect(this->source(), this->concurrent);
+	}
+
+	auto toStack() const -> std::stack<E>
+	{
+		collector::Collector<E, std::stack<E>, std::stack<E>> collectorValue = collector::useToStack<E>();
+		return collectorValue.collect(this->source(), this->concurrent);
+	}
+
+	template <typename K, typename V>
+	auto toUnorderedMap(const function::BiFunction<E, function::Timestamp, K> &keyExtractor, const function::BiFunction<E, function::Timestamp, V> &valueExtractor) const -> std::unordered_map<K, V>
+	{
+		collector::Collector<E, std::unordered_map<K, V>, std::unordered_map<K, V>> collectorValue = collector::useToUnorderedMap<E, K, V>(keyExtractor, valueExtractor);
+		return collectorValue.collect(this->source(), this->concurrent);
+	}
+
+	template <typename K, typename KeyExtractor>
+	auto toUnorderedMultimap(KeyExtractor &&keyExtractor) const -> std::unordered_multimap<K, E>
+	{
+		collector::Collector<E, std::unordered_multimap<K, E>, std::unordered_multimap<K, E>> collectorValue = collector::useToUnorderedMultimap<E, K, KeyExtractor>(std::forward<KeyExtractor>(keyExtractor));
+		return collectorValue.collect(this->source(), this->concurrent);
+	}
+
+	template <typename K, typename V, typename KeyExtractor, typename ValueExtractor>
+	auto toUnorderedMultimap(KeyExtractor &&keyExtractor, ValueExtractor &&valueExtractor) const -> std::unordered_multimap<K, V>
+	{
+		collector::Collector<E, std::unordered_multimap<K, V>, std::unordered_multimap<K, V>> collectorValue = collector::useToUnorderedMultimap<E, K, V, KeyExtractor, ValueExtractor>(std::forward<KeyExtractor>(keyExtractor), std::forward<ValueExtractor>(valueExtractor));
+		return collectorValue.collect(this->source(), this->concurrent);
+	}
+
+	auto toUnorderedMultiset() const -> std::unordered_multiset<E>
+	{
+		collector::Collector<E, std::unordered_multiset<E>, std::unordered_multiset<E>> collectorValue = collector::useToUnorderedMultiset<E>();
+		return collectorValue.collect(this->source(), this->concurrent);
+	}
+
+	auto toUnorderedSet() const -> std::unordered_set<E>
+	{
+		collector::Collector<E, std::unordered_set<E>, std::unordered_set<E>> collectorValue = collector::useToUnorderedSet<E>();
 		return collectorValue.collect(this->source(), this->concurrent);
 	}
 

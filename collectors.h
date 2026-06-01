@@ -632,251 +632,329 @@ auto useGroup(KeyExtractor &&keyExtractor) -> Collector<E, std::unordered_map<K,
 }
 
 template <typename E>
-auto useJoin() -> Collector<E, charsequence::Charsequence, charsequence::Charsequence>
+auto useJoin() -> Collector<E, charsequence::Builder, charsequence::Charsequence>
 {
-	return useFull<E, charsequence::Charsequence, charsequence::Charsequence>(
-		[]() -> charsequence::Charsequence { return charsequence::Charsequence(); },
-		[](charsequence::Charsequence accumulatorValue, E element, function::Timestamp index) -> charsequence::Charsequence {
+	return useFull<E, charsequence::Builder, charsequence::Charsequence>(
+		[]() -> charsequence::Builder { return charsequence::Builder(); },
+		[](charsequence::Builder accumulatorValue, E element, function::Timestamp index) -> charsequence::Builder {
 			if constexpr (std::is_same_v<E, charsequence::Charsequence>)
 			{
 				if (accumulatorValue.size() > 0)
-					return accumulatorValue + charsequence::Charsequence(",") + element;
-				return element;
+					accumulatorValue.append(",");
+				accumulatorValue.append(element);
 			}
 			else if constexpr (std::is_arithmetic_v<E>)
 			{
-				charsequence::Charsequence elementStr(std::to_string(element));
 				if (accumulatorValue.size() > 0)
-					return accumulatorValue + charsequence::Charsequence(",") + elementStr;
-				return elementStr;
+					accumulatorValue.append(",");
+				accumulatorValue.append(std::to_string(element));
 			}
 			return accumulatorValue;
 		},
-		[](charsequence::Charsequence a, charsequence::Charsequence b) -> charsequence::Charsequence { return a + charsequence::Charsequence(",") + b; },
-		[](charsequence::Charsequence accumulatorValue) -> charsequence::Charsequence { return charsequence::Charsequence("[") + accumulatorValue + charsequence::Charsequence("]"); });
-}
-
-template <typename E>
-auto useJoin(const charsequence::Charsequence &delimiter) -> Collector<E, charsequence::Charsequence, charsequence::Charsequence>
-{
-	return useFull<E, charsequence::Charsequence, charsequence::Charsequence>(
-		[]() -> charsequence::Charsequence { return charsequence::Charsequence(); },
-		[delimiter](charsequence::Charsequence accumulatorValue, E element, function::Timestamp index) -> charsequence::Charsequence {
-			if constexpr (std::is_same_v<E, charsequence::Charsequence>)
-			{
-				if (accumulatorValue.size() > 0)
-					return accumulatorValue + delimiter + element;
-				return element;
-			}
-			else if constexpr (std::is_arithmetic_v<E>)
-			{
-				charsequence::Charsequence elementStr(std::to_string(element));
-				if (accumulatorValue.size() > 0)
-					return accumulatorValue + delimiter + elementStr;
-				return elementStr;
-			}
-			return accumulatorValue;
+		[](charsequence::Builder a, charsequence::Builder b) -> charsequence::Builder {
+			if (a.size() > 0 && b.size() > 0)
+				a.append(",");
+			a.append(b.toCharsequence());
+			return a;
 		},
-		[](charsequence::Charsequence a, charsequence::Charsequence b) -> charsequence::Charsequence { return a + charsequence::Charsequence(",") + b; },
-		[](charsequence::Charsequence accumulatorValue) -> charsequence::Charsequence { return charsequence::Charsequence("[") + accumulatorValue + charsequence::Charsequence("]"); });
-}
-
-template <typename E>
-auto useJoin(const charsequence::Charsequence &prefix, const charsequence::Charsequence &delimiter, const charsequence::Charsequence &suffix) -> Collector<E, charsequence::Charsequence, charsequence::Charsequence>
-{
-	return useFull<E, charsequence::Charsequence, charsequence::Charsequence>(
-		[]() -> charsequence::Charsequence { return charsequence::Charsequence(); },
-		[delimiter](charsequence::Charsequence accumulatorValue, E element, function::Timestamp index) -> charsequence::Charsequence {
-			if constexpr (std::is_same_v<E, charsequence::Charsequence>)
-			{
-				if (accumulatorValue.size() > 0)
-					return accumulatorValue + delimiter + element;
-				return element;
-			}
-			else if constexpr (std::is_arithmetic_v<E>)
-			{
-				charsequence::Charsequence elementStr(std::to_string(element));
-				if (accumulatorValue.size() > 0)
-					return accumulatorValue + delimiter + elementStr;
-				return elementStr;
-			}
-			return accumulatorValue;
-		},
-		[delimiter](charsequence::Charsequence a, charsequence::Charsequence b) -> charsequence::Charsequence { return a + delimiter + b; },
-		[prefix, suffix](charsequence::Charsequence accumulatorValue) -> charsequence::Charsequence { return prefix + accumulatorValue + suffix; });
-}
-
-template <typename E>
-auto useOut() -> Collector<E, charsequence::Charsequence, charsequence::Charsequence>
-{
-	return useFull<E, charsequence::Charsequence, charsequence::Charsequence>(
-		[]() -> charsequence::Charsequence { return charsequence::Charsequence(); },
-		[](charsequence::Charsequence accumulatorValue, E element, function::Timestamp index) -> charsequence::Charsequence {
-			if constexpr (std::is_same_v<E, charsequence::Charsequence>)
-			{
-				if (accumulatorValue.size() > 0)
-					return accumulatorValue + charsequence::Charsequence(",") + element;
-				return element;
-			}
-			else if constexpr (std::is_arithmetic_v<E>)
-			{
-				charsequence::Charsequence elementStr(std::to_string(element));
-				if (accumulatorValue.size() > 0)
-					return accumulatorValue + charsequence::Charsequence(",") + elementStr;
-				return elementStr;
-			}
-			return accumulatorValue;
-		},
-		[](charsequence::Charsequence a, charsequence::Charsequence b) -> charsequence::Charsequence { return a + charsequence::Charsequence(",") + b; },
-		[](charsequence::Charsequence accumulatorValue) -> charsequence::Charsequence {
-			charsequence::Charsequence result = charsequence::Charsequence("[") + accumulatorValue + charsequence::Charsequence("]");
-			std::cout << result << '\n';
-			return result;
+		[](charsequence::Builder accumulatorValue) -> charsequence::Charsequence {
+			charsequence::Builder result;
+			result.append("[");
+			result.append(accumulatorValue.toCharsequence());
+			result.append("]");
+			return result.toCharsequence();
 		});
 }
 
 template <typename E>
-auto useOut(const charsequence::Charsequence &delimiter) -> Collector<E, charsequence::Charsequence, charsequence::Charsequence>
+auto useJoin(const charsequence::Charsequence &delimiter) -> Collector<E, charsequence::Builder, charsequence::Charsequence>
 {
-	return useFull<E, charsequence::Charsequence, charsequence::Charsequence>(
-		[]() -> charsequence::Charsequence { return charsequence::Charsequence(); },
-		[delimiter](charsequence::Charsequence accumulatorValue, E element, function::Timestamp index) -> charsequence::Charsequence {
+	return useFull<E, charsequence::Builder, charsequence::Charsequence>(
+		[]() -> charsequence::Builder { return charsequence::Builder(); },
+		[delimiter](charsequence::Builder accumulatorValue, E element, function::Timestamp index) -> charsequence::Builder {
 			if constexpr (std::is_same_v<E, charsequence::Charsequence>)
 			{
 				if (accumulatorValue.size() > 0)
-					return accumulatorValue + delimiter + element;
-				return element;
+					accumulatorValue.append(delimiter);
+				accumulatorValue.append(element);
 			}
 			else if constexpr (std::is_arithmetic_v<E>)
 			{
-				charsequence::Charsequence elementStr(std::to_string(element));
 				if (accumulatorValue.size() > 0)
-					return accumulatorValue + delimiter + elementStr;
-				return elementStr;
+					accumulatorValue.append(delimiter);
+				accumulatorValue.append(std::to_string(element));
 			}
 			return accumulatorValue;
 		},
-		[](charsequence::Charsequence a, charsequence::Charsequence b) -> charsequence::Charsequence { return a + charsequence::Charsequence(",") + b; },
-		[](charsequence::Charsequence accumulatorValue) -> charsequence::Charsequence {
-			charsequence::Charsequence result = charsequence::Charsequence("[") + accumulatorValue + charsequence::Charsequence("]");
-			std::cout << result << '\n';
-			return result;
+		[delimiter](charsequence::Builder a, charsequence::Builder b) -> charsequence::Builder {
+			if (a.size() > 0 && b.size() > 0)
+				a.append(delimiter);
+			a.append(b.toCharsequence());
+			return a;
+		},
+		[](charsequence::Builder accumulatorValue) -> charsequence::Charsequence {
+			charsequence::Builder result;
+			result.append("[");
+			result.append(accumulatorValue.toCharsequence());
+			result.append("]");
+			return result.toCharsequence();
 		});
 }
 
 template <typename E>
-auto useOut(const charsequence::Charsequence &prefix, const charsequence::Charsequence &delimiter, const charsequence::Charsequence &suffix) -> Collector<E, charsequence::Charsequence, charsequence::Charsequence>
+auto useJoin(const charsequence::Charsequence &prefix, const charsequence::Charsequence &delimiter, const charsequence::Charsequence &suffix) -> Collector<E, charsequence::Builder, charsequence::Charsequence>
 {
-	return useFull<E, charsequence::Charsequence, charsequence::Charsequence>(
-		[]() -> charsequence::Charsequence { return charsequence::Charsequence(); },
-		[delimiter](charsequence::Charsequence accumulatorValue, E element, function::Timestamp index) -> charsequence::Charsequence {
+	return useFull<E, charsequence::Builder, charsequence::Charsequence>(
+		[]() -> charsequence::Builder { return charsequence::Builder(); },
+		[delimiter](charsequence::Builder accumulatorValue, E element, function::Timestamp index) -> charsequence::Builder {
+			if constexpr (std::is_same_v<E, charsequence::Charsequence>)
+			{
+				if (accumulatorValue.size() > 0)
+					accumulatorValue.append(delimiter);
+				accumulatorValue.append(element);
+			}
+			else if constexpr (std::is_arithmetic_v<E>)
+			{
+				if (accumulatorValue.size() > 0)
+					accumulatorValue.append(delimiter);
+				accumulatorValue.append(std::to_string(element));
+			}
+			return accumulatorValue;
+		},
+		[delimiter](charsequence::Builder a, charsequence::Builder b) -> charsequence::Builder {
+			if (a.size() > 0 && b.size() > 0)
+				a.append(delimiter);
+			a.append(b.toCharsequence());
+			return a;
+		},
+		[prefix, suffix](charsequence::Builder accumulatorValue) -> charsequence::Charsequence {
+			charsequence::Builder result;
+			result.append(prefix);
+			result.append(accumulatorValue.toCharsequence());
+			result.append(suffix);
+			return result.toCharsequence();
+		});
+}
+
+template <typename E>
+auto useOut() -> Collector<E, charsequence::Builder, charsequence::Charsequence>
+{
+	return useFull<E, charsequence::Builder, charsequence::Charsequence>(
+		[]() -> charsequence::Builder { return charsequence::Builder(); },
+		[](charsequence::Builder accumulatorValue, E element, function::Timestamp index) -> charsequence::Builder {
+			if constexpr (std::is_same_v<E, charsequence::Charsequence>)
+			{
+				if (accumulatorValue.size() > 0)
+					accumulatorValue.append(",");
+				accumulatorValue.append(element);
+			}
+			else if constexpr (std::is_arithmetic_v<E>)
+			{
+				if (accumulatorValue.size() > 0)
+					accumulatorValue.append(",");
+				accumulatorValue.append(std::to_string(element));
+			}
+			return accumulatorValue;
+		},
+		[](charsequence::Builder a, charsequence::Builder b) -> charsequence::Builder {
+			if (a.size() > 0 && b.size() > 0)
+				a.append(",");
+			a.append(b.toCharsequence());
+			return a;
+		},
+		[](charsequence::Builder accumulatorValue) -> charsequence::Charsequence {
+			charsequence::Builder result;
+			result.append("[");
+			result.append(accumulatorValue.toCharsequence());
+			result.append("]");
+			charsequence::Charsequence finalResult = result.toCharsequence();
+			std::cout << finalResult << '\n';
+			return finalResult;
+		});
+}
+
+template <typename E>
+auto useOut(const charsequence::Charsequence &delimiter) -> Collector<E, charsequence::Builder, charsequence::Charsequence>
+{
+	return useFull<E, charsequence::Builder, charsequence::Charsequence>(
+		[]() -> charsequence::Builder { return charsequence::Builder(); },
+		[delimiter](charsequence::Builder accumulatorValue, E element, function::Timestamp index) -> charsequence::Builder {
+			if constexpr (std::is_same_v<E, charsequence::Charsequence>)
+			{
+				if (accumulatorValue.size() > 0)
+					accumulatorValue.append(delimiter);
+				accumulatorValue.append(element);
+			}
+			else if constexpr (std::is_arithmetic_v<E>)
+			{
+				if (accumulatorValue.size() > 0)
+					accumulatorValue.append(delimiter);
+				accumulatorValue.append(std::to_string(element));
+			}
+			return accumulatorValue;
+		},
+		[](charsequence::Builder a, charsequence::Builder b) -> charsequence::Builder {
+			if (a.size() > 0 && b.size() > 0)
+				a.append(",");
+			a.append(b.toCharsequence());
+			return a;
+		},
+		[](charsequence::Builder accumulatorValue) -> charsequence::Charsequence {
+			charsequence::Builder result;
+			result.append("[");
+			result.append(accumulatorValue.toCharsequence());
+			result.append("]");
+			charsequence::Charsequence finalResult = result.toCharsequence();
+			std::cout << finalResult << '\n';
+			return finalResult;
+		});
+}
+
+template <typename E>
+auto useOut(const charsequence::Charsequence &prefix, const charsequence::Charsequence &delimiter, const charsequence::Charsequence &suffix) -> Collector<E, charsequence::Builder, charsequence::Charsequence>
+{
+	return useFull<E, charsequence::Builder, charsequence::Charsequence>(
+		[]() -> charsequence::Builder { return charsequence::Builder(); },
+		[delimiter](charsequence::Builder accumulatorValue, E element, function::Timestamp index) -> charsequence::Builder {
 			if constexpr (std::is_same_v<E, charsequence::Charsequence>)
 			{
 				if (accumulatorValue.size() > 1)
-					return accumulatorValue + delimiter + element;
-				return element;
+					accumulatorValue.append(delimiter);
+				accumulatorValue.append(element);
 			}
 			else if constexpr (std::is_arithmetic_v<E>)
 			{
-				charsequence::Charsequence elementStr(std::to_string(element));
 				if (accumulatorValue.size() > 1)
-					return accumulatorValue + delimiter + elementStr;
-				return elementStr;
+					accumulatorValue.append(delimiter);
+				accumulatorValue.append(std::to_string(element));
 			}
 			return accumulatorValue;
 		},
-		[delimiter](charsequence::Charsequence a, charsequence::Charsequence b) -> charsequence::Charsequence { return a + delimiter + b; },
-		[prefix, suffix](charsequence::Charsequence accumulatorValue) -> charsequence::Charsequence {
-			charsequence::Charsequence result = prefix + accumulatorValue + suffix;
-			std::cout << result << '\n';
-			return result;
+		[delimiter](charsequence::Builder a, charsequence::Builder b) -> charsequence::Builder {
+			if (a.size() > 0 && b.size() > 0)
+				a.append(delimiter);
+			a.append(b.toCharsequence());
+			return a;
+		},
+		[prefix, suffix](charsequence::Builder accumulatorValue) -> charsequence::Charsequence {
+			charsequence::Builder result;
+			result.append(prefix);
+			result.append(accumulatorValue.toCharsequence());
+			result.append(suffix);
+			charsequence::Charsequence finalResult = result.toCharsequence();
+			std::cout << finalResult << '\n';
+			return finalResult;
 		});
 }
 
 template <typename E>
-auto useError() -> Collector<E, charsequence::Charsequence, charsequence::Charsequence>
+auto useError() -> Collector<E, charsequence::Builder, charsequence::Charsequence>
 {
-	return useFull<E, charsequence::Charsequence, charsequence::Charsequence>(
-		[]() -> charsequence::Charsequence { return charsequence::Charsequence(); },
-		[](charsequence::Charsequence accumulatorValue, E element, function::Timestamp index) -> charsequence::Charsequence {
+	return useFull<E, charsequence::Builder, charsequence::Charsequence>(
+		[]() -> charsequence::Builder { return charsequence::Builder(); },
+		[](charsequence::Builder accumulatorValue, E element, function::Timestamp index) -> charsequence::Builder {
 			if constexpr (std::is_same_v<E, charsequence::Charsequence>)
 			{
 				if (accumulatorValue.size() > 0)
-					return accumulatorValue + charsequence::Charsequence(",") + element;
-				return element;
+					accumulatorValue.append(",");
+				accumulatorValue.append(element);
 			}
 			else if constexpr (std::is_arithmetic_v<E>)
 			{
-				charsequence::Charsequence elementStr(std::to_string(element));
 				if (accumulatorValue.size() > 0)
-					return accumulatorValue + charsequence::Charsequence(",") + elementStr;
-				return elementStr;
+					accumulatorValue.append(",");
+				accumulatorValue.append(std::to_string(element));
 			}
 			return accumulatorValue;
 		},
-		[](charsequence::Charsequence a, charsequence::Charsequence b) -> charsequence::Charsequence { return a + charsequence::Charsequence(",") + b; },
-		[](charsequence::Charsequence accumulatorValue) -> charsequence::Charsequence {
-			charsequence::Charsequence result = charsequence::Charsequence("[") + accumulatorValue + charsequence::Charsequence("]");
-			std::cerr << result << '\n';
-			return result;
+		[](charsequence::Builder a, charsequence::Builder b) -> charsequence::Builder {
+			if (a.size() > 0 && b.size() > 0)
+				a.append(",");
+			a.append(b.toCharsequence());
+			return a;
+		},
+		[](charsequence::Builder accumulatorValue) -> charsequence::Charsequence {
+			charsequence::Builder result;
+			result.append("[");
+			result.append(accumulatorValue.toCharsequence());
+			result.append("]");
+			charsequence::Charsequence finalResult = result.toCharsequence();
+			std::cerr << finalResult << '\n';
+			return finalResult;
 		});
 }
 
 template <typename E>
-auto useError(const charsequence::Charsequence &delimiter) -> Collector<E, charsequence::Charsequence, charsequence::Charsequence>
+auto useError(const charsequence::Charsequence &delimiter) -> Collector<E, charsequence::Builder, charsequence::Charsequence>
 {
-	return useFull<E, charsequence::Charsequence, charsequence::Charsequence>(
-		[]() -> charsequence::Charsequence { return charsequence::Charsequence(); },
-		[delimiter](charsequence::Charsequence accumulatorValue, E element, function::Timestamp index) -> charsequence::Charsequence {
+	return useFull<E, charsequence::Builder, charsequence::Charsequence>(
+		[]() -> charsequence::Builder { return charsequence::Builder(); },
+		[delimiter](charsequence::Builder accumulatorValue, E element, function::Timestamp index) -> charsequence::Builder {
 			if constexpr (std::is_same_v<E, charsequence::Charsequence>)
 			{
 				if (accumulatorValue.size() > 0)
-					return accumulatorValue + delimiter + element;
-				return element;
+					accumulatorValue.append(delimiter);
+				accumulatorValue.append(element);
 			}
 			else if constexpr (std::is_arithmetic_v<E>)
 			{
-				charsequence::Charsequence elementStr(std::to_string(element));
 				if (accumulatorValue.size() > 0)
-					return accumulatorValue + delimiter + elementStr;
-				return elementStr;
+					accumulatorValue.append(delimiter);
+				accumulatorValue.append(std::to_string(element));
 			}
 			return accumulatorValue;
 		},
-		[](charsequence::Charsequence a, charsequence::Charsequence b) -> charsequence::Charsequence { return a + charsequence::Charsequence(",") + b; },
-		[](charsequence::Charsequence accumulatorValue) -> charsequence::Charsequence {
-			charsequence::Charsequence result = charsequence::Charsequence("[") + accumulatorValue + charsequence::Charsequence("]");
-			std::cerr << result << '\n';
-			return result;
+		[](charsequence::Builder a, charsequence::Builder b) -> charsequence::Builder {
+			if (a.size() > 0 && b.size() > 0)
+				a.append(",");
+			a.append(b.toCharsequence());
+			return a;
+		},
+		[](charsequence::Builder accumulatorValue) -> charsequence::Charsequence {
+			charsequence::Builder result;
+			result.append("[");
+			result.append(accumulatorValue.toCharsequence());
+			result.append("]");
+			charsequence::Charsequence finalResult = result.toCharsequence();
+			std::cerr << finalResult << '\n';
+			return finalResult;
 		});
 }
 
 template <typename E>
-auto useError(const charsequence::Charsequence &prefix, const charsequence::Charsequence &delimiter, const charsequence::Charsequence &suffix) -> Collector<E, charsequence::Charsequence, charsequence::Charsequence>
+auto useError(const charsequence::Charsequence &prefix, const charsequence::Charsequence &delimiter, const charsequence::Charsequence &suffix) -> Collector<E, charsequence::Builder, charsequence::Charsequence>
 {
-	return useFull<E, charsequence::Charsequence, charsequence::Charsequence>(
-		[]() -> charsequence::Charsequence { return charsequence::Charsequence(); },
-		[delimiter](charsequence::Charsequence accumulatorValue, E element, function::Timestamp index) -> charsequence::Charsequence {
+	return useFull<E, charsequence::Builder, charsequence::Charsequence>(
+		[]() -> charsequence::Builder { return charsequence::Builder(); },
+		[delimiter](charsequence::Builder accumulatorValue, E element, function::Timestamp index) -> charsequence::Builder {
 			if constexpr (std::is_same_v<E, charsequence::Charsequence>)
 			{
 				if (accumulatorValue.size() > 1)
-					return accumulatorValue + delimiter + element;
-				return element;
+					accumulatorValue.append(delimiter);
+				accumulatorValue.append(element);
 			}
 			else if constexpr (std::is_arithmetic_v<E>)
 			{
-				charsequence::Charsequence elementStr(std::to_string(element));
 				if (accumulatorValue.size() > 1)
-					return accumulatorValue + delimiter + elementStr;
-				return elementStr;
+					accumulatorValue.append(delimiter);
+				accumulatorValue.append(std::to_string(element));
 			}
 			return accumulatorValue;
 		},
-		[delimiter](charsequence::Charsequence a, charsequence::Charsequence b) -> charsequence::Charsequence { return a + delimiter + b; },
-		[prefix, suffix](charsequence::Charsequence accumulatorValue) -> charsequence::Charsequence {
-			charsequence::Charsequence result = accumulatorValue + suffix;
-			std::cerr << result << '\n';
-			return result;
+		[delimiter](charsequence::Builder a, charsequence::Builder b) -> charsequence::Builder {
+			if (a.size() > 0 && b.size() > 0)
+				a.append(delimiter);
+			a.append(b.toCharsequence());
+			return a;
+		},
+		[prefix, suffix](charsequence::Builder accumulatorValue) -> charsequence::Charsequence {
+			charsequence::Builder result;
+			result.append(prefix);
+			result.append(accumulatorValue.toCharsequence());
+			result.append(suffix);
+			charsequence::Charsequence finalResult = result.toCharsequence();
+			std::cerr << finalResult << '\n';
+			return finalResult;
 		});
 }
 
@@ -1354,6 +1432,274 @@ auto useToUnorderedSet() -> Collector<E, std::unordered_set<E>, std::unordered_s
 		},
 		[](std::unordered_set<E> a, std::unordered_set<E> b) -> std::unordered_set<E> { a.insert(b.begin(), b.end()); return a; },
 		[](std::unordered_set<E> accumulatorValue) -> std::unordered_set<E> { return accumulatorValue; });
+}
+
+template <typename E>
+auto useToDeque() -> Collector<E, std::deque<E>, std::deque<E>>
+{
+	return useFull<E, std::deque<E>, std::deque<E>>(
+		[]() -> std::deque<E> { return std::deque<E>(); },
+		[](std::deque<E> accumulatorValue, E element, function::Timestamp index) -> std::deque<E> {
+			accumulatorValue.push_back(element);
+			return accumulatorValue;
+		},
+		[](std::deque<E> a, std::deque<E> b) -> std::deque<E> {
+			a.insert(a.end(), b.begin(), b.end());
+			return a;
+		},
+		[](std::deque<E> accumulatorValue) -> std::deque<E> { return accumulatorValue; });
+}
+
+template <typename E>
+auto useToForwardList() -> Collector<E, std::forward_list<E>, std::forward_list<E>>
+{
+	return useFull<E, std::forward_list<E>, std::forward_list<E>>(
+		[]() -> std::forward_list<E> { return std::forward_list<E>(); },
+		[](std::forward_list<E> accumulatorValue, E element, function::Timestamp index) -> std::forward_list<E> {
+			auto it = accumulatorValue.before_begin();
+			while (std::next(it) != accumulatorValue.end())
+			{
+				++it;
+			}
+			accumulatorValue.insert_after(it, element);
+			return accumulatorValue;
+		},
+		[](std::forward_list<E> a, std::forward_list<E> b) -> std::forward_list<E> {
+			auto it = a.before_begin();
+			while (std::next(it) != a.end())
+			{
+				++it;
+			}
+			a.splice_after(it, b);
+			return a;
+		},
+		[](std::forward_list<E> accumulatorValue) -> std::forward_list<E> { return accumulatorValue; });
+}
+
+template <typename E, std::size_t N>
+auto useToArray() -> Collector<E, std::array<E, N>, std::array<E, N>>
+{
+	return useFull<E, std::array<E, N>, std::array<E, N>>(
+		[]() -> std::array<E, N> {
+			std::array<E, N> arr;
+			return arr;
+		},
+		[](std::array<E, N> accumulatorValue, E element, function::Timestamp index) -> std::array<E, N> {
+			if (index < N)
+			{
+				accumulatorValue[index] = element;
+			}
+			return accumulatorValue;
+		},
+		[](std::array<E, N> a, std::array<E, N> b) -> std::array<E, N> {
+			return a;
+		},
+		[](std::array<E, N> accumulatorValue) -> std::array<E, N> { return accumulatorValue; });
+}
+
+template <typename E>
+auto useToMultiset() -> Collector<E, std::multiset<E>, std::multiset<E>>
+{
+	return useFull<E, std::multiset<E>, std::multiset<E>>(
+		[]() -> std::multiset<E> { return std::multiset<E>(); },
+		[](std::multiset<E> accumulatorValue, E element, function::Timestamp index) -> std::multiset<E> {
+			accumulatorValue.insert(element);
+			return accumulatorValue;
+		},
+		[](std::multiset<E> a, std::multiset<E> b) -> std::multiset<E> {
+			a.insert(b.begin(), b.end());
+			return a;
+		},
+		[](std::multiset<E> accumulatorValue) -> std::multiset<E> { return accumulatorValue; });
+}
+
+template <typename E>
+auto useToUnorderedMultiset() -> Collector<E, std::unordered_multiset<E>, std::unordered_multiset<E>>
+{
+	return useFull<E, std::unordered_multiset<E>, std::unordered_multiset<E>>(
+		[]() -> std::unordered_multiset<E> { return std::unordered_multiset<E>(); },
+		[](std::unordered_multiset<E> accumulatorValue, E element, function::Timestamp index) -> std::unordered_multiset<E> {
+			accumulatorValue.insert(element);
+			return accumulatorValue;
+		},
+		[](std::unordered_multiset<E> a, std::unordered_multiset<E> b) -> std::unordered_multiset<E> {
+			a.insert(b.begin(), b.end());
+			return a;
+		},
+		[](std::unordered_multiset<E> accumulatorValue) -> std::unordered_multiset<E> { return accumulatorValue; });
+}
+
+template <typename E>
+auto useToMultimap(const function::Function<E, function::Timestamp> &keyExtractor) -> Collector<E, std::multimap<function::Timestamp, E>, std::multimap<function::Timestamp, E>>
+{
+	return useFull<E, std::multimap<function::Timestamp, E>, std::multimap<function::Timestamp, E>>(
+		[]() -> std::multimap<function::Timestamp, E> { return std::multimap<function::Timestamp, E>(); },
+		[keyExtractor](std::multimap<function::Timestamp, E> accumulatorValue, E element, function::Timestamp index) -> std::multimap<function::Timestamp, E> {
+			accumulatorValue.insert(std::make_pair(keyExtractor(element, index), element));
+			return accumulatorValue;
+		},
+		[](std::multimap<function::Timestamp, E> a, std::multimap<function::Timestamp, E> b) -> std::multimap<function::Timestamp, E> {
+			a.insert(b.begin(), b.end());
+			return a;
+		},
+		[](std::multimap<function::Timestamp, E> accumulatorValue) -> std::multimap<function::Timestamp, E> { return accumulatorValue; });
+}
+
+template <typename E, typename K, typename KeyExtractor>
+auto useToMultimap(KeyExtractor &&keyExtractor) -> Collector<E, std::multimap<K, E>, std::multimap<K, E>>
+{
+	return useFull<E, std::multimap<K, E>, std::multimap<K, E>>(
+		[]() -> std::multimap<K, E> { return std::multimap<K, E>(); },
+		[keyExtractor](std::multimap<K, E> accumulatorValue, E element, function::Timestamp index) -> std::multimap<K, E> {
+			if constexpr (std::is_invocable_r_v<K, KeyExtractor, E, function::Timestamp>)
+				accumulatorValue.insert(std::make_pair(std::invoke(keyExtractor, element, index), element));
+			else if constexpr (std::is_invocable_r_v<K, KeyExtractor, E>)
+				accumulatorValue.insert(std::make_pair(std::invoke(keyExtractor, element), element));
+			return accumulatorValue;
+		},
+		[](std::multimap<K, E> a, std::multimap<K, E> b) -> std::multimap<K, E> {
+			a.insert(b.begin(), b.end());
+			return a;
+		},
+		[](std::multimap<K, E> accumulatorValue) -> std::multimap<K, E> { return accumulatorValue; });
+}
+
+template <typename E, typename K, typename V, typename KeyExtractor, typename ValueExtractor>
+auto useToMultimap(KeyExtractor &&keyExtractor, ValueExtractor &&valueExtractor) -> Collector<E, std::multimap<K, V>, std::multimap<K, V>>
+{
+	return useFull<E, std::multimap<K, V>, std::multimap<K, V>>(
+		[]() -> std::multimap<K, V> { return std::multimap<K, V>(); },
+		[keyExtractor, valueExtractor](std::multimap<K, V> accumulatorValue, E element, function::Timestamp index) -> std::multimap<K, V> {
+			if constexpr (std::is_invocable_r_v<K, KeyExtractor, E, function::Timestamp> && std::is_invocable_r_v<V, ValueExtractor, E, function::Timestamp>)
+				accumulatorValue.insert(std::make_pair(std::invoke(keyExtractor, element, index), std::invoke(valueExtractor, element, index)));
+			else if constexpr (std::is_invocable_r_v<K, KeyExtractor, E> && std::is_invocable_r_v<V, ValueExtractor, E>)
+				accumulatorValue.insert(std::make_pair(std::invoke(keyExtractor, element), std::invoke(valueExtractor, element)));
+			return accumulatorValue;
+		},
+		[](std::multimap<K, V> a, std::multimap<K, V> b) -> std::multimap<K, V> {
+			a.insert(b.begin(), b.end());
+			return a;
+		},
+		[](std::multimap<K, V> accumulatorValue) -> std::multimap<K, V> { return accumulatorValue; });
+}
+
+template <typename E>
+auto useToUnorderedMultimap(const function::Function<E, function::Timestamp> &keyExtractor) -> Collector<E, std::unordered_multimap<function::Timestamp, E>, std::unordered_multimap<function::Timestamp, E>>
+{
+	return useFull<E, std::unordered_multimap<function::Timestamp, E>, std::unordered_multimap<function::Timestamp, E>>(
+		[]() -> std::unordered_multimap<function::Timestamp, E> { return std::unordered_multimap<function::Timestamp, E>(); },
+		[keyExtractor](std::unordered_multimap<function::Timestamp, E> accumulatorValue, E element, function::Timestamp index) -> std::unordered_multimap<function::Timestamp, E> {
+			accumulatorValue.insert(std::make_pair(keyExtractor(element, index), element));
+			return accumulatorValue;
+		},
+		[](std::unordered_multimap<function::Timestamp, E> a, std::unordered_multimap<function::Timestamp, E> b) -> std::unordered_multimap<function::Timestamp, E> {
+			a.insert(b.begin(), b.end());
+			return a;
+		},
+		[](std::unordered_multimap<function::Timestamp, E> accumulatorValue) -> std::unordered_multimap<function::Timestamp, E> { return accumulatorValue; });
+}
+
+template <typename E, typename K, typename KeyExtractor>
+auto useToUnorderedMultimap(KeyExtractor &&keyExtractor) -> Collector<E, std::unordered_multimap<K, E>, std::unordered_multimap<K, E>>
+{
+	return useFull<E, std::unordered_multimap<K, E>, std::unordered_multimap<K, E>>(
+		[]() -> std::unordered_multimap<K, E> { return std::unordered_multimap<K, E>(); },
+		[keyExtractor](std::unordered_multimap<K, E> accumulatorValue, E element, function::Timestamp index) -> std::unordered_multimap<K, E> {
+			if constexpr (std::is_invocable_r_v<K, KeyExtractor, E, function::Timestamp>)
+				accumulatorValue.insert(std::make_pair(std::invoke(keyExtractor, element, index), element));
+			else if constexpr (std::is_invocable_r_v<K, KeyExtractor, E>)
+				accumulatorValue.insert(std::make_pair(std::invoke(keyExtractor, element), element));
+			return accumulatorValue;
+		},
+		[](std::unordered_multimap<K, E> a, std::unordered_multimap<K, E> b) -> std::unordered_multimap<K, E> {
+			a.insert(b.begin(), b.end());
+			return a;
+		},
+		[](std::unordered_multimap<K, E> accumulatorValue) -> std::unordered_multimap<K, E> { return accumulatorValue; });
+}
+
+template <typename E, typename K, typename V, typename KeyExtractor, typename ValueExtractor>
+auto useToUnorderedMultimap(KeyExtractor &&keyExtractor, ValueExtractor &&valueExtractor) -> Collector<E, std::unordered_multimap<K, V>, std::unordered_multimap<K, V>>
+{
+	return useFull<E, std::unordered_multimap<K, V>, std::unordered_multimap<K, V>>(
+		[]() -> std::unordered_multimap<K, V> { return std::unordered_multimap<K, V>(); },
+		[keyExtractor, valueExtractor](std::unordered_multimap<K, V> accumulatorValue, E element, function::Timestamp index) -> std::unordered_multimap<K, V> {
+			if constexpr (std::is_invocable_r_v<K, KeyExtractor, E, function::Timestamp> && std::is_invocable_r_v<V, ValueExtractor, E, function::Timestamp>)
+				accumulatorValue.insert(std::make_pair(std::invoke(keyExtractor, element, index), std::invoke(valueExtractor, element, index)));
+			else if constexpr (std::is_invocable_r_v<K, KeyExtractor, E> && std::is_invocable_r_v<V, ValueExtractor, E>)
+				accumulatorValue.insert(std::make_pair(std::invoke(keyExtractor, element), std::invoke(valueExtractor, element)));
+			return accumulatorValue;
+		},
+		[](std::unordered_multimap<K, V> a, std::unordered_multimap<K, V> b) -> std::unordered_multimap<K, V> {
+			a.insert(b.begin(), b.end());
+			return a;
+		},
+		[](std::unordered_multimap<K, V> accumulatorValue) -> std::unordered_multimap<K, V> { return accumulatorValue; });
+}
+
+template <typename E>
+auto useToStack() -> Collector<E, std::stack<E>, std::stack<E>>
+{
+	return useFull<E, std::stack<E>, std::stack<E>>(
+		[]() -> std::stack<E> { return std::stack<E>(); },
+		[](std::stack<E> accumulatorValue, E element, function::Timestamp index) -> std::stack<E> {
+			accumulatorValue.push(element);
+			return accumulatorValue;
+		},
+		[](std::stack<E> a, std::stack<E> b) -> std::stack<E> {
+			std::vector<E> temp;
+			while (!b.empty())
+			{
+				temp.push_back(b.top());
+				b.pop();
+			}
+			for (auto it = temp.rbegin(); it != temp.rend(); ++it)
+			{
+				a.push(*it);
+			}
+			return a;
+		},
+		[](std::stack<E> accumulatorValue) -> std::stack<E> { return accumulatorValue; });
+}
+
+template <typename E>
+auto useToQueue() -> Collector<E, std::queue<E>, std::queue<E>>
+{
+	return useFull<E, std::queue<E>, std::queue<E>>(
+		[]() -> std::queue<E> { return std::queue<E>(); },
+		[](std::queue<E> accumulatorValue, E element, function::Timestamp index) -> std::queue<E> {
+			accumulatorValue.push(element);
+			return accumulatorValue;
+		},
+		[](std::queue<E> a, std::queue<E> b) -> std::queue<E> {
+			while (!b.empty())
+			{
+				a.push(b.front());
+				b.pop();
+			}
+			return a;
+		},
+		[](std::queue<E> accumulatorValue) -> std::queue<E> { return accumulatorValue; });
+}
+
+template <typename E>
+auto useToPriorityQueue() -> Collector<E, std::priority_queue<E>, std::priority_queue<E>>
+{
+	return useFull<E, std::priority_queue<E>, std::priority_queue<E>>(
+		[]() -> std::priority_queue<E> { return std::priority_queue<E>(); },
+		[](std::priority_queue<E> accumulatorValue, E element, function::Timestamp index) -> std::priority_queue<E> {
+			accumulatorValue.push(element);
+			return accumulatorValue;
+		},
+		[](std::priority_queue<E> a, std::priority_queue<E> b) -> std::priority_queue<E> {
+			while (!b.empty())
+			{
+				a.push(b.top());
+				b.pop();
+			}
+			return a;
+		},
+		[](std::priority_queue<E> accumulatorValue) -> std::priority_queue<E> { return accumulatorValue; });
 }
 
 template <typename E>

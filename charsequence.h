@@ -1,20 +1,20 @@
 #pragma once
+
 #include <algorithm>
-#include <stdexcept>
-#include <cstring>
+#include <array>
+#include <charconv>
 #include <cstddef>
-#include <limits>
-#include <vector>
 #include <deque>
-#include <sstream>
-#include <iterator>
 #include <iostream>
+#include <iterator>
+#include <limits>
+#include <mutex>
+#include <sstream>
+#include <stdexcept>
 #include <string>
 #include <string_view>
 #include <type_traits>
-#include <mutex>
-#include <charconv>
-#include <array>
+#include <vector>
 
 namespace charsequence
 {

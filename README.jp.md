@@ -1,307 +1,579 @@
-# Semantic-Cpp 詳細解説：未来志向のC++インテリジェントストリーム処理フレームワーク
+# 🚀 Semantic-Cpp：未来を見据えた C++ インテリジェント・ストリーム処理フレームワーク
 
-Semantic-Cppは、完全に再設計された現代的なC++ストリーム処理ライブラリで、「シングルヘッダー・ゼロ依存」のアーキテクチャを採用しています。コアファイルである`semantic.h`がライブラリ全体の機能を統合しています。本ライブラリは、複数のプログラミングパラダイムの優れた特徴を創造的に融合させています：
+Semantic-Cpp は、ゼロ外部依存・マルチヘッダーのモジュール設計により完全に再設計された、モダンな C++ ストリーム処理ライブラリです。各ヘッダーは単一責任を持ち、独立してテスト可能で、ストリーム処理エコシステムを構成します。本ライブラリは、複数のプログラミングパラダイムの精髓を創造的に融合しています：
 
--   **Java Stream APIの優雅さと流暢さ**：チェイン呼び出しと宣言型プログラミング体験を提供。
--   **JavaScript Generatorの遅延性と柔軟性**：遅延評価とオンデマンドデータ生成をサポート。
--   **データベースインデックスの効率性と順序性**：組み込みのインテリジェントソートとインデックス駆動メカニズムを備え、特に時系列データやイベントデータに適しています。
+- 🎯 **Java Stream API** の優雅さと流暢さ：メソッドチェーンと宣言型プログラミングによる詩的なコード
+- ⚡ **JavaScript Generator** の遅延評価と柔軟性：オンデマンド生成によるメモリ効率の良さ
+- 🗄️ **データベース・インデックス** の効率と秩序：スマートなソートとインデックス駆動による時系列データ処理
 
-従来のデータ処理手法（手書きループや複雑な非同期コールバックなど）と異なり、Semantic-Cppは**型安全で表現力が高く、高性能**なソリューションを提供することを目指しています。その設計哲学の核心は**データフローの精密制御**です。データは明示的に必要とされる場合にのみ「処理パイプライン」を流れ、その「順序」と「位置」は「インデックス」によって細かく調整可能であり、これによりリソースの最適利用を実現します。
-
----
-
-## 核心の魂：インデックス駆動のデータ世界
-
-Semantic-Cppは、データ処理を「要素」とその「論理的位置（インデックス）」に対する操作として抽象化しています。この点を理解することがライブラリをマスターする鍵です。
-
-### 1. 基本的なインデックス変換
-インデックスは処理チェイン内での要素の論理的順序を決定し、柔軟に操作できます：
--   **`redirect(リダイレクト関数)`**：核心メソッドです。カスタム関数を使って要素のインデックスを完全に書き換えられます。例えば、インデックスを2倍にしたり、要素の値に基づいて新しいインデックスを生成したりできます。
--   **`reverse()`**：便利なメソッドで、内部的に`redirect`で実装されており、現在の全インデックスを論理的に反転させます（例：正のインデックスを負に）。
--   **`translate(オフセット)`**：全インデックスに固定のオフセットを加算します。
-
-### 2. ソートの「絶対優先」ルール
-ソート操作（`sorted`）はライブラリ内で最高優先度を持ち、動作は決定論的です：
--   **`sorted()`はすべてを上書き**：`redirect`や`reverse`による複雑なインデックス変換がどれほど行われていても、`sorted()`を呼び出すと**すべての先行インデックス操作が上書き**されます。システムは要素の**実際の値**に基づいて、0から始まる自然順序のインデックスを再割り当てします。
--   **即時「実体化」による順序付きコレクション**：後続操作での不要な再ソートを避けるため、`sorted()`メソッドは**即座に**`OrderedCollectable`型のオブジェクトを返します。つまり、この時点でデータはすでに収集・ソート済みです。
-
-### 3. 宣言型並列処理
-並列処理が驚くほどシンプルかつ直感的になります：
--   **`parallel(スレッド数)`は単なる宣言**：このメソッドの呼び出しは「後続操作を並列実行したい」という意図を表現し、希望するスレッド数を指定するだけです。**即座にスレッドを起動したりタスクを投入したりしません**。
--   **終端操作で並列が発動**：実際の並列計算は`toUnordered()`、`toOrdered()`、`count()`などの**終端操作**を呼び出した時点で初めて開始されます。その時点でライブラリの組み込みスレッドプールが、宣言されたスレッド数に応じてデータを自動的に分割し、タスクを投入します。
--   **手動管理は不要**：スレッド作成、タスク配分、結果マージの詳細を気にする必要はありません。ライブラリがすべて自動処理します。
-
-### 4. 最終的なデータコンテナの選び方
-パフォーマンス要件や操作の種類に応じて、異なる終端変換メソッドを選択できます：
-
-| 変換メソッド | 基底データ構造 | パフォーマンス特性 | 最適な適用シーン |
-| :--- | :--- | :--- | :--- |
-| **`sorted()`** | `std::map<Index, Element>` | O(log n)アクセス、要素順序を厳密に保持。 | ページネーション、範囲クエリ、時系列分析、ローリング統計。 |
-| **`sorted(comparator)`** | `std::map<Index, Element>` | O(log n)アクセス、カスタムルールによるソート。 | カスタムソートルールを使ったページネーションや範囲クエリ。 |
-| **`toOrdered()`** | `std::map<Index, Element>` | O(log n)アクセス、**現在のインデックス**の順序を保持。 | `redirect`などで定義されたインデックス順序を維持し、順序付き操作を行いたい場合。 |
-| **`toUnordered()`** | `std::unordered_map<Index, Element>` | 平均O(1)アクセス、**最高性能**だが順序は保証されない。 | 高速ルックアップ、重複除去統計、集計計算など順序を気にしないシーン。 |
-| **`toWindow()`** | mapベースのウィンドウビュー | O(log n)、順序付きデータセット上のスライディングまたはローリングウィンドウをサポート。 | リアルタイムストリーム分析、スライディングウィンドウ集計、イベントセッション分割。 |
-
-> **重要ノート**：`WindowCollectable`（`toWindow()`が返す）は、内部的に順序付きコレクション（`toOrdered()`で実装）に依存しており、ウィンドウのスライド・ロール操作が決定論的な順序に基づいて正しく実行されることを保証します。
+従来の手書きループや非同期コールバックとは異なり、Semantic-Cpp は **型安全で表現力豊か、かつ高性能** なソリューションを提供します。その中核となる設計哲学は、**精密なデータフロー制御**です。データは必要なときにのみ流れ、順序と位置は「インデックス」によって精緻に制御され、リソースを最適に活用します。
 
 ---
 
-## クイックスタートガイド
+## 📐 プロジェクトアーキテクチャ：7層モジュール設計
+
+Semantic-Cpp は、**7つのコアヘッダー**から構成され、各層が独立した役割を持ちます：
+
+```
+┌─────────────────────────────────────────────────┐
+│                 semantics.h                     │
+│    (ストリーム生成：数値範囲、コンテナ、テキスト、Unicode) │
+├─────────────────────────────────────────────────┤
+│                  semantic.h                     │
+│   (ストリーム中間操作、Collectable体系、コンテナ特殊化)   │
+├─────────────────────────────────────────────────┤
+│                 collectors.h                    │
+│  (コレクター生成：照合、検索、集約、統計、DFT/FFTなど)   │
+├─────────────────────────────────────────────────┤
+│                 collector.h                     │
+│     (コレクターフレームワーク：5段階モデル、並列処理対応) │
+├─────────────────────────────────────────────────┤
+│                charsequence.h                   │
+│  (Unicode文字シーケンス、マルチエンコーディング変換、Builder、Buffer) │
+├─────────────────────────────────────────────────┤
+│                   pool.h                        │
+│   (グローバルスレッドプール：タスク投入、緊急停止、例外伝播) │
+├─────────────────────────────────────────────────┤
+│                 function.h                      │
+│  (型定義：Generator、Supplier、Consumerなどのエイリアス) │
+└─────────────────────────────────────────────────┘
+```
+
+### 依存関係
+
+```
+function.h          ← 依存なし、型システムの基盤
+pool.h              ← function.h に依存
+charsequence.h      ← 独立モジュール、Unicode処理
+collector.h         ← function.h、pool.h に依存
+collectors.h        ← collector.h、charsequence.h に依存
+semantic.h          ← collector.h、collectors.h、charsequence.h に依存
+semantics.h         ← semantic.h に依存
+```
+
+各ヘッダーは独立してコンパイルおよびテスト可能で、必要に応じて個別にインクルードできます。  
+例えば、コレクター機能のみが必要な場合は `collector.h` と `collectors.h` だけをインクルードすれば十分です。
+
+---
+
+## 🏗️ 第1層：function.h — 型の基盤
+
+`function.h` はフレームワーク全体の型システムを定義する共通基盤です：
+
+```cpp
+namespace function {
+    using Timestamp = long long;           // インデックス型
+    using Module = unsigned long long;     // モジュール／カウンター型
+    
+    template <typename T>
+    using Generator = std::function<void(
+        std::function<void(T, Timestamp)>,      // accept
+        std::function<bool(T, Timestamp)>       // interrupt
+    )>;
+}
+```
+
+`Generator` はストリームシステム全体の中心的な抽象であり、「遅延プル（Lazy Pull）」モデルを体現しています。
+
+---
+
+## ⚡ 第2層：pool.h — 並行処理の基盤
+
+`pool.h` はグローバルスレッドプール `pool::pool` を提供し、フレームワークの並行処理エンジンとなります：
+
+| 特徴 | 説明 |
+|----|----|
+| 🎯 宣言的並列処理 | `parallel(n)` は意図を宣言するのみで、終端操作時に自動起動 |
+| 🛡️ 緊急停止 | `emergencyShutdown()` と `std::set_terminate` ハンドラを内蔵 |
+| 🔄 例外伝播 | `submit()` は `std::future` を返し、安全な例外伝播をサポート |
+
+---
+
+## 🔤 第3層：charsequence.h — Unicode 文字シーケンス
+
+`charsequence.h` は Unicode 処理のための完全なモジュールです：
+
+| 機能 | 説明 |
+|----|----|
+| 🌐 マルチエンコーディング対応 | UTF‑8、UTF‑16（LE/BE）、UTF‑32（LE/BE）、ASCII、Latin1 |
+| 🔍 コードポイント反復子 | `PointIterator` による双方向走査 |
+| 🏗️ ビルダーパターン | `Builder` クラスによる効率的なバイト結合 |
+| 📦 バッファー | `Buffer` クラスによるスレッドセーフなリングバッファ |
+| 🔑 ハッシュと比較 | 全コア型に `std::hash` および `std::less` の特殊化あり |
+
+### コア型
+
+| 型 | 説明 |
+|----|----|
+| `Meta` | 符号なし整数値を格納するメタデータラッパー |
+| `Point` | Unicode コードポイント（サロゲートペア検出と妥当性検証付き） |
+| `Charsequence` | 不変文字シーケンス（分割、置換、検索、大文字小文字変換など対応） |
+| `Builder` | 可変バイトビルダー（`prepend`、`insert`、`append` 等対応） |
+| `Buffer` | スレッドセーフなリングバッファ（読み書き、プリフェッチ、容量管理対応） |
+
+---
+
+## 🔧 第4層：collector.h — コレクターフレームワーク
+
+`collector.h` は終端操作の中核となるコレクターパターンを実装します。
+
+### 5段階モデル
+
+```
+Identity → Accumulator → Combiner → Finisher
+              ↑
+           Interrupt（短絡評価、任意）
+```
+
+### 型エイリアス
+
+| 型 | 定義 | 役割 |
+|----|----|----|
+| `Identity<A>` | `Supplier<A>` | 初期値を提供 |
+| `Accumulator<A,E>` | `TriFunction<A,E,Timestamp,A>` | 要素を蓄積 |
+| `Combiner<A>` | `BiFunction<A,A,A>` | 並列結果を統合 |
+| `Finisher<A,R>` | `Function<A,R>` | 最終変換 |
+| `Interrupt<E,A>` | `TriPredicate<E,Timestamp,A>` | 短絡判定 |
+
+### 並列処理対応
+
+`Collector::collect()` は以下を自動処理します：
+
+- 📦 データ分割（インデックス剰余によるスレッド分散）
+- 🔗 結果統合（`Combiner` によるマージ）
+- ⚠️ 例外伝播（`std::exception_ptr` と `std::atomic<bool>` による安全な伝播）
+
+---
+
+## 🏭 第5層：collectors.h — コレクターファクトリー
+
+`collectors.h` は豊富な事前定義コレクターファクトリ関数を提供します。
+
+### 📊 照合操作
+
+| メソッド | 説明 | 戻り値型 |
+|----|----|----|
+| `useAllMatch(predicate)` | すべての要素が条件を満たす | `bool` |
+| `useAnyMatch(predicate)` | いずれかの要素が条件を満たす | `bool` |
+| `useNoneMatch(predicate)` | どの要素も条件を満たさない | `bool` |
+
+### 🔍 検索操作
+
+| メソッド | 説明 | 戻り値型 |
+|----|----|----|
+| `useFindFirst()` | 最初の要素を検索 | `std::optional<E>` |
+| `useFindLast()` | 最後の要素を検索 | `std::optional<E>` |
+| `useFindAny()` | 任意の要素を検索 | `std::optional<E>` |
+| `useFindAt(index)` | 指定インデックスの要素を検索（負数対応） | `std::optional<E>` |
+| `useFindMaximum()` | 最大値を検索（比較関数指定可） | `std::optional<E>` |
+| `useFindMinimum()` | 最小値を検索（比較関数指定可） | `std::optional<E>` |
+
+### 📈 集約操作
+
+| メソッド | 説明 | 戻り値型 |
+|----|----|----|
+| `useCount()` | 要素総数 | `Module` |
+| `useSummate<E,D>()` | 合計 | `D` |
+| `useSummate<E,D>(mapper)` | マップ後合計 | `D` |
+| `useAverage<E,D>()` | 平均 | `D` |
+| `useAverage<E,D>(mapper)` | マップ後平均 | `D` |
+| `useRange<E,D>()` | 範囲（最大−最小） | `D` |
+| `useRange<E,D>(mapper)` | マップ後範囲 | `D` |
+| `useMinimum<E,D>()` | 最小値 | `std::optional<D>` |
+| `useMaximum<E,D>()` | 最大値 | `std::optional<D>` |
+
+### 📊 統計操作
+
+| メソッド | 説明 | 戻り値型 |
+|----|----|----|
+| `useVariance<E,D>()` | 母分散 | `D` |
+| `useStandardDeviation<E,D>()` | 母標準偏差 | `D` |
+| `useSkewness<E,D>()` | 歪度 | `D` |
+| `useKurtosis<E,D>()` | 尖度 | `D` |
+| `useMedian<E,D>()` | 中央値 | `std::optional<D>` |
+| `useMode<E>()` | 最頻値（周波数領域ベース） | `std::optional<E>` |
+| `usePercentile<E,D>(p)` | pパーセンタイル | `std::optional<D>` |
+| `useFrequency<E>()` | 周波数特性（インデックス位相符号化） | `std::map<E, complex>` |
+| `useDistribution<E>()` | 空間分布特性（位置符号化） | `std::map<E, complex>` |
+
+### 🔗 リダクション操作
+
+| メソッド | 説明 | 戻り値型 |
+|----|----|----|
+| `useReduce(reducer)` | 初期値なしリダクション | `std::optional<E>` |
+| `useReduce(identity, reducer)` | 初期値ありリダクション | `E` |
+| `useReduce(id, red, comb, fin)` | 完全カスタムリダクション | `R` |
+
+### 📦 コンテナ収集操作
+
+| メソッド | 説明 | 戻り値型 |
+|----|----|----|
+| `useToVector()` | `std::vector` へ収集 | `std::vector<E>` |
+| `useToList()` | `std::list` へ収集 | `std::list<E>` |
+| `useToDeque()` | `std::deque` へ収集 | `std::deque<E>` |
+| `useToForwardList()` | `std::forward_list` へ収集 | `std::forward_list<E>` |
+| `useToArray<N>()` | 固定長 `std::array` へ収集 | `std::array<E, N>` |
+| `useToSet()` | `std::set` へ収集（重複除去・整列） | `std::set<E>` |
+| `useToMultiset()` | `std::multiset` へ収集 | `std::multiset<E>` |
+| `useToUnorderedSet()` | `std::unordered_set` へ収集 | `std::unordered_set<E>` |
+| `useToUnorderedMultiset()` | `std::unordered_multiset` へ収集 | `std::unordered_multiset<E>` |
+| `useToMap(keyExtractor)` | `std::map` へ収集 | `std::map<K, E>` |
+| `useToMap(keyExtractor, valueExtractor)` | カスタム値で `std::map` へ収集 | `std::map<K, V>` |
+| `useToMultimap(keyExtractor)` | `std::multimap` へ収集 | `std::multimap<K, E>` |
+| `useToMultimap(keyExtractor, valueExtractor)` | カスタム値で `std::multimap` へ収集 | `std::multimap<K, V>` |
+| `useToUnorderedMap(keyExtractor, valueExtractor)` | `std::unordered_map` へ収集 | `std::unordered_map<K, V>` |
+| `useToUnorderedMultimap(keyExtractor)` | `std::unordered_multimap` へ収集 | `std::unordered_multimap<K, E>` |
+| `useToUnorderedMultimap(keyExtractor, valueExtractor)` | カスタム値で `std::unordered_multimap` へ収集 | `std::unordered_multimap<K, V>` |
+| `useToStack()` | `std::stack` へ収集 | `std::stack<E>` |
+| `useToQueue()` | `std::queue` へ収集 | `std::queue<E>` |
+| `useToPriorityQueue()` | `std::priority_queue` へ収集 | `std::priority_queue<E>` |
+
+### 🔀 グルーピング＆パーティション操作
+
+| メソッド | 説明 | 戻り値型 |
+|----|----|----|
+| `useGroup(keyExtractor)` | キーによるグルーピング | `std::unordered_map<K, vector<E>>` |
+| `usePartition(size)` | 固定サイズでのパーティション分割 | `std::vector<vector<E>>` |
+| `usePartitionBy(keyExtractor)` | カスタムキーでのパーティション分割 | `std::vector<vector<E>>` |
+
+### 🎨 文字列出力操作
+
+| メソッド | 説明 | 戻り値型 |
+|----|----|----|
+| `useJoin()` | 文字列結合（デフォルト：カンマ区切り・角括弧） | `Charsequence` |
+| `useJoin(delimiter)` | カスタム区切り文字列結合 | `Charsequence` |
+| `useJoin(prefix, delimiter, suffix)` | 完全カスタムフォーマット結合 | `Charsequence` |
+| `useOut()` | 標準出力へフォーマット出力 | `Charsequence` |
+| `useOut(delimiter)` | カスタム区切りで標準出力へ | `Charsequence` |
+| `useOut(prefix, delimiter, suffix)` | 完全カスタムフォーマットで標準出力へ | `Charsequence` |
+| `useError()` | 標準エラー出力へフォーマット出力 | `Charsequence` |
+| `useError(delimiter)` | カスタム区切りで標準エラー出力へ | `Charsequence` |
+| `useError(prefix, delimiter, suffix)` | 完全カスタムフォーマットで標準エラー出力へ | `Charsequence` |
+
+### 🧮 数学ユーティリティ
+
+| メソッド | 説明 | 戻り値型 |
+|----|----|----|
+| `useDFT()` | 離散フーリエ変換 | `vector<complex<double>>` |
+| `useIDFT()` | 逆離散フーリエ変換 | `vector<complex<double>>` |
+| `useFFT()` | 高速フーリエ変換（Cooley–Tukey） | `vector<complex<double>>` |
+| `useIFFT()` | 逆高速フーリエ変換 | `vector<complex<double>>` |
+| `useGradient(gradFunc, lr, iter, th)` | 勾配降下法（解析的勾配） | `vector<double>` |
+| `useGradient(costFunc, lr, iter, th, h)` | 勾配降下法（数値的勾配） | `vector<double>` |
+
+---
+
+## 🌊 第6層：semantic.h — ストリーム中間操作と収集体系
+
+`semantic.h` はフレームワークの中核であり、`collectable` と `semantic` の2つの名前空間を含みます。
+
+### collectable 名前空間
+
+収集可能オブジェクトの継承体系を提供します：
+
+| クラス | 説明 | 内部ストレージ |
+|----|----|----|
+| `Collectable<E>` | 抽象基底クラス（純仮想 `source()`） | — |
+| `OrderedCollectable<E>` | 順序付き収集（カスタムソート対応） | `std::map<Timestamp, E>` |
+| `UnorderedCollectable<E>` | 順序なし収集（O(1) 検索） | `std::unordered_map<Timestamp, E>` |
+| `Statistics<E, D>` | 統計収集（`OrderedCollectable` 継承） | 20以上の統計メソッド |
+| `WindowCollectable<E>` | ウィンドウ収集（`OrderedCollectable` 継承） | `slide` / `tumble` 対応 |
+
+#### Collectable 基底クラスメソッド
+
+20種類以上の `toXxx()` 終端収集メソッドに加え、  
+`count()`、`findFirst()`、`findAny()`、`anyMatch()`、`allMatch()`、`noneMatch()`、`reduce()`、`join()`、`out()`、`error()`、`group()`、`partition()`、`partitionBy()` などを提供。
+
+#### Statistics クラスメソッド
+
+| メソッド | 戻り値型 | 説明 |
+|----|----|----|
+| `summate()` / `summate(mapper)` | `D` | 合計 |
+| `average()` / `average(mapper)` | `D` | 平均 |
+| `minimum()` / `minimum(mapper)` | `std::optional<D>` | 最小値 |
+| `maximum()` / `maximum(mapper)` | `std::optional<D>` | 最大値 |
+| `range()` / `range(mapper)` | `D` | 範囲（最大−最小） |
+| `variance()` / `variance(mapper)` | `D` | 母分散 |
+| `standardDeviation()` / `standardDeviation(mapper)` | `D` | 母標準偏差 |
+| `frequency()` / `frequency(mapper)` | `std::map<*, complex>` | 周波数特性 |
+| `distribute()` / `distribute(mapper)` | `std::map<*, complex>` | 空間分布特性 |
+| `median()` / `median(mapper)` | `std::optional<D>` | 中央値 |
+| `mode()` | `std::optional<E>` | 最頻値 |
+| `percentile(p)` / `percentile(p, mapper)` | `std::optional<D>` | pパーセンタイル |
+| `firstQuartile()` / `firstQuartile(mapper)` | `std::optional<D>` | 第1四分位数（Q1） |
+| `thirdQuartile()` / `thirdQuartile(mapper)` | `std::optional<D>` | 第3四分位数（Q3） |
+| `interquartileRange()` / `interquartileRange(mapper)` | `std::optional<D>` | 四分位範囲（Q3−Q1） |
+| `skewness()` / `skewness(mapper)` | `D` | 歪度 |
+| `kurtosis()` / `kurtosis(mapper)` | `D` | 尖度 |
+| `dft()` | `vector<complex<double>>` | 離散フーリエ変換 |
+| `idft()` | `vector<complex<double>>` | 逆離散フーリエ変換 |
+| `fft()` | `vector<complex<double>>` | 高速フーリエ変換 |
+| `ifft()` | `vector<complex<double>>` | 逆高速フーリエ変換 |
+| `gradient(gradFunc, lr, iter, th)` | `vector<double>` | 勾配降下法（解析的） |
+| `gradient(costFunc, lr, iter, th, h)` | `vector<double>` | 勾配降下法（数値的） |
+
+### semantic 名前空間
+
+`Semantic<E>` テンプレートクラスとその特殊化体系を提供します。
+
+#### 主テンプレートメソッド一覧
+
+| カテゴリ | メソッド | 説明 |
+|----|----|----|
+| 🎨 要素変換 | `map` | 一対一マッピング |
+| | `flatMap` | 一対多マッピング＋平坦化 |
+| | `flat` | ネストされたストリームの平坦化 |
+| 🔍 要素フィルタ | `filter` | 条件フィルタ |
+| | `takeWhile` | 条件が真の間取得 |
+| | `dropWhile` | 条件が真の間破棄 |
+| | `distinct` | 重複除去（カスタム比較関数対応） |
+| 📏 数量制御 | `limit` | 要素数制限 |
+| | `skip` | 先頭n個スキップ |
+| | `sub` | 部分範囲抽出 |
+| 📐 インデックス操作 | `redirect` | インデックス再マッピング |
+| | `reverse` | インデックス反転 |
+| | `translate` | インデックス移動（固定／動的） |
+| 👀 観察操作 | `peek` | 要素観察（変更なし） |
+| ⚡ 並列宣言 | `parallel` | 並列度宣言 |
+| 🔗 連結操作 | `concatenate` | 他ストリーム／コンテナとの連結 |
+| 📤 終端変換 | `toUnordered` | 順序なし収集へ変換 |
+| | `toOrdered` | 順序付き収集へ変換 |
+| | `toWindow` | ウィンドウ収集へ変換 |
+| | `toStatistics` | 統計収集へ変換 |
+
+#### コンテナ特殊化対応
+
+| 特殊化 | 説明 |
+|----|----|
+| `Semantic<std::vector<E>>` | ベクターストリーム（ソート・重複除去対応） |
+| `Semantic<std::list<E>>` | リストストリーム（ソート・重複除去対応） |
+
+---
+
+## 🏭 第7層：semantics.h — ストリーム生成ファクトリー
+
+`semantics.h` はすべてのストリーム生成ファクトリ関数を提供します。
+
+### 📐 数値範囲生成
+
+| メソッド | 説明 |
+|----|----|
+| `useRange(start, end)` | `[start, end)` の数値ストリーム生成 |
+| `useRange(start, end, step)` | ステップ付き数値ストリーム生成 |
+| `useRangeClosed(start, end)` | `[start, end]` 閉区間数値ストリーム生成 |
+| `useRangeClosed(start, end, step)` | ステップ付き閉区間数値ストリーム生成 |
+
+### ♾️ 無限ストリーム生成
+
+| メソッド | 説明 |
+|----|----|
+| `useInfinite(seed, generator)` | シード値から無限反復生成 |
+| `useGenerate(supplier)` | 無限回サプライヤ呼び出し |
+| `useGenerate(supplier, limit)` | 有限回サプライヤ呼び出し |
+| `useIterate(seed, generator)` | シード値から無限反復 |
+| `useIterate(seed, generator, limit)` | 有限回反復 |
+| `useRandom()` | 無限乱数整数ストリーム |
+| `useRandom(min, max)` | 指定範囲の無限乱数ストリーム |
+| `useRandom(min, max, count)` | 指定範囲・個数の乱数ストリーム |
+
+### 📦 コンテナ＆要素構築
+
+| メソッド | 説明 |
+|----|----|
+| `useEmpty()` | 空ストリーム作成 |
+| `useOf(element)` | 単一要素ストリーム |
+| `useOf(e1, e2)` | 2要素ストリーム |
+| `useOf(e1, e2, e3)` | 3要素ストリーム |
+| `useOf({...})` | 初期化リストからストリーム |
+| `useFrom(container)` | 標準コンテナからストリーム |
+| `useFrom({...})` | 初期化リストからストリーム |
+| `useRepeat(element, count)` | 要素をn回繰り返し |
+
+### 📝 テキスト処理
+
+| メソッド | 説明 |
+|----|----|
+| `useBlob(text)` | 文字列をバイト単位で `char` ストリーム化 |
+| `useBlob(text, start, end)` | 部分文字列をバイト単位でストリーム化 |
+| `useBlob(istream)` | 入力ストリームを行単位で読込 |
+| `useBlob(istream, delimiter)` | 区切り文字で入力ストリーム読込 |
+| `useText(text)` | 文字列全体をテキストストリームとして扱う |
+| `useText(text, delimiter)` | 区切り文字でテキスト分割 |
+| `useText(istream)` | 入力ストリーム全体を読込 |
+| `useText(istream, delimiter)` | 区切り文字で入力ストリーム読込 |
+
+### 🌐 Unicode 処理
+
+| メソッド | 説明 |
+|----|----|
+| `useSequence(charsequence)` | 文字シーケンスからコードポイントストリーム生成 |
+| `useSequence(charsequence, start, end)` | 部分シーケンスからコードポイントストリーム生成 |
+| `useSequence(text, encoding)` | テキストから指定エンコーディングのコードポイントストリーム生成 |
+| `useSequence(istream, encoding)` | 入力ストリームから指定エンコーディングのコードポイントストリーム生成 |
+| `useCharsequence(charsequence)` | 文字シーケンス全体をストリームとして扱う |
+| `useCharsequence(charsequence, delimiter)` | 区切り文字で文字シーケンス分割 |
+| `useCharsequence(istream, encoding)` | 入力ストリームから文字シーケンス全体を読込 |
+| `useCharsequence(istream, delimiter, encoding)` | 区切り文字で入力ストリームから文字シーケンス読込 |
+
+---
+
+## 🧠 コアコンセプト：インデックス駆動のデータ世界
+
+Semantic-Cpp はデータ処理を「要素」とその「論理的位置（インデックス）」への操作として抽象化します。これを理解することが本ライブラリを習得する鍵です。
+
+### 1. 📐 基本インデックス変換
+
+| メソッド | 説明 |
+|----|----|
+| `redirect(fn)` | コアメソッド：カスタム関数でインデックスを完全再定義 |
+| `reverse()` | 全インデックス論理を反転（`redirect` 経由で実装） |
+| `translate(offset)` | 固定オフセット移動 |
+| `translate(translator)` | 要素とインデックスに基づく動的オフセット計算 |
+
+### 2. 📊 ソートの「強力な」ルール
+
+> ⚠️ **`sort()` はすべてを上書きします**：呼び出すとそれ以前のすべてのインデックス操作が破棄され、要素は値に基づいて自然順インデックスに再割当てされます。
+
+- `sort()` → 即座に `OrderedCollectable` へ物質化、値順ソート
+- `sort(comparator)` → カスタム比較関数によるソート
+
+### 3. ⚡ 宣言的並列処理
+
+- `parallel(n)` は意図を宣言するのみで、直ちにスレッドは起動しません
+- 終端操作（`toUnordered()`、`count()` など）で初めて並列実行
+- スレッドプールが自動的にタスク分散と結果統合を処理
+
+### 4. 🎯 最終コンテナの選択指針
+
+| 変換メソッド | 内部構造 | 性能特性 | 最適用途 |
+|----|----|----|----|
+| `sort()` | `OrderedCollectable` | 値順で物質化 | 値ソート、ページネーション、時系列 |
+| `toOrdered()` | `OrderedCollectable` | 現在のインデックス順維持 | カスタムインデックス順保持 |
+| `toUnordered()` | `UnorderedCollectable` | 平均 O(1)、最高性能 | 高速検索、重複除去、集約 |
+| `toWindow()` | `WindowCollectable` | 順序付き集合ベース | スライディング／タンブリング窓分析 |
+| `toStatistics()` | `Statistics` | 20以上の統計メソッド | 包括的統計分析 |
+
+---
+
+## 🚀 クイックスタートガイド
 
 ### インストール
-`semantic.h`ヘッダーファイルをプロジェクトに配置するだけで、コンパイラがC++17以上に対応していれば使用可能です。
-```cpp
-#include "semantic.h"
-// オプション：semantic名前空間を使用
-using namespace semantic;
+
+すべてのヘッダーをプロジェクトディレクトリに配置し、C++17 以上をサポートするコンパイラを用意してください：
+
+```
+include/
+├── function.h
+├── pool.h
+├── charsequence.h
+├── collector.h
+├── collectors.h
+├── semantic.h
+└── semantics.h
 ```
 
-### 基本例：インデックスとソートを体感
 ```cpp
-#include <iostream>
-#include "semantic.h"
-
-int main() {
-    auto result = semantic::useRange(0, 10)   // 1. 0から9までの整数ストリームを作成
-        .map([](int x) -> int { return x * x; })    // 2. 各要素を2乗 (0,1,4,9...81)
-        .redirect([](int value, auto index) -> long long {    // 3. インデックスリダイレクト：インデックスを2倍
-            return index * 2;                  // インデックスは現在0,2,4,6...
-        })
-        .reverse()                           // 4. 論理的インデックス反転 (...,6,4,2,0)
-        .sorted()                            // 5. ⚠️ 要素値(1,4,9...)で強制再ソート！
-                                             //    以前の全インデックス操作が上書きされ、インデックスは0,1,2...
-        .toList();                           // 6. std::vectorに収集
-
-    // 出力: 0 1 4 9 16 25 36 49 64 81 （ソート済み）
-    for (auto& item : result) {
-        std::cout << item << " ";
-    }
-    return 0;
-}
-```
-
-### 並列処理例
-```cpp
-#include <iostream>
-#include "semantic.h"
-
-int main() {
-    // 1. ストリーム処理パイプラインを構築し、4スレッドでの並列実行を宣言。
-    auto dataStream = semantic::useRange(1, 1000)
-        .parallel(4)                         // 並列を宣言（まだ実行されない）
-        .filter([](int x) -> bool {
-            return x % 2 == 0;               // 偶数をフィルタ
-        })
-        .filter([](int x, auto index) -> bool {
-            return index < 5LL;              // 論理インデックスが5未満の要素をさらにフィルタ
-        });
-
-    // 2. 終端操作`count()`が本当の並列計算をトリガー
-    //    スレッドプールが起動、データが分割され、4つのスレッドが並列カウントし、結果が自動マージ。
-    auto result = dataStream
-        .toUnordered()                       // 並列処理のため非順序コレクションに変換
-        .count();                            // 最終要素数をカウント
-
-    std::cout << "フィルタ後の要素数: " << result << std::endl;
-    return 0;
-}
-```
-
-### 時系列・ウィンドウ分析例
-```cpp
-#include <iostream>
-#include "semantic.h"
-
-int main() {
-    // 時系列データ（例：株価）をシミュレート
-    auto timeSeries = semantic::useFrom(std::vector<double>{1.1, 2.2, 3.3, 4.4, 5.5});
-
-    // 1. ウィンドウビューに変換
-    auto windowStats = timeSeries
-        .toWindow()                     // WindowCollectableに変換
-        .slide(3, 1)                    // サイズ3、ステップ1のスライディングウィンドウを定義
-                                        // ウィンドウ1: {1.1, 2.2, 3.3}
-                                        // ウィンドウ2: {2.2, 3.3, 4.4}
-                                        // ウィンドウ3: {3.3, 4.4, 5.5}
-        .sub(1, 4)                      // インデックス1〜3のウィンドウを取得（ウィンドウ2と3）
-        .map([](auto&& window) -> double { // 各ウィンドウを処理
-            // 各ウィンドウの平均値を計算
-            return window
-                .toStatistics<double, double>() // ウィンドウをStatisticsに変換して数学計算
-                .average();
-        })
-        .toStatistics<double, double>() // 平均値シーケンスに対して順序付き統計処理
-        .summate();                     // 選択された全ウィンドウの平均値合計
-
-    std::cout << "選択されたスライディングウィンドウの平均値合計: " << windowStats << std::endl;
-    // 出力: ( (2.2+3.3+4.4)/3 + (3.3+4.4+5.5)/3 ) の結果
-    return 0;
-}
+#include "semantics.h"  // 依存関係を自動解決
 ```
 
 ---
 
-## コアAPIクイックリファレンス
+## 🎯 基本例：インデックスとソートの体験
 
-### ストリームビルダー（ストリームソース）
-| メソッド | 説明 | 例 |
-| :--- | :--- | :--- |
-| `useRange(start, end)` | 数値範囲内の整数ストリームを生成。 | `useRange(0, 10)` |
-| `useFrom(container)` | 標準コンテナ（vector、listなど）からストリームを作成。 | `useFrom(std::vector{1,2,3})` |
-| `useOf(args...)` | 可変長引数リストからストリームを作成。 | `useOf(1, 2, 3, 4, 5)` |
-| `useBlob(text)` | 文字列を文字単位でストリームに分割。 | `useBlob("Hello")` |
-| `useBlob(text, start, end)` | 文字列の指定範囲を文字単位でストリームに分割。 | `useBlob("Hello", 0, 3)` |
-| `useBlob(istream)` | 入力ストリームを文字単位でストリームに分割。 | `useBlob(istream)` |
-| `useBlob(istream, start, end)` | 入力ストリームの指定範囲を文字単位でストリームに分割。 | `useBlob(istream, 0, 3)` |
-| `useText(text)` | テキスト全体を単一要素のストリームとして扱う。 | `useText("Hello")` |
-| `useText(text, delimiter)` | テキストを区切り文字でストリームに分割。 | `useText("Hello", 'e')` |
-
-### 中間操作（Intermediate Operations）
-| メソッド | 説明 | 注意事項 |
-| :--- | :--- | :--- |
-| `map(変換関数)` | 要素を別の形式に変換。 | 関数は`(要素)`または`(要素, インデックス)`を受け取れる。 |
-| `filter(述語関数)` | 条件を満たす要素をフィルタ。 | 述語は`(要素)`または`(要素, インデックス)`に基づく。 |
-| `distinct()` | 重複要素を除去。 | カスタム比較器を指定可能。 |
-| `limit(n)` | ストリームの要素数を先頭`n`個に制限。 | |
-| `skip(n)` | 先頭`n`個の要素をスキップ。 | |
-| `sub(start, end)` | インデックスが`[start, end)`範囲のサブストリームを取得。 | 文字列の`substr`に類似。 |
-
-### インデックス操作（Index Operations）
-| メソッド | 説明 | 主要特徴 |
-| :--- | :--- | :--- |
-| `redirect(リダイレクト関数)` | 各要素のインデックスを完全に制御する核心メソッド。 | 関数シグネチャ：`(要素, 旧インデックス) -> 新インデックス`。 |
-| `reverse()` | 現在の全要素のインデックスを論理的に反転。 | 内部的に`redirect`で実装。 |
-| `translate(オフセット)` | 全要素のインデックスに固定オフセットを加算。 | |
-| **`sorted()`** | **強制ソート**。要素値で昇順ソートし、**既存の全インデックスを上書き**。 | 即座に`OrderedCollectable`を返す。 |
-| **`sorted(comparator)`** | カスタム比較器で強制ソート。 | 即座に`OrderedCollectable`を返す。 |
-
-### 並列宣言（Parallel Declaration）
-| メソッド | 説明 | 実行タイミング |
-| :--- | :--- | :--- |
-| `parallel()` | デフォルト並列戦略（通常CPUコア数）を宣言。 | 後続の**終端操作**で発動。 |
-| `parallel(n)` | `n`個のスレッドによる並列処理を宣言。 | 後続の**終端操作**で発動。 |
-
-### 終端変換（Terminal Conversions - 計算をトリガー）
-| メソッド | 説明 | 内部状態 |
-| :--- | :--- | :--- |
-| `toOrdered()` | 順序付きコレクションに変換し、**現在のインデックス順序**を保持。 | `std::map<Index, Value>`として実体化。 |
-| `toUnordered()` | 非順序コレクションに変換し、最高性能を実現。 | `std::unordered_map<Index, Value>`として実体化。 |
-| `toWindow()` | スライディング/ローリング分析用のウィンドウコレクションに変換。 | 内部的に`toOrdered()`に基づく。 |
-
-### 終端アクション（Terminal Actions - 最終結果を生成）
-| メソッド | 説明 | 戻り値型 |
-| :--- | :--- | :--- |
-| `anyMatch(predicate)` | 条件を満たす要素が1つでもあれば即座に終了。 | 真偽値 |
-| `allMatch(predicate)` | すべてが条件を満たすか（1つでも失敗したら即終了）。 | 真偽値 |
-| `noneMatch(predicate)` | すべてが条件を満たさないか（1つでも成功したら即終了）。 | 真偽値 |
-| `forEach(consumer)` | ストリームの全要素を反復処理。 | なし |
-| `count()` | ストリームの要素総数をカウント。 | `Module` (`unsigned long long`) |
-| `average()` | 数値要素の平均値を計算。 | 要素型の平均値（例：`double`）。 |
-| `findAny()` | ランダムに要素を検索。 | ストリーム内の任意要素。 |
-| `findFirst()` | 最初の要素を検索。 | ストリーム内の最初の要素。 |
-| `findLast()` | 最後の要素を検索。 | ストリーム内の最後の要素。 |
-| `findAt(負インデックス可)` | n番目の要素を検索（負の場合はsize+index番目）。 | 指定インデックスの要素。 |
-| `findMinimum()` / `findMaximum()` | 最小/最大値を検索。 | `std::optional<ElementType>` |
-| `reduce(accumulator)` | ストリームを単一値に縮約（例：合計）。 | アキュムレータ結果の型。 |
-| `reduce(identity, accumulator)` | ストリームを単一値に縮約（例：合計）。 | アキュムレータ結果の型。 |
-| `collect(collector)` | カスタムコレクターで複雑な集計。 | コレクター定義の型。 |
-| `toList()` / `toVector()` | 全要素をリスト/ベクターに収集。 | `std::vector<E>` |
-| `toSet()` | 全要素をセットに収集（重複除去）。 | `std::set<ElementType>` |
-| `group(keyExtractor)` | Mapにグループ化（重複除去）。 | `std::map<K, std::vector<E>>` |
-| `toMap(keyExtractor)` | Mapに収集（重複除去）。 | `std::map<K, E>` |
-
----
-
-## 高度なトピックとベストプラクティス
-
-### アーキテクチャの本質：遅延評価と精密なコールバック制御
-すべてのストリーム操作の背後には、2つのコールバック関数を受け取る「ジェネレーター」があります：
--   **`accept(要素, インデックス)`**：下流操作がデータを受け取る準備ができたときに呼び出され、要素を「要求」します。
--   **`interrupt(要素, インデックス)`**：各要素を処理する前に呼び出され、`true`を返したら処理チェイン全体が**即座に終了**します。
-この仕組みにより、データは「必要に応じて引き出され」、いつでも早期終了が可能になり、無駄な計算を防ぎます。
-
-### パフォーマンス最適化の推奨
-1.  **適切なコンテナを選択**：
-    -   等値検索、重複除去、順序不要の集計 → `toUnordered()`を優先。
-    -   範囲クエリ、ソート、ページネーション → `toOrdered()`または`sorted()`。
-    -   リアルタイムウィンドウ分析 → `toWindow()`。
-2.  **並列を効果的に活用**：
-    -   データ量が多い（例：>1000件）または`map`/`filter`が計算負荷が高い場合、`parallel()`でメリットが得られます。
-    -   並列ストリーム内ではブロックI/O操作を避けてください。
-3.  **操作順序を最適化**：
-    -   **早期フィルタ（`filter`）**：高コストの`map`変換の前に`filter`でデータ量を減らす。
-    -   **ソートの戦略的配置**：ソートは高コスト。後続操作（例：`distinct`）が順序を必要としない場合は、ソートの前に実行。
-
-### カスタムコレクター
-組み込みの終端操作では不十分な場合、カスタムコレクターを作成して複雑な縮約ロジックを実装できます。
 ```cpp
-// 数値を特定の書式文字列に結合するコレクターを作成
-auto myCollector = semantic::collector::useFull<int, std::string, std::string>(
-     []() -> std::string { return ""; }, // Supplier：初期アキュムレータ値
-    [](std::string acc, int val, auto idx) -> std::string { // アキュムレータ
-        if (!acc.empty()) acc += "|";
-        return acc + "Num(" + std::to_string(val) + ")";
-    },
-    [](std::string a, std::string b) -> std::string { // Combiner（並列用）
-        if (a.empty()) return b;
-        if (b.empty()) return a;
-        return a + "|" + b;
-    },
-    [](std::string acc) -> std::string { // Finisher：最終結果の後処理
-        return "[" + acc + "]";
-    }
-);
-
-auto result = semantic::useRange(1, 5)
-    .toOrdered() // 計算をトリガー
-    .collect(myCollector); // カスタムコレクターを使用
-
-std::cout << result << std::endl; // 出力: [Num(1)|Num(2)|Num(3)|Num(4)]
-```
-
-### テキスト処理例
-```cpp
-auto text = semantic::useText("Hello 世界！")
-    .map([](const std::string& text) -> std::string {
-        return "<" + text + ">";
+auto result = semantic::useRange(0, 10)
+    .map(int x { return x * x; })
+    .redirect(int value, auto index -> long long {
+        return index * 2;
     })
-    .toOrdered()
-    .join(" "); // すべての文字をスペースで結合
+    .reverse()
+    .sort()                              // 値ソートを強制、全インデックス操作を上書き
+    .toVector();
 
-std::cout << text << std::endl;
-// 出力: <H><e><l><l><o>< ><世><界><！>
+// 出力：0 1 4 9 16 25 36 49 64 81
+```
+
+## ⚡ 並列処理例
+
+```cpp
+auto count = semantic::useRange(1, 1000)
+    .parallel(4)
+    .filter(int x { return x % 2 == 0; })
+    .toUnordered()
+    .count();
+
+// 出力：偶数の数：500
+```
+
+## 📊 統計分析例
+
+```cpp
+auto stats = semantic::useRange(1, 101)
+    .toStatistics<int, double>();
+
+auto avg = stats.average();               // 平均
+auto med = stats.median();                // 中央値
+auto std = stats.standardDeviation();     // 標準偏差
+auto q1  = stats.firstQuartile();          // 第1四分位数
+auto q3  = stats.thirdQuartile();          // 第3四分位数
+auto skew = stats.skewness();              // 歪度
+```
+
+## 🔬 周波数領域分析例
+
+```cpp
+auto freq = data.toUnordered().frequency();
+for (const auto& [element, z] : freq) {
+    auto magnitude = std::abs(z);  // 分布集中度
+    auto phase     = std::arg(z);  // 分布中心位相
+}
+```
+
+## 🧮 FFT 変換例
+
+```cpp
+auto spectrum = semantic::useRange(0, 8)
+    .map(int x -> std::complex<double> {
+        return {static_cast<double>(x), 0.0};
+    })
+    .toUnordered()
+    .collect(collector::useFFT<double>());
 ```
 
 ---
 
-### C++標準ライブラリおよび他競合ライブラリとの比較
+## ⚡ パフォーマンス最適化推奨事項
 
-Semantic-Cppの設計位置づけとユースケースをより深く理解していただくため、以下の表でC++コミュニティの主なデータ処理ソリューションと比較します。
-
-| 特徴 / ライブラリ | **Semantic-Cpp** | **C++20/23 `std::ranges` + `std::views`** | **Range-v3ライブラリ** | **従来の手書きループ** |
-| :--- | :--- | :--- | :--- | :--- |
-| **核心パラダイム** | **宣言型・インデックス駆動**のストリーム処理。要素＋論理インデックスをパイプラインとして抽象化し、**順序制御**を重視。 | **宣言型・ビュー駆動**の関数型構成。遅延計算のためのアダプタ（`views::transform`、`views::filter`）を提供。 | **宣言型・レンジ駆動**の関数型構成。`std::ranges`の設計原型で、より豊富な機能を持つ。 | **命令型・手続き型**プログラミング。イテレータとコンテナを直接操作。 |
-| **核心設計哲学** | **インデックス**によるデータのパイプライン内論理位置と流れ順序の**精密制御**で、リソースを最適利用。 | 構成可能で遅延評価される**ビューアダプタ**を提供し、高効率なジェネリックアルゴリズムを構築。 | 完全かつ構成可能な**レンジアルゴリズムとビュー**のセットを提供し、現代C++関数型プログラミングの基盤。 | 計算フローと状態の完全な制御が開発者任せ。 |
-| **並列サポート** | **宣言型並列**。`.parallel(n)`で意図を宣言し、終端操作で自動的にスレッドプール起動。手動管理不要。 | C++17/20で並列アルゴリズム（`std::for_each(std::execution::par, ...)`）を提供するが、**非宣言型**でビューと組み合わせ必要。 | 直接的な並列アルゴリズムは提供せず、TBBやHPXなどの外部ライブラリと組み合わせ可能。 | `std::thread`、`std::async`、並列アルゴリズムなどで手動実装が必要で複雑度が高い。 |
-| **ソート＆インデックス** | **`sorted()`が最高優先度**で先行インデックス変換をすべて上書き。`redirect`、`reverse`などの細やかな操作を提供（核心機能）。 | `std::ranges::sort`などのソートアルゴリズムを提供するが**破壊的**でビュー連鎖を中断。独自の「インデックス」概念なし。 | `std::ranges`と同様、ソートは破壊的。「インデックス」抽象化なし。 | 開発者がソートロジックを自前実装し、ソート前後のデータ関係を管理。 |
-| **ウィンドウ/スライディング分析** | **ネイティブサポート**。`.toWindow()`＋`.slide()`、`.tumble()`などで直接構築。先進分析の第一級市民。 | ネイティブ非サポート。複数のビュー（C++23の`views::slide`など）を組み合わせ手動処理が必要でコードが複雑。 | `ranges::views::slide`（C++20以前）などを提供するが、高度なウィンドウ集計は手動構成が必要。 | 手書きの多重ネストループと状態管理が必要でコードが冗長かつミスしやすい。 |
-| **データ構造** | `std::map`（順序付き）、`std::unordered_map`（非順序）、`std::vector`などに明確にマッピング。終端操作で最終構造決定。 | アルゴリズムはレンジに対して動作し、最終コンテナを強制しない。`std::ranges::to`（C++23）または手書きで結果を格納。 | `std::ranges`と同様、`ranges::to<Container>`で結果を格納。 | 開発者が完全に選択・管理。 |
-| **使いやすさ・表現力** | **高い**。流暢なチェインスタイル、Java Streamを模したAPIで学習コスト低。「何を」するかに焦点。 | **中程度**。ビュー構成は強力だが、構文（パイプ演算子`\|`、投影`std::identity`）に初心者向けの学習曲線あり。コンパイルエラーが複雑になりやすい。 | **中〜高**。最も豊富なビュー・アルゴリズムだが、学習曲線が最も急。 | **低い**。複雑なロジックでコード量が多く、意図が不明瞭でバグが入りやすい。 |
-| **パフォーマンス特性** | インデックス制御やウィンドウ計算シーンで事前定義データ構造により最適化。宣言型並列が並行プログラミングを簡素化。 | **究極のパフォーマンス**。遅延ビュー構成とコンパイル時最適化により、手書きループ並みまたはそれ以上のコード生成（中間一時オブジェクトの排除など）。 | `std::ranges`と同様、パフォーマンスが核心目標の一つ。 | **理論的ピークは高い**。熟練開発者は極限のマイクロ最適化が可能だが、実装・保守コストが非常に高い。 |
-| **典型的な適用シーン** | 1. **時系列/イベントストリーム処理**（ログ、センサーデータ）。<br>2. **複雑な順序制御**が必要なデータ変換。<br>3. **宣言型並列計算**。<br>4. **リアルタイムスライディングウィンドウ分析**。 | 1. **汎用・高性能なコンテナデータ変換とフィルタ**。<br>2. 再利用可能な**ジェネリックコンポーネント**構築。<br>3. 既存STLアルゴリズム・コンテナエコシステムとの密接な連携。 | 1. C++20が使えないプロジェクトでの**現代的レンジライブラリ機能**。<br>2. **最先端レンジ提案**の研究・実験。 | 1. パフォーマンスが**極めて重要**でロジックが極めて単純なシーン。<br>2. 既存ライブラリでは満たせない特殊な低レベル要件。 |
-| **依存性＆統合** | **ゼロ依存・シングルヘッダー**。統合が極めて簡単。 | C++20/23標準ライブラリの一部。追加依存なし。 | サードパーティライブラリとして統合が必要。機能豊富だがプロジェクト依存が増える。 | なし。 |
-
-**まとめ推奨：**
-- **Semantic-Cppを選択**：プロジェクトが**データ順序/インデックスの細やかな制御**に強く依存し、**複雑なスライディングウィンドウ分析**が必要、または**最小の認知負荷で宣言型並列**を望む場合。Semantic-Cppは高度に抽象化された専用ソリューションを提供します。
-- **`std::ranges`を選択**：すでにC++20/23を使用しており、**汎用・高性能なデータ変換とクエリ**が求められ、STLエコシステムとのシームレスな統合を重視し、適度な学習曲線を受け入れられる場合。`std::ranges`は最も標準的で将来性のある選択です。
-- **Range-v3を選択**：コンパイラ制約でC++20が使えないが、`std::ranges`類似の機能が必要な場合。
-- **手書きループを選択**：ロジックが極めて単純で、ナノ秒レベルの性能を必要とし、ライブラリの抽象化が実際にボトルネックになる場合のみ。
+1. 🎯 **適切なコンテナを選択**
+   - 等価検索、非ソート集約 → `toUnordered()`
+   - 範囲検索、ソート、ページネーション → `toOrdered()` または `sort()`
+   - リアルタイム窓分析 → `toWindow()`
+2. ⚡ **並列処理を賢く活用**：大量データや重い処理で `parallel()` を使用し、ブロッキング I/O は避ける
+3. 📐 **操作順序を最適化**：早めに `filter`、慎重に `sort`
+4. 🔄 **遅延評価を活用**：中間操作は終端時に実行、`takeWhile` と `limit` で早期終了可能
 
 ---
 
-## ライセンスとサポート
-- **ライセンス**：本プロジェクトはMITライセンスで公開されています。
-- **問題とフィードバック**：バグや新機能の提案がある場合は、https://github.com/eloyhere/semantic-cpp/issues ページにご提出ください。
-- **議論と交流**：https://github.com/eloyhere/semantic-cpp/discussions でディスカッションを開始することもできます。
+## 📊 C++標準ライブラリおよび競合製品との比較
 
-**Semantic-Cpp** —— 現代C++で効率的かつ明快なデータ処理パイプラインを構築。🚀
+| 特性 | Semantic-Cpp | C++20/23 Ranges | 従来のループ |
+|----|----|----|----|
+| 🎯 核心パラダイム | 宣言的、インデックス駆動 | ビュー駆動、関数的合成 | 命令的、手続き型 |
+| ⚡ 並列対応 | 宣言的、自動スレッドプール | 並列アルゴリズムの組み合わせが必要 | 手動実装 |
+| 📐 ソートとインデックス | インデックス精密制御、負数インデックス対応 | 破壊的ソート | 完全手動 |
+| 📊 統計分析 | 20以上の組み込み統計メソッド | 非搭載 | 要サードパーティ |
+| 🔬 周波数領域分析 | ネイティブ DFT / FFT / 周波数特性 | 非対応 | 要サードパーティ |
+| 🧮 勾配降下法 | 解析的＋数値的両対応 | 非搭載 | 要サードパーティ |
+| 🌐 Unicode | ネイティブ多言語エンコーディング対応 | 非対応 | 手動処理 |
+| 📦 コンテナ収集 | 20以上の標準コンテナ完全網羅 | 一部対応 | 手動実装 |
+| 📦 依存関係 | 外部依存ゼロ、7ヘッダー | 標準ライブラリ | なし |
+
+---
+
+## 📜 ライセンス
+
+- 📄 **ライセンス**：MIT
+
+---
+
+**Semantic-Cpp — モダンな C++ で効率的かつ明快なデータ処理パイプラインを構築する。🚀**

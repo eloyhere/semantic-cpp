@@ -8,7 +8,6 @@
 
 namespace function
 {
-
 using Timestamp = long long;
 
 using Module = unsigned long long;
@@ -26,6 +25,12 @@ using BiFunction = std::function<R(T, U)>;
 
 template <typename T, typename U, typename V, typename R>
 using TriFunction = std::function<R(T, U, V)>;
+
+template <typename T>
+using Unary = std::function<T(T)>;
+
+template <typename T>
+using Binary = std::function<T(T, T)>;
 
 template <typename T>
 using Consumer = std::function<void(T)>;
@@ -46,54 +51,54 @@ template <typename T, typename U, typename V>
 using TriPredicate = std::function<bool(T, U, V)>;
 
 template <typename T>
-using Comparator = std::function<Timestamp(T)>;
+using Comparator = std::function<int(const T &, const T &)>;
 
 template <typename T>
 using Generator = BiConsumer<BiConsumer<T, Timestamp>, BiPredicate<T, Timestamp>>;
 
 template <typename D>
-D randomly(const D& start, const D& end)
+D randomly(const D &start, const D &end)
 {
-    try
-    {
-        static std::random_device random;
-        static std::mt19937_64 generator(random());
+	try
+	{
+		static std::random_device random;
+		static std::mt19937_64 generator(random());
 
-        D maximum = std::max(start, end);
-        D minimum = std::min(start, end);
+		D maximum = std::max(start, end);
+		D minimum = std::min(start, end);
 
-        if constexpr (std::is_integral<D>::value)
-        {
-            std::uniform_int_distribution<D> distribution(minimum, maximum);
-            return distribution(generator);
-        }
-        else
-        {
-            std::uniform_real_distribution<D> distribution(minimum, maximum);
-            return distribution(generator);
-        }
-    }
-    catch (const std::exception& exception)
-    {
-        std::cerr << exception.what() << '\n';
-        return 0;
-    }
+		if constexpr (std::is_integral<D>::value)
+		{
+			std::uniform_int_distribution<D> distribution(minimum, maximum);
+			return distribution(generator);
+		}
+		else
+		{
+			std::uniform_real_distribution<D> distribution(minimum, maximum);
+			return distribution(generator);
+		}
+	}
+	catch (const std::exception &exception)
+	{
+		std::cerr << exception.what() << '\n';
+		return 0;
+	}
 }
 
 bool randomly()
 {
-    try
-    {
-        static std::random_device device;
-        static std::mt19937 generator(device());
-        std::bernoulli_distribution distribution(0.5);
-        return distribution(generator);
-    }
-    catch (const std::exception& exception)
-    {
-        std::cerr << exception.what() << '\n';
-    }
-    return 0;
+	try
+	{
+		static std::random_device device;
+		static std::mt19937 generator(device());
+		std::bernoulli_distribution distribution(0.5);
+		return distribution(generator);
+	}
+	catch (const std::exception &exception)
+	{
+		std::cerr << exception.what() << '\n';
+	}
+	return 0;
 }
 
-}
+} // namespace function

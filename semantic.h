@@ -173,6 +173,22 @@ class Collectable
         return collectorValue.collect(this->source(), this->concurrent);
     }
 
+    template <typename KeyExtractor, typename ValueExtractor>
+    auto groupBy(KeyExtractor &&keyExtractor, ValueExtractor &&valueExtractor) const
+        -> std::unordered_map<
+            decltype(std::declval<KeyExtractor>()(std::declval<E>())),
+            std::vector<decltype(std::declval<ValueExtractor>()(std::declval<E>()))>>
+    {
+        using K = decltype(std::declval<KeyExtractor>()(std::declval<E>()));
+        using V = decltype(std::declval<ValueExtractor>()(std::declval<E>()));
+
+        auto collectorValue = collector::useGroupBy<E, K, V, KeyExtractor, ValueExtractor>(
+            std::forward<KeyExtractor>(keyExtractor),
+            std::forward<ValueExtractor>(valueExtractor));
+
+        return collectorValue.collect(this->source(), this->concurrent);
+    }
+
     auto join() const -> charsequence::Charsequence
     {
         collector::Collector<E, charsequence::Builder, charsequence::Charsequence> collectorValue = collector::useJoin<E>();
@@ -226,6 +242,19 @@ class Collectable
     auto partitionBy(KeyExtractor &&keyExtractor) const -> std::vector<std::vector<E>>
     {
         collector::Collector<E, std::map<function::Timestamp, std::vector<E>>, std::vector<std::vector<E>>> collectorValue = collector::usePartitionBy<E, KeyExtractor>(std::forward<KeyExtractor>(keyExtractor));
+        return collectorValue.collect(this->source(), this->concurrent);
+    }
+
+    template <typename KeyExtractor, typename ValueExtractor>
+    auto partitionBy(KeyExtractor &&keyExtractor, ValueExtractor &&valueExtractor) const
+        -> std::vector<std::vector<decltype(std::declval<ValueExtractor>()(std::declval<E>()))>>
+    {
+        using V = decltype(std::declval<ValueExtractor>()(std::declval<E>()));
+
+        auto collectorValue = collector::usePartitionBy<E, V, KeyExtractor, ValueExtractor>(
+            std::forward<KeyExtractor>(keyExtractor),
+            std::forward<ValueExtractor>(valueExtractor));
+
         return collectorValue.collect(this->source(), this->concurrent);
     }
 

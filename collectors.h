@@ -1,5 +1,7 @@
 #pragma once
 
+#include "function.h"
+
 #include <algorithm>
 #include <array>
 #include <charconv>
@@ -655,34 +657,37 @@ auto useGroup(KeyExtractor &&keyExtractor) -> Collector<E, std::unordered_map<K,
 template <typename E>
 auto useJoin() -> Collector<E, charsequence::Builder, charsequence::Charsequence>
 {
+	static const auto comma = std::string_view(",");
+	static const auto leftBracket = std::string_view("[");
+	static const auto rightBracket = std::string_view("]");
 	return useFull<E, charsequence::Builder, charsequence::Charsequence>(
 		[]() -> charsequence::Builder { return charsequence::Builder(); },
 		[](charsequence::Builder accumulatorValue, E element, function::Timestamp index) -> charsequence::Builder {
 			if constexpr (std::is_same_v<E, charsequence::Charsequence>)
 			{
 				if (accumulatorValue.size() > 0)
-					accumulatorValue.append(",");
+					accumulatorValue.append(comma);
 				accumulatorValue.append(element);
 			}
 			else if constexpr (std::is_arithmetic_v<E>)
 			{
 				if (accumulatorValue.size() > 0)
-					accumulatorValue.append(",");
+					accumulatorValue.append(comma);
 				accumulatorValue.append(std::to_string(element));
 			}
 			return accumulatorValue;
 		},
 		[](charsequence::Builder a, charsequence::Builder b) -> charsequence::Builder {
 			if (a.size() > 0 && b.size() > 0)
-				a.append(",");
+				a.append(comma);
 			a.append(b.toCharsequence());
 			return a;
 		},
 		[](charsequence::Builder accumulatorValue) -> charsequence::Charsequence {
 			charsequence::Builder result;
-			result.append("[");
+			result.append(leftBracket);
 			result.append(accumulatorValue.toCharsequence());
-			result.append("]");
+			result.append(rightBracket);
 			return result.toCharsequence();
 		});
 }
@@ -690,6 +695,8 @@ auto useJoin() -> Collector<E, charsequence::Builder, charsequence::Charsequence
 template <typename E>
 auto useJoin(const charsequence::Charsequence &delimiter) -> Collector<E, charsequence::Builder, charsequence::Charsequence>
 {
+	static const auto leftBracket = std::string_view("[");
+	static const auto rightBracket = std::string_view("]");
 	return useFull<E, charsequence::Builder, charsequence::Charsequence>(
 		[]() -> charsequence::Builder { return charsequence::Builder(); },
 		[delimiter](charsequence::Builder accumulatorValue, E element, function::Timestamp index) -> charsequence::Builder {
@@ -715,9 +722,9 @@ auto useJoin(const charsequence::Charsequence &delimiter) -> Collector<E, charse
 		},
 		[](charsequence::Builder accumulatorValue) -> charsequence::Charsequence {
 			charsequence::Builder result;
-			result.append("[");
+			result.append(leftBracket);
 			result.append(accumulatorValue.toCharsequence());
-			result.append("]");
+			result.append(rightBracket);
 			return result.toCharsequence();
 		});
 }
@@ -760,34 +767,37 @@ auto useJoin(const charsequence::Charsequence &prefix, const charsequence::Chars
 template <typename E>
 auto useOut() -> Collector<E, charsequence::Builder, charsequence::Charsequence>
 {
+	static const auto comma = std::string_view(",");
+	static const auto leftBracket = std::string_view("[");
+	static const auto rightBracket = std::string_view("]");
 	return useFull<E, charsequence::Builder, charsequence::Charsequence>(
 		[]() -> charsequence::Builder { return charsequence::Builder(); },
 		[](charsequence::Builder accumulatorValue, E element, function::Timestamp index) -> charsequence::Builder {
 			if constexpr (std::is_same_v<E, charsequence::Charsequence>)
 			{
 				if (accumulatorValue.size() > 0)
-					accumulatorValue.append(",");
+					accumulatorValue.append(comma);
 				accumulatorValue.append(element);
 			}
 			else if constexpr (std::is_arithmetic_v<E>)
 			{
 				if (accumulatorValue.size() > 0)
-					accumulatorValue.append(",");
+					accumulatorValue.append(comma);
 				accumulatorValue.append(std::to_string(element));
 			}
 			return accumulatorValue;
 		},
 		[](charsequence::Builder a, charsequence::Builder b) -> charsequence::Builder {
 			if (a.size() > 0 && b.size() > 0)
-				a.append(",");
+				a.append(comma);
 			a.append(b.toCharsequence());
 			return a;
 		},
 		[](charsequence::Builder accumulatorValue) -> charsequence::Charsequence {
 			charsequence::Builder result;
-			result.append("[");
+			result.append(leftBracket);
 			result.append(accumulatorValue.toCharsequence());
-			result.append("]");
+			result.append(rightBracket);
 			charsequence::Charsequence finalResult = result.toCharsequence();
 			std::cout << finalResult << '\n';
 			return finalResult;
@@ -797,6 +807,8 @@ auto useOut() -> Collector<E, charsequence::Builder, charsequence::Charsequence>
 template <typename E>
 auto useOut(const charsequence::Charsequence &delimiter) -> Collector<E, charsequence::Builder, charsequence::Charsequence>
 {
+	static const auto leftBracket = std::string_view("[");
+	static const auto rightBracket = std::string_view("]");
 	return useFull<E, charsequence::Builder, charsequence::Charsequence>(
 		[]() -> charsequence::Builder { return charsequence::Builder(); },
 		[delimiter](charsequence::Builder accumulatorValue, E element, function::Timestamp index) -> charsequence::Builder {
@@ -814,17 +826,17 @@ auto useOut(const charsequence::Charsequence &delimiter) -> Collector<E, charseq
 			}
 			return accumulatorValue;
 		},
-		[](charsequence::Builder a, charsequence::Builder b) -> charsequence::Builder {
+		[delimiter](charsequence::Builder a, charsequence::Builder b) -> charsequence::Builder {
 			if (a.size() > 0 && b.size() > 0)
-				a.append(",");
+				a.append(delimiter);
 			a.append(b.toCharsequence());
 			return a;
 		},
 		[](charsequence::Builder accumulatorValue) -> charsequence::Charsequence {
 			charsequence::Builder result;
-			result.append("[");
+			result.append(leftBracket);
 			result.append(accumulatorValue.toCharsequence());
-			result.append("]");
+			result.append(rightBracket);
 			charsequence::Charsequence finalResult = result.toCharsequence();
 			std::cout << finalResult << '\n';
 			return finalResult;
@@ -839,13 +851,13 @@ auto useOut(const charsequence::Charsequence &prefix, const charsequence::Charse
 		[delimiter](charsequence::Builder accumulatorValue, E element, function::Timestamp index) -> charsequence::Builder {
 			if constexpr (std::is_same_v<E, charsequence::Charsequence>)
 			{
-				if (accumulatorValue.size() > 1)
+				if (accumulatorValue.size() > 0)
 					accumulatorValue.append(delimiter);
 				accumulatorValue.append(element);
 			}
 			else if constexpr (std::is_arithmetic_v<E>)
 			{
-				if (accumulatorValue.size() > 1)
+				if (accumulatorValue.size() > 0)
 					accumulatorValue.append(delimiter);
 				accumulatorValue.append(std::to_string(element));
 			}
@@ -871,34 +883,37 @@ auto useOut(const charsequence::Charsequence &prefix, const charsequence::Charse
 template <typename E>
 auto useError() -> Collector<E, charsequence::Builder, charsequence::Charsequence>
 {
+	static const auto comma = std::string_view(",");
+	static const auto leftBracket = std::string_view("[");
+	static const auto rightBracket = std::string_view("]");
 	return useFull<E, charsequence::Builder, charsequence::Charsequence>(
 		[]() -> charsequence::Builder { return charsequence::Builder(); },
 		[](charsequence::Builder accumulatorValue, E element, function::Timestamp index) -> charsequence::Builder {
 			if constexpr (std::is_same_v<E, charsequence::Charsequence>)
 			{
 				if (accumulatorValue.size() > 0)
-					accumulatorValue.append(",");
+					accumulatorValue.append(comma);
 				accumulatorValue.append(element);
 			}
 			else if constexpr (std::is_arithmetic_v<E>)
 			{
 				if (accumulatorValue.size() > 0)
-					accumulatorValue.append(",");
+					accumulatorValue.append(comma);
 				accumulatorValue.append(std::to_string(element));
 			}
 			return accumulatorValue;
 		},
 		[](charsequence::Builder a, charsequence::Builder b) -> charsequence::Builder {
 			if (a.size() > 0 && b.size() > 0)
-				a.append(",");
+				a.append(comma);
 			a.append(b.toCharsequence());
 			return a;
 		},
 		[](charsequence::Builder accumulatorValue) -> charsequence::Charsequence {
 			charsequence::Builder result;
-			result.append("[");
+			result.append(leftBracket);
 			result.append(accumulatorValue.toCharsequence());
-			result.append("]");
+			result.append(rightBracket);
 			charsequence::Charsequence finalResult = result.toCharsequence();
 			std::cerr << finalResult << '\n';
 			return finalResult;
@@ -908,6 +923,8 @@ auto useError() -> Collector<E, charsequence::Builder, charsequence::Charsequenc
 template <typename E>
 auto useError(const charsequence::Charsequence &delimiter) -> Collector<E, charsequence::Builder, charsequence::Charsequence>
 {
+	static const auto leftBracket = std::string_view("[");
+	static const auto rightBracket = std::string_view("]");
 	return useFull<E, charsequence::Builder, charsequence::Charsequence>(
 		[]() -> charsequence::Builder { return charsequence::Builder(); },
 		[delimiter](charsequence::Builder accumulatorValue, E element, function::Timestamp index) -> charsequence::Builder {
@@ -925,17 +942,17 @@ auto useError(const charsequence::Charsequence &delimiter) -> Collector<E, chars
 			}
 			return accumulatorValue;
 		},
-		[](charsequence::Builder a, charsequence::Builder b) -> charsequence::Builder {
+		[delimiter](charsequence::Builder a, charsequence::Builder b) -> charsequence::Builder {
 			if (a.size() > 0 && b.size() > 0)
-				a.append(",");
+				a.append(delimiter);
 			a.append(b.toCharsequence());
 			return a;
 		},
 		[](charsequence::Builder accumulatorValue) -> charsequence::Charsequence {
 			charsequence::Builder result;
-			result.append("[");
+			result.append(leftBracket);
 			result.append(accumulatorValue.toCharsequence());
-			result.append("]");
+			result.append(rightBracket);
 			charsequence::Charsequence finalResult = result.toCharsequence();
 			std::cerr << finalResult << '\n';
 			return finalResult;
@@ -950,13 +967,13 @@ auto useError(const charsequence::Charsequence &prefix, const charsequence::Char
 		[delimiter](charsequence::Builder accumulatorValue, E element, function::Timestamp index) -> charsequence::Builder {
 			if constexpr (std::is_same_v<E, charsequence::Charsequence>)
 			{
-				if (accumulatorValue.size() > 1)
+				if (accumulatorValue.size() > 0)
 					accumulatorValue.append(delimiter);
 				accumulatorValue.append(element);
 			}
 			else if constexpr (std::is_arithmetic_v<E>)
 			{
-				if (accumulatorValue.size() > 1)
+				if (accumulatorValue.size() > 0)
 					accumulatorValue.append(delimiter);
 				accumulatorValue.append(std::to_string(element));
 			}

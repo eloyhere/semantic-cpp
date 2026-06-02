@@ -12,6 +12,7 @@
 #include <limits>
 #include <cmath>
 #include <unordered_set>
+#include <type_traits>
 
 namespace semantic
 {
@@ -19,13 +20,15 @@ template <typename D>
 auto useRange(const D &start, const D &end) -> Semantic<D>
 {
 	return Semantic<D>([startValue = std::min(start, end), endValue = std::max(start, end)](function::BiConsumer<D, function::Timestamp> accept, function::BiPredicate<D, function::Timestamp> interrupt) -> void {
-		for (D index = startValue; index < endValue; index++)
+		function::Timestamp index = 0LL;
+		for (D value = startValue; value < endValue; value++)
 		{
-			if (interrupt(index, index))
+			if (interrupt(value, index))
 			{
 				break;
 			}
-			accept(index, index);
+			accept(value, index);
+			index++;
 		}
 	});
 }
@@ -38,26 +41,29 @@ auto useRange(const D &start, const D &end, const D &step) -> Semantic<D>
 		{
 			return;
 		}
+		function::Timestamp index = 0LL;
 		if (stepValue > D{})
 		{
-			for (D index = startValue; index < endValue; index += stepValue)
+			for (D value = startValue; value < endValue; value += stepValue)
 			{
-				if (interrupt(index, index))
+				if (interrupt(value, index))
 				{
 					break;
 				}
-				accept(index, index);
+				accept(value, index);
+				index++;
 			}
 		}
 		else
 		{
-			for (D index = startValue; index > endValue; index += stepValue)
+			for (D value = startValue; value > endValue; value += stepValue)
 			{
-				if (interrupt(index, index))
+				if (interrupt(value, index))
 				{
 					break;
 				}
-				accept(index, index);
+				accept(value, index);
+				index++;
 			}
 		}
 	});
@@ -67,13 +73,15 @@ template <typename D>
 auto useRangeClosed(const D &start, const D &end) -> Semantic<D>
 {
 	return Semantic<D>([startValue = std::min(start, end), endValue = std::max(start, end)](function::BiConsumer<D, function::Timestamp> accept, function::BiPredicate<D, function::Timestamp> interrupt) -> void {
-		for (D index = startValue; index <= endValue; index++)
+		function::Timestamp index = 0LL;
+		for (D value = startValue; value <= endValue; value++)
 		{
-			if (interrupt(index, index))
+			if (interrupt(value, index))
 			{
 				break;
 			}
-			accept(index, index);
+			accept(value, index);
+			index++;
 		}
 	});
 }
@@ -86,35 +94,40 @@ auto useRangeClosed(const D &start, const D &end, const D &step) -> Semantic<D>
 		{
 			return;
 		}
+		function::Timestamp index = 0LL;
 		if (stepValue > D{})
 		{
-			for (D index = startValue; index <= endValue; index += stepValue)
+			for (D value = startValue; value <= endValue; value += stepValue)
 			{
-				if (interrupt(index, index))
+				if (interrupt(value, index))
 				{
 					break;
 				}
-				accept(index, index);
+				accept(value, index);
+				index++;
 			}
 		}
 		else
 		{
-			for (D index = startValue; index >= endValue; index += stepValue)
+			for (D value = startValue; value >= endValue; value += stepValue)
 			{
-				if (interrupt(index, index))
+				if (interrupt(value, index))
 				{
 					break;
 				}
-				accept(index, index);
+				accept(value, index);
+				index++;
 			}
 		}
 	});
 }
 
-template <typename D>
-auto useInfinite(const D &seed, const function::UnaryOperator<D> &generator) -> Semantic<D>
+template <typename D, typename UnaryFunc,
+		  typename = std::enable_if_t<std::is_invocable_r_v<D, UnaryFunc, const D &>>>
+auto useInfinite(const D &seed, UnaryFunc &&generator) -> Semantic<D>
 {
-	return Semantic<D>([seed, generator](function::BiConsumer<D, function::Timestamp> accept, function::BiPredicate<D, function::Timestamp> interrupt) -> void {
+	static_assert(std::is_invocable_r_v<D, UnaryFunc, const D &>, "useInfinite: generator must be callable as D(const D&)");
+	return Semantic<D>([seed, generator = std::forward<UnaryFunc>(generator)](function::BiConsumer<D, function::Timestamp> accept, function::BiPredicate<D, function::Timestamp> interrupt) -> void {
 		D current = seed;
 		function::Timestamp index = 0LL;
 		while (true)
@@ -130,10 +143,13 @@ auto useInfinite(const D &seed, const function::UnaryOperator<D> &generator) -> 
 	});
 }
 
-template <typename D>
-auto useGenerate(const function::Supplier<D> &supplier) -> Semantic<D>
+template <typename SupplierFunc,
+		  typename D = std::invoke_result_t<SupplierFunc>,
+		  typename = std::enable_if_t<std::is_invocable_r_v<D, SupplierFunc>>>
+auto useGenerate(SupplierFunc &&supplier) -> Semantic<D>
 {
-	return Semantic<D>([supplier](function::BiConsumer<D, function::Timestamp> accept, function::BiPredicate<D, function::Timestamp> interrupt) -> void {
+	static_assert(std::is_invocable_r_v<D, SupplierFunc>, "useGenerate: supplier must be callable as D()");
+	return Semantic<D>([supplier = std::forward<SupplierFunc>(supplier)](function::BiConsumer<D, function::Timestamp> accept, function::BiPredicate<D, function::Timestamp> interrupt) -> void {
 		function::Timestamp index = 0LL;
 		while (true)
 		{
@@ -148,10 +164,13 @@ auto useGenerate(const function::Supplier<D> &supplier) -> Semantic<D>
 	});
 }
 
-template <typename D>
-auto useGenerate(const function::Supplier<D> &supplier, const function::Module &limit) -> Semantic<D>
+template <typename SupplierFunc,
+		  typename D = std::invoke_result_t<SupplierFunc>,
+		  typename = std::enable_if_t<std::is_invocable_r_v<D, SupplierFunc>>>
+auto useGenerate(SupplierFunc &&supplier, const function::Module &limit) -> Semantic<D>
 {
-	return Semantic<D>([supplier, limit](function::BiConsumer<D, function::Timestamp> accept, function::BiPredicate<D, function::Timestamp> interrupt) -> void {
+	static_assert(std::is_invocable_r_v<D, SupplierFunc>, "useGenerate: supplier must be callable as D()");
+	return Semantic<D>([supplier = std::forward<SupplierFunc>(supplier), limit](function::BiConsumer<D, function::Timestamp> accept, function::BiPredicate<D, function::Timestamp> interrupt) -> void {
 		function::Timestamp index = 0LL;
 		while (index < limit)
 		{
@@ -166,10 +185,12 @@ auto useGenerate(const function::Supplier<D> &supplier, const function::Module &
 	});
 }
 
-template <typename D>
-auto useIterate(const D &seed, const function::UnaryOperator<D> &generator) -> Semantic<D>
+template <typename D, typename UnaryFunc,
+		  typename = std::enable_if_t<std::is_invocable_r_v<D, UnaryFunc, const D &>>>
+auto useIterate(const D &seed, UnaryFunc &&generator) -> Semantic<D>
 {
-	return Semantic<D>([seed, generator](function::BiConsumer<D, function::Timestamp> accept, function::BiPredicate<D, function::Timestamp> interrupt) -> void {
+	static_assert(std::is_invocable_r_v<D, UnaryFunc, const D &>, "useIterate: generator must be callable as D(const D&)");
+	return Semantic<D>([seed, generator = std::forward<UnaryFunc>(generator)](function::BiConsumer<D, function::Timestamp> accept, function::BiPredicate<D, function::Timestamp> interrupt) -> void {
 		D current = seed;
 		function::Timestamp index = 0LL;
 		while (true)
@@ -185,10 +206,12 @@ auto useIterate(const D &seed, const function::UnaryOperator<D> &generator) -> S
 	});
 }
 
-template <typename D>
-auto useIterate(const D &seed, const function::UnaryOperator<D> &generator, const function::Module &limit) -> Semantic<D>
+template <typename D, typename UnaryFunc,
+		  typename = std::enable_if_t<std::is_invocable_r_v<D, UnaryFunc, const D &>>>
+auto useIterate(const D &seed, UnaryFunc &&generator, const function::Module &limit) -> Semantic<D>
 {
-	return Semantic<D>([seed, generator, limit](function::BiConsumer<D, function::Timestamp> accept, function::BiPredicate<D, function::Timestamp> interrupt) -> void {
+	static_assert(std::is_invocable_r_v<D, UnaryFunc, const D &>, "useIterate: generator must be callable as D(const D&)");
+	return Semantic<D>([seed, generator = std::forward<UnaryFunc>(generator), limit](function::BiConsumer<D, function::Timestamp> accept, function::BiPredicate<D, function::Timestamp> interrupt) -> void {
 		D current = seed;
 		function::Timestamp index = 0LL;
 		while (index < limit)
@@ -381,7 +404,7 @@ auto useFrom(Container container) -> Semantic<typename Container::value_type>
 template <typename E>
 auto useFrom(std::initializer_list<E> list) -> Semantic<E>
 {
-	return Semantic<E>([elements = std::move(list)](function::BiConsumer<E, function::Timestamp> accept, function::BiPredicate<E, function::Timestamp> interrupt) -> void {
+	return Semantic<E>([elements = std::vector<E>(list)](function::BiConsumer<E, function::Timestamp> accept, function::BiPredicate<E, function::Timestamp> interrupt) -> void {
 		function::Timestamp index = 0LL;
 		for (const E &element : elements)
 		{
@@ -399,7 +422,7 @@ auto useFrom(std::initializer_list<E> list) -> Semantic<E>
 template <typename E>
 auto useOf(std::initializer_list<E> elements) -> Semantic<E>
 {
-	return Semantic<E>([elements = std::move(elements)](function::BiConsumer<E, function::Timestamp> accept, function::BiPredicate<E, function::Timestamp> interrupt) -> void {
+	return Semantic<E>([elements = std::vector<E>(elements)](function::BiConsumer<E, function::Timestamp> accept, function::BiPredicate<E, function::Timestamp> interrupt) -> void {
 		function::Timestamp index = 0LL;
 		for (const E &element : elements)
 		{
@@ -504,83 +527,62 @@ auto useBlob(std::istream &stream, const char &delimiter) -> Semantic<std::strin
 								 1LL);
 }
 
-auto useText(const std::string &text) -> Semantic<std::string>
+auto useText(const std::string &text) -> Semantic<charsequence::Charsequence>
 {
-	return Semantic<std::string>([text](function::BiConsumer<std::string, function::Timestamp> accept, function::BiPredicate<std::string, function::Timestamp> interrupt) -> void {
-		if (!interrupt(text, 0LL))
+	return Semantic<charsequence::Charsequence>([sequence = charsequence::Charsequence(text)](function::BiConsumer<charsequence::Charsequence, function::Timestamp> accept, function::BiPredicate<charsequence::Charsequence, function::Timestamp> interrupt) -> void {
+		if (!interrupt(sequence, 0LL))
 		{
-			accept(text, 0LL);
+			accept(sequence, 0LL);
 		}
 	},
-								 1LL);
+												1LL);
 }
 
-auto useText(const std::string &text, const char &delimiter) -> Semantic<std::string>
+auto useText(const std::string &text, const char &delimiter) -> Semantic<charsequence::Charsequence>
 {
-	return Semantic<std::string>([text, delimiter](function::BiConsumer<std::string, function::Timestamp> accept, function::BiPredicate<std::string, function::Timestamp> interrupt) -> void {
-		std::vector<std::string> pool;
-		for (function::Module a = 0; a < text.size(); a++)
+	return Semantic<charsequence::Charsequence>([sequence = charsequence::Charsequence(text), delimiter](function::BiConsumer<charsequence::Charsequence, function::Timestamp> accept, function::BiPredicate<charsequence::Charsequence, function::Timestamp> interrupt) -> void {
+		charsequence::Charsequence delim(std::string(1, delimiter));
+		auto parts = sequence.split(delim);
+		for (function::Module i = 0; i < parts.size(); i++)
 		{
-			std::string target;
-			for (function::Module b = a; b < text.size(); b++)
-			{
-				if (text[b] == delimiter)
-				{
-					a = b;
-					break;
-				}
-				target += text[b];
-			}
-			pool.push_back(target);
-			function::Module index = pool.size() - 1;
-			if (interrupt(target, index))
+			if (interrupt(parts[i], i))
 			{
 				break;
 			}
-			accept(target, index);
+			accept(parts[i], i);
 		}
 	},
-								 1LL);
+												1LL);
 }
 
-auto useText(std::istream &stream) -> Semantic<std::string>
+auto useText(std::istream &stream) -> Semantic<charsequence::Charsequence>
 {
-	return Semantic<std::string>([&stream](function::BiConsumer<std::string, function::Timestamp> accept, function::BiPredicate<std::string, function::Timestamp> interrupt) -> void {
-		std::string content;
-		std::string line;
-		function::Timestamp index = 0LL;
-		while (std::getline(stream, line))
+	return Semantic<charsequence::Charsequence>([&stream](function::BiConsumer<charsequence::Charsequence, function::Timestamp> accept, function::BiPredicate<charsequence::Charsequence, function::Timestamp> interrupt) -> void {
+		charsequence::Charsequence sequence(stream, std::numeric_limits<std::size_t>::max(), charsequence::charset::utf8);
+		if (!interrupt(sequence, 0LL))
 		{
-			content += line;
-			if (!stream.eof())
-			{
-				content += '\n';
-			}
-		}
-		if (!interrupt(content, 0LL))
-		{
-			accept(content, 0LL);
+			accept(sequence, 0LL);
 		}
 	},
-								 1LL);
+												1LL);
 }
 
-auto useText(std::istream &stream, const char &delimiter) -> Semantic<std::string>
+auto useText(std::istream &stream, const char &delimiter) -> Semantic<charsequence::Charsequence>
 {
-	return Semantic<std::string>([&stream, delimiter](function::BiConsumer<std::string, function::Timestamp> accept, function::BiPredicate<std::string, function::Timestamp> interrupt) -> void {
-		std::string token;
-		function::Timestamp index = 0LL;
-		while (std::getline(stream, token, delimiter))
+	return Semantic<charsequence::Charsequence>([&stream, delimiter](function::BiConsumer<charsequence::Charsequence, function::Timestamp> accept, function::BiPredicate<charsequence::Charsequence, function::Timestamp> interrupt) -> void {
+		charsequence::Charsequence delim(std::string(1, delimiter));
+		charsequence::Charsequence sequence(stream, std::numeric_limits<std::size_t>::max(), charsequence::charset::utf8);
+		auto parts = sequence.split(delim);
+		for (function::Module i = 0; i < parts.size(); i++)
 		{
-			if (interrupt(token, index))
+			if (interrupt(parts[i], i))
 			{
 				break;
 			}
-			accept(token, index);
-			index++;
+			accept(parts[i], i);
 		}
 	},
-								 1LL);
+												1LL);
 }
 
 auto useSequence(const charsequence::Charsequence &sequence) -> Semantic<charsequence::Point>
@@ -676,34 +678,14 @@ auto useCharsequence(const charsequence::Charsequence &sequence) -> Semantic<cha
 auto useCharsequence(const charsequence::Charsequence &sequence, const charsequence::Charsequence &delimiter) -> Semantic<charsequence::Charsequence>
 {
 	return Semantic<charsequence::Charsequence>([sequence, delimiter](function::BiConsumer<charsequence::Charsequence, function::Timestamp> accept, function::BiPredicate<charsequence::Charsequence, function::Timestamp> interrupt) -> void {
-		std::string delimiterStr(delimiter.getBytes().begin(), delimiter.getBytes().end());
-		std::string sequenceStr(sequence.getBytes().begin(), sequence.getBytes().end());
-		std::vector<std::string> pool;
-		for (function::Module a = 0; a < sequenceStr.size(); a++)
+		auto parts = sequence.split(delimiter);
+		for (function::Module i = 0; i < parts.size(); i++)
 		{
-			std::string target;
-			bool matched = false;
-			for (function::Module b = a; b < sequenceStr.size(); b++)
+			if (interrupt(parts[i], i))
 			{
-				if (b + delimiterStr.size() <= sequenceStr.size() && sequenceStr.substr(b, delimiterStr.size()) == delimiterStr)
-				{
-					a = b + delimiterStr.size() - 1;
-					matched = true;
-					break;
-				}
-				target += sequenceStr[b];
+				break;
 			}
-			if (!target.empty() || matched)
-			{
-				pool.push_back(target);
-				function::Module index = pool.size() - 1;
-				charsequence::Charsequence targetSequence(target);
-				if (interrupt(targetSequence, index))
-				{
-					break;
-				}
-				accept(targetSequence, index);
-			}
+			accept(parts[i], i);
 		}
 	},
 												1LL);
@@ -725,34 +707,14 @@ auto useCharsequence(std::istream &stream, const charsequence::Charsequence &del
 {
 	return Semantic<charsequence::Charsequence>([&stream, delimiter, encoding](function::BiConsumer<charsequence::Charsequence, function::Timestamp> accept, function::BiPredicate<charsequence::Charsequence, function::Timestamp> interrupt) -> void {
 		charsequence::Charsequence sequence(stream, std::numeric_limits<std::size_t>::max(), encoding);
-		std::string delimiterStr(delimiter.getBytes().begin(), delimiter.getBytes().end());
-		std::string sequenceStr(sequence.getBytes().begin(), sequence.getBytes().end());
-		std::vector<std::string> pool;
-		for (function::Module a = 0; a < sequenceStr.size(); a++)
+		auto parts = sequence.split(delimiter);
+		for (function::Module i = 0; i < parts.size(); i++)
 		{
-			std::string target;
-			bool matched = false;
-			for (function::Module b = a; b < sequenceStr.size(); b++)
+			if (interrupt(parts[i], i))
 			{
-				if (b + delimiterStr.size() <= sequenceStr.size() && sequenceStr.substr(b, delimiterStr.size()) == delimiterStr)
-				{
-					a = b + delimiterStr.size() - 1;
-					matched = true;
-					break;
-				}
-				target += sequenceStr[b];
+				break;
 			}
-			if (!target.empty() || matched)
-			{
-				pool.push_back(target);
-				function::Module index = pool.size() - 1;
-				charsequence::Charsequence targetSequence(target);
-				if (interrupt(targetSequence, index))
-				{
-					break;
-				}
-				accept(targetSequence, index);
-			}
+			accept(parts[i], i);
 		}
 	},
 												1LL);

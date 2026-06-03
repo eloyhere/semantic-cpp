@@ -10351,7 +10351,11 @@ auto collectable::WindowCollectable<E>::slide(const function::Module &size, cons
                 std::vector<E> window;
                 for (function::Module i = start; i < end; i++)
                 {
-                    window.push_back(buffer.at(i));
+                    auto it = buffer.find(i);
+                    if (it != buffer.end())
+                    {
+                        window.push_back(it->second);
+                    }
                 }
                 auto inner = semantic::Semantic<E>([window = std::move(window)](function::BiConsumer<E, function::Timestamp> innerAccept, function::BiPredicate<E, function::Timestamp> innerInterrupt) -> void {
                     function::Timestamp innerIdx = 0LL;

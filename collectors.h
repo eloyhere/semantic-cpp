@@ -901,13 +901,19 @@ auto useJoin(const charsequence::Charsequence &prefix, const charsequence::Chars
 template <typename E>
 auto useOut() -> Collector<E, charsequence::Builder, charsequence::Charsequence>
 {
-    static const auto comma = std::string_view(",");
-    static const auto leftBracket = std::string_view("[");
-    static const auto rightBracket = std::string_view("]");
+    static const charsequence::Charsequence comma(",");
+    static const charsequence::Charsequence leftBracket("[");
+    static const charsequence::Charsequence rightBracket("]");
     return useFull<E, charsequence::Builder, charsequence::Charsequence>(
         []() -> charsequence::Builder { return charsequence::Builder(); },
         [](charsequence::Builder accumulatorValue, E element, function::Timestamp index) -> charsequence::Builder {
             if constexpr (std::is_same_v<E, charsequence::Charsequence>)
+            {
+                if (accumulatorValue.size() > 0)
+                    accumulatorValue.append(comma);
+                accumulatorValue.append(element);
+            }
+            else if constexpr (std::is_same_v<E, std::string>)
             {
                 if (accumulatorValue.size() > 0)
                     accumulatorValue.append(comma);
@@ -941,12 +947,18 @@ auto useOut() -> Collector<E, charsequence::Builder, charsequence::Charsequence>
 template <typename E>
 auto useOut(const charsequence::Charsequence &delimiter) -> Collector<E, charsequence::Builder, charsequence::Charsequence>
 {
-    static const auto leftBracket = std::string_view("[");
-    static const auto rightBracket = std::string_view("]");
+    static const charsequence::Charsequence leftBracket("[");
+    static const charsequence::Charsequence rightBracket("]");
     return useFull<E, charsequence::Builder, charsequence::Charsequence>(
         []() -> charsequence::Builder { return charsequence::Builder(); },
         [delimiter](charsequence::Builder accumulatorValue, E element, function::Timestamp index) -> charsequence::Builder {
             if constexpr (std::is_same_v<E, charsequence::Charsequence>)
+            {
+                if (accumulatorValue.size() > 0)
+                    accumulatorValue.append(delimiter);
+                accumulatorValue.append(element);
+            }
+            else if constexpr (std::is_same_v<E, std::string>)
             {
                 if (accumulatorValue.size() > 0)
                     accumulatorValue.append(delimiter);
@@ -989,6 +1001,12 @@ auto useOut(const charsequence::Charsequence &prefix, const charsequence::Charse
                     accumulatorValue.append(delimiter);
                 accumulatorValue.append(element);
             }
+            else if constexpr (std::is_same_v<E, std::string>)
+            {
+                if (accumulatorValue.size() > 0)
+                    accumulatorValue.append(delimiter);
+                accumulatorValue.append(element);
+            }
             else if constexpr (std::is_arithmetic_v<E>)
             {
                 if (accumulatorValue.size() > 0)
@@ -1017,13 +1035,19 @@ auto useOut(const charsequence::Charsequence &prefix, const charsequence::Charse
 template <typename E>
 auto useError() -> Collector<E, charsequence::Builder, charsequence::Charsequence>
 {
-    static const auto comma = std::string_view(",");
-    static const auto leftBracket = std::string_view("[");
-    static const auto rightBracket = std::string_view("]");
+    static const charsequence::Charsequence comma(",");
+    static const charsequence::Charsequence leftBracket("[");
+    static const charsequence::Charsequence rightBracket("]");
     return useFull<E, charsequence::Builder, charsequence::Charsequence>(
         []() -> charsequence::Builder { return charsequence::Builder(); },
         [](charsequence::Builder accumulatorValue, E element, function::Timestamp index) -> charsequence::Builder {
             if constexpr (std::is_same_v<E, charsequence::Charsequence>)
+            {
+                if (accumulatorValue.size() > 0)
+                    accumulatorValue.append(comma);
+                accumulatorValue.append(element);
+            }
+            else if constexpr (std::is_same_v<E, std::string>)
             {
                 if (accumulatorValue.size() > 0)
                     accumulatorValue.append(comma);
@@ -1057,12 +1081,18 @@ auto useError() -> Collector<E, charsequence::Builder, charsequence::Charsequenc
 template <typename E>
 auto useError(const charsequence::Charsequence &delimiter) -> Collector<E, charsequence::Builder, charsequence::Charsequence>
 {
-    static const auto leftBracket = std::string_view("[");
-    static const auto rightBracket = std::string_view("]");
+    static const charsequence::Charsequence leftBracket("[");
+    static const charsequence::Charsequence rightBracket("]");
     return useFull<E, charsequence::Builder, charsequence::Charsequence>(
         []() -> charsequence::Builder { return charsequence::Builder(); },
         [delimiter](charsequence::Builder accumulatorValue, E element, function::Timestamp index) -> charsequence::Builder {
             if constexpr (std::is_same_v<E, charsequence::Charsequence>)
+            {
+                if (accumulatorValue.size() > 0)
+                    accumulatorValue.append(delimiter);
+                accumulatorValue.append(element);
+            }
+            else if constexpr (std::is_same_v<E, std::string>)
             {
                 if (accumulatorValue.size() > 0)
                     accumulatorValue.append(delimiter);
@@ -1100,6 +1130,12 @@ auto useError(const charsequence::Charsequence &prefix, const charsequence::Char
         []() -> charsequence::Builder { return charsequence::Builder(); },
         [delimiter](charsequence::Builder accumulatorValue, E element, function::Timestamp index) -> charsequence::Builder {
             if constexpr (std::is_same_v<E, charsequence::Charsequence>)
+            {
+                if (accumulatorValue.size() > 0)
+                    accumulatorValue.append(delimiter);
+                accumulatorValue.append(element);
+            }
+            else if constexpr (std::is_same_v<E, std::string>)
             {
                 if (accumulatorValue.size() > 0)
                     accumulatorValue.append(delimiter);

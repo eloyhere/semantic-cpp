@@ -35,19 +35,7 @@
 
 namespace collector
 {
-constexpr double PI() noexcept
-{
-    double sum = 0.0;
-    double sign = 1.0;
-    for (int i = 0; i < 20; ++i)
-    {
-        sum += sign / (2.0 * static_cast<double>(i) + 1.0);
-        sign = -sign;
-    }
-    return 4.0 * sum;
-}
-
-constexpr double pi = PI();
+const double pi = std::acos(-1);
 
 template <typename E, typename Predicate>
 auto useAllMatch(Predicate &&predicate) -> Collector<E, bool, bool>
@@ -266,8 +254,10 @@ auto useMinimum() -> Collector<E, std::optional<D>, std::optional<D>>
             return accumulatorValue;
         },
         [](std::optional<D> a, std::optional<D> b) -> std::optional<D> {
-            if (!a.has_value()) return b;
-            if (!b.has_value()) return a;
+            if (!a.has_value())
+                return b;
+            if (!b.has_value())
+                return a;
             return a.value() < b.value() ? a : b;
         },
         [](std::optional<D> accumulatorValue) -> std::optional<D> { return accumulatorValue; });
@@ -285,8 +275,10 @@ auto useMinimum(const function::Function<E, D> &mapper) -> Collector<E, std::opt
             return accumulatorValue;
         },
         [](std::optional<D> a, std::optional<D> b) -> std::optional<D> {
-            if (!a.has_value()) return b;
-            if (!b.has_value()) return a;
+            if (!a.has_value())
+                return b;
+            if (!b.has_value())
+                return a;
             return a.value() < b.value() ? a : b;
         },
         [](std::optional<D> accumulatorValue) -> std::optional<D> { return accumulatorValue; });
@@ -304,8 +296,10 @@ auto useMaximum() -> Collector<E, std::optional<D>, std::optional<D>>
             return accumulatorValue;
         },
         [](std::optional<D> a, std::optional<D> b) -> std::optional<D> {
-            if (!a.has_value()) return b;
-            if (!b.has_value()) return a;
+            if (!a.has_value())
+                return b;
+            if (!b.has_value())
+                return a;
             return a.value() > b.value() ? a : b;
         },
         [](std::optional<D> accumulatorValue) -> std::optional<D> { return accumulatorValue; });
@@ -323,8 +317,10 @@ auto useMaximum(const function::Function<E, D> &mapper) -> Collector<E, std::opt
             return accumulatorValue;
         },
         [](std::optional<D> a, std::optional<D> b) -> std::optional<D> {
-            if (!a.has_value()) return b;
-            if (!b.has_value()) return a;
+            if (!a.has_value())
+                return b;
+            if (!b.has_value())
+                return a;
             return a.value() > b.value() ? a : b;
         },
         [](std::optional<D> accumulatorValue) -> std::optional<D> { return accumulatorValue; });
@@ -349,8 +345,10 @@ auto useVariance() -> Collector<E, std::tuple<D, D, D, function::Module>, D>
         [](std::tuple<D, D, D, function::Module> a, std::tuple<D, D, D, function::Module> b) -> std::tuple<D, D, D, function::Module> {
             function::Module countA = std::get<3>(a);
             function::Module countB = std::get<3>(b);
-            if (countA == 0) return b;
-            if (countB == 0) return a;
+            if (countA == 0)
+                return b;
+            if (countB == 0)
+                return a;
             D delta = std::get<0>(b) - std::get<0>(a);
             D totalCount = static_cast<D>(countA + countB);
             D newMean = std::get<0>(a) + delta * static_cast<D>(countB) / totalCount;
@@ -359,7 +357,8 @@ auto useVariance() -> Collector<E, std::tuple<D, D, D, function::Module>, D>
         },
         [](std::tuple<D, D, D, function::Module> acc) -> D {
             function::Module count = std::get<3>(acc);
-            if (count == 0) return D{};
+            if (count == 0)
+                return D{};
             return std::get<1>(acc) / static_cast<D>(count);
         });
 }
@@ -383,8 +382,10 @@ auto useVariance(const function::Function<E, D> &mapper) -> Collector<E, std::tu
         [](std::tuple<D, D, D, function::Module> a, std::tuple<D, D, D, function::Module> b) -> std::tuple<D, D, D, function::Module> {
             function::Module countA = std::get<3>(a);
             function::Module countB = std::get<3>(b);
-            if (countA == 0) return b;
-            if (countB == 0) return a;
+            if (countA == 0)
+                return b;
+            if (countB == 0)
+                return a;
             D delta = std::get<0>(b) - std::get<0>(a);
             D totalCount = static_cast<D>(countA + countB);
             D newMean = std::get<0>(a) + delta * static_cast<D>(countB) / totalCount;
@@ -393,7 +394,8 @@ auto useVariance(const function::Function<E, D> &mapper) -> Collector<E, std::tu
         },
         [](std::tuple<D, D, D, function::Module> acc) -> D {
             function::Module count = std::get<3>(acc);
-            if (count == 0) return D{};
+            if (count == 0)
+                return D{};
             return std::get<1>(acc) / static_cast<D>(count);
         });
 }
@@ -417,8 +419,10 @@ auto useStandardDeviation() -> Collector<E, std::tuple<D, D, D, function::Module
         [](std::tuple<D, D, D, function::Module> a, std::tuple<D, D, D, function::Module> b) -> std::tuple<D, D, D, function::Module> {
             function::Module countA = std::get<3>(a);
             function::Module countB = std::get<3>(b);
-            if (countA == 0) return b;
-            if (countB == 0) return a;
+            if (countA == 0)
+                return b;
+            if (countB == 0)
+                return a;
             D delta = std::get<0>(b) - std::get<0>(a);
             D totalCount = static_cast<D>(countA + countB);
             D newMean = std::get<0>(a) + delta * static_cast<D>(countB) / totalCount;
@@ -427,7 +431,8 @@ auto useStandardDeviation() -> Collector<E, std::tuple<D, D, D, function::Module
         },
         [](std::tuple<D, D, D, function::Module> acc) -> D {
             function::Module count = std::get<3>(acc);
-            if (count == 0) return D{};
+            if (count == 0)
+                return D{};
             D variance = std::get<1>(acc) / static_cast<D>(count);
             return static_cast<D>(std::sqrt(static_cast<double>(variance)));
         });
@@ -452,8 +457,10 @@ auto useStandardDeviation(const function::Function<E, D> &mapper) -> Collector<E
         [](std::tuple<D, D, D, function::Module> a, std::tuple<D, D, D, function::Module> b) -> std::tuple<D, D, D, function::Module> {
             function::Module countA = std::get<3>(a);
             function::Module countB = std::get<3>(b);
-            if (countA == 0) return b;
-            if (countB == 0) return a;
+            if (countA == 0)
+                return b;
+            if (countB == 0)
+                return a;
             D delta = std::get<0>(b) - std::get<0>(a);
             D totalCount = static_cast<D>(countA + countB);
             D newMean = std::get<0>(a) + delta * static_cast<D>(countB) / totalCount;
@@ -462,7 +469,8 @@ auto useStandardDeviation(const function::Function<E, D> &mapper) -> Collector<E
         },
         [](std::tuple<D, D, D, function::Module> acc) -> D {
             function::Module count = std::get<3>(acc);
-            if (count == 0) return D{};
+            if (count == 0)
+                return D{};
             D variance = std::get<1>(acc) / static_cast<D>(count);
             return static_cast<D>(std::sqrt(static_cast<double>(variance)));
         });
@@ -480,8 +488,10 @@ auto useFindAny() -> Collector<E, std::optional<E>, std::optional<E>>
             return std::nullopt;
         },
         [](std::optional<E> a, std::optional<E> b) -> std::optional<E> {
-            if (a.has_value()) return a;
-            if (b.has_value()) return b;
+            if (a.has_value())
+                return a;
+            if (b.has_value())
+                return b;
             return std::nullopt;
         },
         [](std::optional<E> accumulatorValue) -> std::optional<E> { return accumulatorValue; });
@@ -497,12 +507,15 @@ auto useFindAt(const function::Timestamp &index) -> Collector<E, std::optional<E
         []() -> std::optional<E> { return std::nullopt; },
         [](E element, function::Timestamp index, std::optional<E> accumulatorValue) -> bool { return accumulatorValue.has_value(); },
         [target](std::optional<E> accumulatorValue, E element, function::Timestamp index) -> std::optional<E> {
-            if (target == index) return std::optional<E>(element);
+            if (target == index)
+                return std::optional<E>(element);
             return accumulatorValue;
         },
         [](std::optional<E> a, std::optional<E> b) -> std::optional<E> {
-            if (a.has_value()) return a;
-            if (b.has_value()) return b;
+            if (a.has_value())
+                return a;
+            if (b.has_value())
+                return b;
             return std::nullopt;
         },
         [](std::optional<E> accumulatorValue) -> std::optional<E> { return accumulatorValue; });
@@ -526,7 +539,8 @@ auto useFindNegativeAt(const function::Timestamp &index) -> Collector<E, std::pa
             return a;
         },
         [index](std::pair<std::vector<E>, function::Module> accumulatorValue) -> std::optional<E> {
-            if (accumulatorValue.second == 0) return std::nullopt;
+            if (accumulatorValue.second == 0)
+                return std::nullopt;
             function::Module size = accumulatorValue.second;
             function::Module absIndex = static_cast<function::Module>(std::abs(index));
             function::Module target = (size - (absIndex % size)) % size;
@@ -543,12 +557,15 @@ auto useFindFirst() -> Collector<E, std::optional<E>, std::optional<E>>
         []() -> std::optional<E> { return std::nullopt; },
         [](E element, function::Timestamp index, std::optional<E> accumulatorValue) -> bool { return accumulatorValue.has_value(); },
         [](std::optional<E> accumulatorValue, E element, function::Timestamp index) -> std::optional<E> {
-            if (accumulatorValue.has_value()) return accumulatorValue;
+            if (accumulatorValue.has_value())
+                return accumulatorValue;
             return std::optional<E>(element);
         },
         [](std::optional<E> a, std::optional<E> b) -> std::optional<E> {
-            if (a.has_value()) return a;
-            if (b.has_value()) return b;
+            if (a.has_value())
+                return a;
+            if (b.has_value())
+                return b;
             return std::nullopt;
         },
         [](std::optional<E> accumulatorValue) -> std::optional<E> { return accumulatorValue; });
@@ -568,7 +585,8 @@ auto useFindLast() -> Collector<E, std::vector<E>, std::optional<E>>
             return a;
         },
         [](std::vector<E> accumulatorValue) -> std::optional<E> {
-            if (accumulatorValue.empty()) return std::nullopt;
+            if (accumulatorValue.empty())
+                return std::nullopt;
             return std::optional<E>(accumulatorValue[accumulatorValue.size() - 1]);
         });
 }
@@ -590,10 +608,12 @@ auto useFindMaximum() -> Collector<E, std::optional<E>, std::optional<E>>
         [](std::optional<E> a, std::optional<E> b) -> std::optional<E> {
             if (a.has_value())
             {
-                if (b.has_value()) return a.value() > b.value() ? a : b;
+                if (b.has_value())
+                    return a.value() > b.value() ? a : b;
                 return a;
             }
-            if (b.has_value()) return b;
+            if (b.has_value())
+                return b;
             return std::nullopt;
         },
         [](std::optional<E> accumulatorValue) -> std::optional<E> { return accumulatorValue; });
@@ -616,10 +636,12 @@ auto useFindMaximum(const function::Comparator<E> &comparator) -> Collector<E, s
         [comparator](std::optional<E> a, std::optional<E> b) -> std::optional<E> {
             if (a.has_value())
             {
-                if (b.has_value()) return comparator(a.value(), b.value()) > 0 ? a : b;
+                if (b.has_value())
+                    return comparator(a.value(), b.value()) > 0 ? a : b;
                 return a;
             }
-            if (b.has_value()) return b;
+            if (b.has_value())
+                return b;
             return std::nullopt;
         },
         [](std::optional<E> accumulatorValue) -> std::optional<E> { return accumulatorValue; });
@@ -642,10 +664,12 @@ auto useFindMinimum() -> Collector<E, std::optional<E>, std::optional<E>>
         [](std::optional<E> a, std::optional<E> b) -> std::optional<E> {
             if (a.has_value())
             {
-                if (b.has_value()) return a.value() < b.value() ? a : b;
+                if (b.has_value())
+                    return a.value() < b.value() ? a : b;
                 return a;
             }
-            if (b.has_value()) return b;
+            if (b.has_value())
+                return b;
             return std::nullopt;
         },
         [](std::optional<E> accumulatorValue) -> std::optional<E> { return accumulatorValue; });
@@ -668,10 +692,12 @@ auto useFindMinimum(const function::Comparator<E> &comparator) -> Collector<E, s
         [comparator](std::optional<E> a, std::optional<E> b) -> std::optional<E> {
             if (a.has_value())
             {
-                if (b.has_value()) return comparator(a.value(), b.value()) < 0 ? a : b;
+                if (b.has_value())
+                    return comparator(a.value(), b.value()) < 0 ? a : b;
                 return a;
             }
-            if (b.has_value()) return b;
+            if (b.has_value())
+                return b;
             return std::nullopt;
         },
         [](std::optional<E> accumulatorValue) -> std::optional<E> { return accumulatorValue; });
@@ -755,18 +781,21 @@ auto useJoin() -> Collector<E, charsequence::Builder, charsequence::Charsequence
         [](charsequence::Builder accumulatorValue, E element, function::Timestamp index) -> charsequence::Builder {
             if constexpr (std::is_same_v<E, charsequence::Charsequence>)
             {
-                if (accumulatorValue.size() > 0) accumulatorValue.append(comma);
+                if (accumulatorValue.size() > 0)
+                    accumulatorValue.append(comma);
                 accumulatorValue.append(element);
             }
             else if constexpr (std::is_arithmetic_v<E>)
             {
-                if (accumulatorValue.size() > 0) accumulatorValue.append(comma);
-                accumulatorValue.append(std::to_string(element));
+                if (accumulatorValue.size() > 0)
+                    accumulatorValue.append(comma);
+                accumulatorValue.append(element);
             }
             return accumulatorValue;
         },
         [](charsequence::Builder a, charsequence::Builder b) -> charsequence::Builder {
-            if (a.size() > 0 && b.size() > 0) a.append(comma);
+            if (a.size() > 0 && b.size() > 0)
+                a.append(comma);
             a.append(b.toCharsequence());
             return a;
         },
@@ -789,18 +818,21 @@ auto useJoin(const charsequence::Charsequence &delimiter) -> Collector<E, charse
         [delimiter](charsequence::Builder accumulatorValue, E element, function::Timestamp index) -> charsequence::Builder {
             if constexpr (std::is_same_v<E, charsequence::Charsequence>)
             {
-                if (accumulatorValue.size() > 0) accumulatorValue.append(delimiter);
+                if (accumulatorValue.size() > 0)
+                    accumulatorValue.append(delimiter);
                 accumulatorValue.append(element);
             }
             else if constexpr (std::is_arithmetic_v<E>)
             {
-                if (accumulatorValue.size() > 0) accumulatorValue.append(delimiter);
-                accumulatorValue.append(std::to_string(element));
+                if (accumulatorValue.size() > 0)
+                    accumulatorValue.append(delimiter);
+                accumulatorValue.append(element);
             }
             return accumulatorValue;
         },
         [delimiter](charsequence::Builder a, charsequence::Builder b) -> charsequence::Builder {
-            if (a.size() > 0 && b.size() > 0) a.append(delimiter);
+            if (a.size() > 0 && b.size() > 0)
+                a.append(delimiter);
             a.append(b.toCharsequence());
             return a;
         },
@@ -821,18 +853,21 @@ auto useJoin(const charsequence::Charsequence &prefix, const charsequence::Chars
         [delimiter](charsequence::Builder accumulatorValue, E element, function::Timestamp index) -> charsequence::Builder {
             if constexpr (std::is_same_v<E, charsequence::Charsequence>)
             {
-                if (accumulatorValue.size() > 0) accumulatorValue.append(delimiter);
+                if (accumulatorValue.size() > 0)
+                    accumulatorValue.append(delimiter);
                 accumulatorValue.append(element);
             }
             else if constexpr (std::is_arithmetic_v<E>)
             {
-                if (accumulatorValue.size() > 0) accumulatorValue.append(delimiter);
-                accumulatorValue.append(std::to_string(element));
+                if (accumulatorValue.size() > 0)
+                    accumulatorValue.append(delimiter);
+                accumulatorValue.append(element);
             }
             return accumulatorValue;
         },
         [delimiter](charsequence::Builder a, charsequence::Builder b) -> charsequence::Builder {
-            if (a.size() > 0 && b.size() > 0) a.append(delimiter);
+            if (a.size() > 0 && b.size() > 0)
+                a.append(delimiter);
             a.append(b.toCharsequence());
             return a;
         },
@@ -856,18 +891,21 @@ auto useOut() -> Collector<E, charsequence::Builder, charsequence::Charsequence>
         [](charsequence::Builder accumulatorValue, E element, function::Timestamp index) -> charsequence::Builder {
             if constexpr (std::is_same_v<E, charsequence::Charsequence>)
             {
-                if (accumulatorValue.size() > 0) accumulatorValue.append(comma);
+                if (accumulatorValue.size() > 0)
+                    accumulatorValue.append(comma);
                 accumulatorValue.append(element);
             }
             else if constexpr (std::is_arithmetic_v<E>)
             {
-                if (accumulatorValue.size() > 0) accumulatorValue.append(comma);
-                accumulatorValue.append(std::to_string(element));
+                if (accumulatorValue.size() > 0)
+                    accumulatorValue.append(comma);
+                accumulatorValue.append(element);
             }
             return accumulatorValue;
         },
         [](charsequence::Builder a, charsequence::Builder b) -> charsequence::Builder {
-            if (a.size() > 0 && b.size() > 0) a.append(comma);
+            if (a.size() > 0 && b.size() > 0)
+                a.append(comma);
             a.append(b.toCharsequence());
             return a;
         },
@@ -892,18 +930,21 @@ auto useOut(const charsequence::Charsequence &delimiter) -> Collector<E, charseq
         [delimiter](charsequence::Builder accumulatorValue, E element, function::Timestamp index) -> charsequence::Builder {
             if constexpr (std::is_same_v<E, charsequence::Charsequence>)
             {
-                if (accumulatorValue.size() > 0) accumulatorValue.append(delimiter);
+                if (accumulatorValue.size() > 0)
+                    accumulatorValue.append(delimiter);
                 accumulatorValue.append(element);
             }
             else if constexpr (std::is_arithmetic_v<E>)
             {
-                if (accumulatorValue.size() > 0) accumulatorValue.append(delimiter);
-                accumulatorValue.append(std::to_string(element));
+                if (accumulatorValue.size() > 0)
+                    accumulatorValue.append(delimiter);
+                accumulatorValue.append(element);
             }
             return accumulatorValue;
         },
         [delimiter](charsequence::Builder a, charsequence::Builder b) -> charsequence::Builder {
-            if (a.size() > 0 && b.size() > 0) a.append(delimiter);
+            if (a.size() > 0 && b.size() > 0)
+                a.append(delimiter);
             a.append(b.toCharsequence());
             return a;
         },
@@ -926,18 +967,21 @@ auto useOut(const charsequence::Charsequence &prefix, const charsequence::Charse
         [delimiter](charsequence::Builder accumulatorValue, E element, function::Timestamp index) -> charsequence::Builder {
             if constexpr (std::is_same_v<E, charsequence::Charsequence>)
             {
-                if (accumulatorValue.size() > 0) accumulatorValue.append(delimiter);
+                if (accumulatorValue.size() > 0)
+                    accumulatorValue.append(delimiter);
                 accumulatorValue.append(element);
             }
             else if constexpr (std::is_arithmetic_v<E>)
             {
-                if (accumulatorValue.size() > 0) accumulatorValue.append(delimiter);
-                accumulatorValue.append(std::to_string(element));
+                if (accumulatorValue.size() > 0)
+                    accumulatorValue.append(delimiter);
+                accumulatorValue.append(element);
             }
             return accumulatorValue;
         },
         [delimiter](charsequence::Builder a, charsequence::Builder b) -> charsequence::Builder {
-            if (a.size() > 0 && b.size() > 0) a.append(delimiter);
+            if (a.size() > 0 && b.size() > 0)
+                a.append(delimiter);
             a.append(b.toCharsequence());
             return a;
         },
@@ -963,18 +1007,21 @@ auto useError() -> Collector<E, charsequence::Builder, charsequence::Charsequenc
         [](charsequence::Builder accumulatorValue, E element, function::Timestamp index) -> charsequence::Builder {
             if constexpr (std::is_same_v<E, charsequence::Charsequence>)
             {
-                if (accumulatorValue.size() > 0) accumulatorValue.append(comma);
+                if (accumulatorValue.size() > 0)
+                    accumulatorValue.append(comma);
                 accumulatorValue.append(element);
             }
             else if constexpr (std::is_arithmetic_v<E>)
             {
-                if (accumulatorValue.size() > 0) accumulatorValue.append(comma);
-                accumulatorValue.append(std::to_string(element));
+                if (accumulatorValue.size() > 0)
+                    accumulatorValue.append(comma);
+                accumulatorValue.append(element);
             }
             return accumulatorValue;
         },
         [](charsequence::Builder a, charsequence::Builder b) -> charsequence::Builder {
-            if (a.size() > 0 && b.size() > 0) a.append(comma);
+            if (a.size() > 0 && b.size() > 0)
+                a.append(comma);
             a.append(b.toCharsequence());
             return a;
         },
@@ -999,18 +1046,21 @@ auto useError(const charsequence::Charsequence &delimiter) -> Collector<E, chars
         [delimiter](charsequence::Builder accumulatorValue, E element, function::Timestamp index) -> charsequence::Builder {
             if constexpr (std::is_same_v<E, charsequence::Charsequence>)
             {
-                if (accumulatorValue.size() > 0) accumulatorValue.append(delimiter);
+                if (accumulatorValue.size() > 0)
+                    accumulatorValue.append(delimiter);
                 accumulatorValue.append(element);
             }
             else if constexpr (std::is_arithmetic_v<E>)
             {
-                if (accumulatorValue.size() > 0) accumulatorValue.append(delimiter);
-                accumulatorValue.append(std::to_string(element));
+                if (accumulatorValue.size() > 0)
+                    accumulatorValue.append(delimiter);
+                accumulatorValue.append(element);
             }
             return accumulatorValue;
         },
         [delimiter](charsequence::Builder a, charsequence::Builder b) -> charsequence::Builder {
-            if (a.size() > 0 && b.size() > 0) a.append(delimiter);
+            if (a.size() > 0 && b.size() > 0)
+                a.append(delimiter);
             a.append(b.toCharsequence());
             return a;
         },
@@ -1033,18 +1083,21 @@ auto useError(const charsequence::Charsequence &prefix, const charsequence::Char
         [delimiter](charsequence::Builder accumulatorValue, E element, function::Timestamp index) -> charsequence::Builder {
             if constexpr (std::is_same_v<E, charsequence::Charsequence>)
             {
-                if (accumulatorValue.size() > 0) accumulatorValue.append(delimiter);
+                if (accumulatorValue.size() > 0)
+                    accumulatorValue.append(delimiter);
                 accumulatorValue.append(element);
             }
             else if constexpr (std::is_arithmetic_v<E>)
             {
-                if (accumulatorValue.size() > 0) accumulatorValue.append(delimiter);
-                accumulatorValue.append(std::to_string(element));
+                if (accumulatorValue.size() > 0)
+                    accumulatorValue.append(delimiter);
+                accumulatorValue.append(element);
             }
             return accumulatorValue;
         },
         [delimiter](charsequence::Builder a, charsequence::Builder b) -> charsequence::Builder {
-            if (a.size() > 0 && b.size() > 0) a.append(delimiter);
+            if (a.size() > 0 && b.size() > 0)
+                a.append(delimiter);
             a.append(b.toCharsequence());
             return a;
         },
@@ -1060,80 +1113,198 @@ auto useError(const charsequence::Charsequence &prefix, const charsequence::Char
 }
 
 template <typename E>
-auto useFrequency() -> Collector<E, std::unordered_map<E, std::complex<double>>, std::map<E, std::complex<double>>>
+auto useFrequency() -> Collector<E, std::pair<std::unordered_map<E, std::pair<std::vector<std::complex<double>>, std::vector<std::complex<double>>>>, function::Timestamp>, std::map<E, std::pair<std::vector<std::complex<double>>, std::vector<std::complex<double>>>>>
 {
-    return useFull<E, std::unordered_map<E, std::complex<double>>, std::map<E, std::complex<double>>>(
-        []() -> std::unordered_map<E, std::complex<double>> { return std::unordered_map<E, std::complex<double>>(); },
-        [](std::unordered_map<E, std::complex<double>> accumulatorValue, E element, function::Timestamp index) -> std::unordered_map<E, std::complex<double>> {
-            double angle = std::fmod(2.0 * pi * static_cast<double>(index), 2.0 * pi);
-            accumulatorValue[element] += std::complex<double>(std::cos(angle), std::sin(angle));
+    using InnerMap = std::unordered_map<E, std::pair<std::vector<std::complex<double>>, std::vector<std::complex<double>>>>;
+    using AccumulatorType = std::pair<InnerMap, function::Timestamp>;
+    using ResultMap = std::map<E, std::pair<std::vector<std::complex<double>>, std::vector<std::complex<double>>>>;
+    return useFull<E, AccumulatorType, ResultMap>(
+        []() -> AccumulatorType {
+            return AccumulatorType(InnerMap(), 0LL);
+        },
+        [](AccumulatorType accumulatorValue, E element, function::Timestamp index) -> AccumulatorType {
+            InnerMap &map = accumulatorValue.first;
+            std::pair<std::vector<std::complex<double>>, std::vector<std::complex<double>>> &pair = map[element];
+            pair.first.push_back(std::complex<double>(static_cast<double>(index), 1.0));
+            accumulatorValue.second = index;
             return accumulatorValue;
         },
-        [](std::unordered_map<E, std::complex<double>> a, std::unordered_map<E, std::complex<double>> b) -> std::unordered_map<E, std::complex<double>> {
-            for (auto &[key, value] : b)
-                a[key] += value;
+        [](AccumulatorType a, AccumulatorType b) -> AccumulatorType {
+            InnerMap &mapA = a.first;
+            const InnerMap &mapB = b.first;
+            for (auto &entry : mapB)
+            {
+                std::pair<std::vector<std::complex<double>>, std::vector<std::complex<double>>> &target = mapA[entry.first];
+                target.first.insert(target.first.end(), entry.second.first.begin(), entry.second.first.end());
+            }
+            if (b.second > a.second)
+            {
+                a.second = b.second;
+            }
             return a;
         },
-        [](std::unordered_map<E, std::complex<double>> accumulatorValue) -> std::map<E, std::complex<double>> {
-            return std::map<E, std::complex<double>>(accumulatorValue.begin(), accumulatorValue.end());
+        [](AccumulatorType accumulatorValue) -> ResultMap {
+            ResultMap result;
+            InnerMap &map = accumulatorValue.first;
+            function::Timestamp totalLength = accumulatorValue.second + 1;
+            for (auto &entry : map)
+            {
+                std::size_t totalCount = entry.second.first.size();
+                std::pair<std::vector<std::complex<double>>, std::vector<std::complex<double>>> &target = result[entry.first];
+                target.first = std::move(entry.second.first);
+                target.second.reserve(totalCount);
+                for (std::size_t i = 0; i < totalCount; i++)
+                {
+                    function::Timestamp position = static_cast<function::Timestamp>(target.first[i].real());
+                    target.second.push_back(std::complex<double>(static_cast<double>(position), static_cast<double>(totalLength)));
+                }
+            }
+            return result;
         });
 }
 
 template <typename E, typename D>
-auto useFrequency(const function::Function<E, D> &mapper) -> Collector<E, std::unordered_map<D, std::complex<double>>, std::map<D, std::complex<double>>>
+auto useFrequency(const function::Function<E, D> &mapper) -> Collector<E, std::pair<std::unordered_map<D, std::pair<std::vector<std::complex<double>>, std::vector<std::complex<double>>>>, function::Timestamp>, std::map<D, std::pair<std::vector<std::complex<double>>, std::vector<std::complex<double>>>>>
 {
-    return useFull<E, std::unordered_map<D, std::complex<double>>, std::map<D, std::complex<double>>>(
-        []() -> std::unordered_map<D, std::complex<double>> { return std::unordered_map<D, std::complex<double>>(); },
-        [mapper](std::unordered_map<D, std::complex<double>> accumulatorValue, E element, function::Timestamp index) -> std::unordered_map<D, std::complex<double>> {
+    using InnerMap = std::unordered_map<D, std::pair<std::vector<std::complex<double>>, std::vector<std::complex<double>>>>;
+    using AccumulatorType = std::pair<InnerMap, function::Timestamp>;
+    using ResultMap = std::map<D, std::pair<std::vector<std::complex<double>>, std::vector<std::complex<double>>>>;
+    return useFull<E, AccumulatorType, ResultMap>(
+        []() -> AccumulatorType {
+            return AccumulatorType(InnerMap(), 0LL);
+        },
+        [mapper](AccumulatorType accumulatorValue, E element, function::Timestamp index) -> AccumulatorType {
+            InnerMap &map = accumulatorValue.first;
             D key = mapper(element);
-            double angle = std::fmod(2.0 * pi * static_cast<double>(index), 2.0 * pi);
-            accumulatorValue[key] += std::complex<double>(std::cos(angle), std::sin(angle));
+            std::pair<std::vector<std::complex<double>>, std::vector<std::complex<double>>> &pair = map[key];
+            pair.first.push_back(std::complex<double>(static_cast<double>(index), 1.0));
+            accumulatorValue.second = index;
             return accumulatorValue;
         },
-        [](std::unordered_map<D, std::complex<double>> a, std::unordered_map<D, std::complex<double>> b) -> std::unordered_map<D, std::complex<double>> {
-            for (auto &[key, value] : b)
-                a[key] += value;
+        [](AccumulatorType a, AccumulatorType b) -> AccumulatorType {
+            InnerMap &mapA = a.first;
+            const InnerMap &mapB = b.first;
+            for (auto &entry : mapB)
+            {
+                std::pair<std::vector<std::complex<double>>, std::vector<std::complex<double>>> &target = mapA[entry.first];
+                target.first.insert(target.first.end(), entry.second.first.begin(), entry.second.first.end());
+            }
+            if (b.second > a.second)
+            {
+                a.second = b.second;
+            }
             return a;
         },
-        [](std::unordered_map<D, std::complex<double>> accumulatorValue) -> std::map<D, std::complex<double>> {
-            return std::map<D, std::complex<double>>(accumulatorValue.begin(), accumulatorValue.end());
+        [](AccumulatorType accumulatorValue) -> ResultMap {
+            ResultMap result;
+            InnerMap &map = accumulatorValue.first;
+            function::Timestamp totalLength = accumulatorValue.second + 1;
+            for (auto &entry : map)
+            {
+                std::size_t totalCount = entry.second.first.size();
+                std::pair<std::vector<std::complex<double>>, std::vector<std::complex<double>>> &target = result[entry.first];
+                target.first = std::move(entry.second.first);
+                target.second.reserve(totalCount);
+                for (std::size_t i = 0; i < totalCount; i++)
+                {
+                    function::Timestamp position = static_cast<function::Timestamp>(target.first[i].real());
+                    target.second.push_back(std::complex<double>(static_cast<double>(position), static_cast<double>(totalLength)));
+                }
+            }
+            return result;
         });
 }
 
 template <typename E>
 auto useDistribution() -> Collector<E, std::unordered_map<E, std::vector<function::Timestamp>>, std::map<E, std::complex<double>>>
 {
-    return useFull<E, std::unordered_map<E, std::vector<function::Timestamp>>, std::map<E, std::complex<double>>>(
-        []() -> std::unordered_map<E, std::vector<function::Timestamp>> { return std::unordered_map<E, std::vector<function::Timestamp>>(); },
-        [](std::unordered_map<E, std::vector<function::Timestamp>> accumulatorValue, E element, function::Timestamp index) -> std::unordered_map<E, std::vector<function::Timestamp>> {
+    using AccumulatorMap = std::unordered_map<E, std::vector<function::Timestamp>>;
+    using ResultMap = std::map<E, std::complex<double>>;
+    return useFull<E, AccumulatorMap, ResultMap>(
+        []() -> AccumulatorMap {
+            return AccumulatorMap();
+        },
+        [](AccumulatorMap accumulatorValue, E element, function::Timestamp index) -> AccumulatorMap {
             accumulatorValue[element].push_back(index);
             return accumulatorValue;
         },
-        [](std::unordered_map<E, std::vector<function::Timestamp>> a, std::unordered_map<E, std::vector<function::Timestamp>> b) -> std::unordered_map<E, std::vector<function::Timestamp>> {
-            for (auto &[key, indices] : b)
+        [](AccumulatorMap a, AccumulatorMap b) -> AccumulatorMap {
+            for (auto &entry : b)
             {
-                auto &target = a[key];
-                target.insert(target.end(), indices.begin(), indices.end());
+                std::vector<function::Timestamp> &target = a[entry.first];
+                target.insert(target.end(), entry.second.begin(), entry.second.end());
             }
             return a;
         },
-        [](std::unordered_map<E, std::vector<function::Timestamp>> accumulatorValue) -> std::map<E, std::complex<double>> {
-            std::map<E, std::complex<double>> result;
-            function::Module totalSize = 0;
-            for (const auto &[key, indices] : accumulatorValue)
-                totalSize += indices.size();
-            if (totalSize == 0) return result;
-            for (auto &[key, indices] : accumulatorValue)
+        [](AccumulatorMap accumulatorValue) -> ResultMap {
+            ResultMap result;
+            if (accumulatorValue.empty())
+                return result;
+            std::vector<E> elements;
+            std::vector<double> positionSums;
+            std::vector<double> counts;
+            for (auto &entry : accumulatorValue)
             {
-                std::complex<double> sum(0.0, 0.0);
-                for (function::Timestamp index : indices)
+                elements.push_back(entry.first);
+                double positionSum = 0.0;
+                double count = static_cast<double>(entry.second.size());
+                for (function::Timestamp index : entry.second)
                 {
-                    double distanceToHead = static_cast<double>(index);
-                    double distanceToTail = static_cast<double>(totalSize - 1 - index);
-                    double angle = std::fmod(2.0 * pi * (distanceToHead - distanceToTail) / static_cast<double>(totalSize), 2.0 * pi);
-                    sum += std::complex<double>(std::cos(angle), std::sin(angle));
+                    positionSum += static_cast<double>(index);
                 }
-                result[key] = sum;
+                positionSums.push_back(positionSum);
+                counts.push_back(count);
+            }
+            double modePositionSum = 0.0;
+            double modeCount = 0.0;
+            {
+                std::map<double, size_t> positionFreq;
+                for (double val : positionSums)
+                    positionFreq[val]++;
+                size_t maxFreq = 0;
+                for (auto &p : positionFreq)
+                {
+                    if (p.second > maxFreq)
+                    {
+                        maxFreq = p.second;
+                        modePositionSum = p.first;
+                    }
+                }
+            }
+            {
+                std::map<double, size_t> countFreq;
+                for (double val : counts)
+                    countFreq[val]++;
+                size_t maxFreq = 0;
+                for (auto &p : countFreq)
+                {
+                    if (p.second > maxFreq)
+                    {
+                        maxFreq = p.second;
+                        modeCount = p.first;
+                    }
+                }
+            }
+            double positionStddev = 0.0;
+            double countStddev = 0.0;
+            for (size_t i = 0; i < elements.size(); i++)
+            {
+                double posDiff = positionSums[i] - modePositionSum;
+                double cntDiff = counts[i] - modeCount;
+                positionStddev += posDiff * posDiff;
+                countStddev += cntDiff * cntDiff;
+            }
+            positionStddev = std::sqrt(positionStddev / static_cast<double>(elements.size()));
+            countStddev = std::sqrt(countStddev / static_cast<double>(elements.size()));
+            if (positionStddev < 0.001)
+                positionStddev = 1.0;
+            if (countStddev < 0.001)
+                countStddev = 1.0;
+            for (size_t i = 0; i < elements.size(); i++)
+            {
+                double posScore = (positionSums[i] - modePositionSum) / positionStddev;
+                double cntScore = (counts[i] - modeCount) / countStddev;
+                result[elements[i]] = std::complex<double>(posScore, cntScore);
             }
             return result;
         });
@@ -1142,37 +1313,93 @@ auto useDistribution() -> Collector<E, std::unordered_map<E, std::vector<functio
 template <typename E, typename D>
 auto useDistribution(const function::Function<E, D> &mapper) -> Collector<E, std::unordered_map<D, std::vector<function::Timestamp>>, std::map<D, std::complex<double>>>
 {
-    return useFull<E, std::unordered_map<D, std::vector<function::Timestamp>>, std::map<D, std::complex<double>>>(
-        []() -> std::unordered_map<D, std::vector<function::Timestamp>> { return std::unordered_map<D, std::vector<function::Timestamp>>(); },
-        [mapper](std::unordered_map<D, std::vector<function::Timestamp>> accumulatorValue, E element, function::Timestamp index) -> std::unordered_map<D, std::vector<function::Timestamp>> {
+    using AccumulatorMap = std::unordered_map<D, std::vector<function::Timestamp>>;
+    using ResultMap = std::map<D, std::complex<double>>;
+    return useFull<E, AccumulatorMap, ResultMap>(
+        []() -> AccumulatorMap {
+            return AccumulatorMap();
+        },
+        [mapper](AccumulatorMap accumulatorValue, E element, function::Timestamp index) -> AccumulatorMap {
             accumulatorValue[mapper(element)].push_back(index);
             return accumulatorValue;
         },
-        [](std::unordered_map<D, std::vector<function::Timestamp>> a, std::unordered_map<D, std::vector<function::Timestamp>> b) -> std::unordered_map<D, std::vector<function::Timestamp>> {
-            for (auto &[key, indices] : b)
+        [](AccumulatorMap a, AccumulatorMap b) -> AccumulatorMap {
+            for (auto &entry : b)
             {
-                auto &target = a[key];
-                target.insert(target.end(), indices.begin(), indices.end());
+                std::vector<function::Timestamp> &target = a[entry.first];
+                target.insert(target.end(), entry.second.begin(), entry.second.end());
             }
             return a;
         },
-        [](std::unordered_map<D, std::vector<function::Timestamp>> accumulatorValue) -> std::map<D, std::complex<double>> {
-            std::map<D, std::complex<double>> result;
-            function::Module totalSize = 0;
-            for (const auto &[key, indices] : accumulatorValue)
-                totalSize += indices.size();
-            if (totalSize == 0) return result;
-            for (auto &[key, indices] : accumulatorValue)
+        [](AccumulatorMap accumulatorValue) -> ResultMap {
+            ResultMap result;
+            if (accumulatorValue.empty())
+                return result;
+            std::vector<D> elements;
+            std::vector<double> positionSums;
+            std::vector<double> counts;
+            for (auto &entry : accumulatorValue)
             {
-                std::complex<double> sum(0.0, 0.0);
-                for (function::Timestamp index : indices)
+                elements.push_back(entry.first);
+                double positionSum = 0.0;
+                double count = static_cast<double>(entry.second.size());
+                for (function::Timestamp index : entry.second)
                 {
-                    double distanceToHead = static_cast<double>(index);
-                    double distanceToTail = static_cast<double>(totalSize - 1 - index);
-                    double angle = std::fmod(2.0 * pi * (distanceToHead - distanceToTail) / static_cast<double>(totalSize), 2.0 * pi);
-                    sum += std::complex<double>(std::cos(angle), std::sin(angle));
+                    positionSum += static_cast<double>(index);
                 }
-                result[key] = sum;
+                positionSums.push_back(positionSum);
+                counts.push_back(count);
+            }
+            double modePositionSum = 0.0;
+            double modeCount = 0.0;
+            {
+                std::map<double, size_t> positionFreq;
+                for (double val : positionSums)
+                    positionFreq[val]++;
+                size_t maxFreq = 0;
+                for (auto &p : positionFreq)
+                {
+                    if (p.second > maxFreq)
+                    {
+                        maxFreq = p.second;
+                        modePositionSum = p.first;
+                    }
+                }
+            }
+            {
+                std::map<double, size_t> countFreq;
+                for (double val : counts)
+                    countFreq[val]++;
+                size_t maxFreq = 0;
+                for (auto &p : countFreq)
+                {
+                    if (p.second > maxFreq)
+                    {
+                        maxFreq = p.second;
+                        modeCount = p.first;
+                    }
+                }
+            }
+            double positionStddev = 0.0;
+            double countStddev = 0.0;
+            for (size_t i = 0; i < elements.size(); i++)
+            {
+                double posDiff = positionSums[i] - modePositionSum;
+                double cntDiff = counts[i] - modeCount;
+                positionStddev += posDiff * posDiff;
+                countStddev += cntDiff * cntDiff;
+            }
+            positionStddev = std::sqrt(positionStddev / static_cast<double>(elements.size()));
+            countStddev = std::sqrt(countStddev / static_cast<double>(elements.size()));
+            if (positionStddev < 0.001)
+                positionStddev = 1.0;
+            if (countStddev < 0.001)
+                countStddev = 1.0;
+            for (size_t i = 0; i < elements.size(); i++)
+            {
+                double posScore = (positionSums[i] - modePositionSum) / positionStddev;
+                double cntScore = (counts[i] - modeCount) / countStddev;
+                result[elements[i]] = std::complex<double>(posScore, cntScore);
             }
             return result;
         });
@@ -1196,8 +1423,10 @@ auto usePartition(const function::Module &size) -> Collector<E, std::vector<std:
             return accumulatorValue;
         },
         [size](std::vector<std::vector<E>> a, std::vector<std::vector<E>> b) -> std::vector<std::vector<E>> {
-            if (a.empty()) return b;
-            if (b.empty()) return a;
+            if (a.empty())
+                return b;
+            if (b.empty())
+                return a;
             std::vector<E> &lastA = a.back();
             std::vector<E> &firstB = b.front();
             if (lastA.size() < size)
@@ -1297,7 +1526,8 @@ auto useMedian() -> Collector<E, std::vector<D>, std::optional<D>>
             return a;
         },
         [](std::vector<D> accumulatorValue) -> std::optional<D> {
-            if (accumulatorValue.empty()) return std::nullopt;
+            if (accumulatorValue.empty())
+                return std::nullopt;
             std::sort(accumulatorValue.begin(), accumulatorValue.end());
             if (accumulatorValue.size() % 2 == 1)
                 return std::optional<D>(accumulatorValue[accumulatorValue.size() / 2]);
@@ -1319,7 +1549,8 @@ auto useMedian(const function::Function<E, D> &mapper) -> Collector<E, std::vect
             return a;
         },
         [](std::vector<D> accumulatorValue) -> std::optional<D> {
-            if (accumulatorValue.empty()) return std::nullopt;
+            if (accumulatorValue.empty())
+                return std::nullopt;
             std::sort(accumulatorValue.begin(), accumulatorValue.end());
             if (accumulatorValue.size() % 2 == 1)
                 return std::optional<D>(accumulatorValue[accumulatorValue.size() / 2]);
@@ -1343,12 +1574,14 @@ auto useMode() -> Collector<E, std::unordered_map<E, std::complex<double>>, std:
             return a;
         },
         [](std::unordered_map<E, std::complex<double>> accumulatorValue) -> std::optional<E> {
-            if (accumulatorValue.empty()) return std::nullopt;
+            if (accumulatorValue.empty())
+                return std::nullopt;
             auto modeIter = std::max_element(accumulatorValue.begin(), accumulatorValue.end(),
                                              [](const auto &a, const auto &b) {
                                                  return std::abs(a.second) < std::abs(b.second);
                                              });
-            if (std::abs(modeIter->second) == 0.0) return std::nullopt;
+            if (std::abs(modeIter->second) == 0.0)
+                return std::nullopt;
             return std::optional<E>(modeIter->first);
         });
 }
@@ -1369,12 +1602,14 @@ auto usePercentile(double p) -> Collector<E, std::vector<D>, std::optional<D>>
             return a;
         },
         [p](std::vector<D> acc) -> std::optional<D> {
-            if (acc.empty()) return std::nullopt;
+            if (acc.empty())
+                return std::nullopt;
             std::sort(acc.begin(), acc.end());
             double rank = p / 100.0 * static_cast<double>(acc.size() - 1);
             std::size_t lo = static_cast<std::size_t>(std::floor(rank));
             std::size_t hi = static_cast<std::size_t>(std::ceil(rank));
-            if (lo == hi) return std::optional<D>(acc[lo]);
+            if (lo == hi)
+                return std::optional<D>(acc[lo]);
             double frac = rank - static_cast<double>(lo);
             return std::optional<D>(acc[lo] + static_cast<D>(frac * static_cast<double>(acc[hi] - acc[lo])));
         });
@@ -1396,12 +1631,14 @@ auto usePercentile(double p, const function::Function<E, D> &mapper) -> Collecto
             return a;
         },
         [p](std::vector<D> acc) -> std::optional<D> {
-            if (acc.empty()) return std::nullopt;
+            if (acc.empty())
+                return std::nullopt;
             std::sort(acc.begin(), acc.end());
             double rank = p / 100.0 * static_cast<double>(acc.size() - 1);
             std::size_t lo = static_cast<std::size_t>(std::floor(rank));
             std::size_t hi = static_cast<std::size_t>(std::ceil(rank));
-            if (lo == hi) return std::optional<D>(acc[lo]);
+            if (lo == hi)
+                return std::optional<D>(acc[lo]);
             double frac = rank - static_cast<double>(lo);
             return std::optional<D>(acc[lo] + static_cast<D>(frac * static_cast<double>(acc[hi] - acc[lo])));
         });
@@ -1418,8 +1655,10 @@ auto useReduce(const function::BiFunction<E, E, E> &reducer) -> Collector<E, std
             return std::optional<E>(reducer(accumulatorValue.value(), element));
         },
         [reducer](std::optional<E> a, std::optional<E> b) -> std::optional<E> {
-            if (!a.has_value()) return b;
-            if (!b.has_value()) return a;
+            if (!a.has_value())
+                return b;
+            if (!b.has_value())
+                return a;
             return std::optional<E>(reducer(a.value(), b.value()));
         },
         [](std::optional<E> accumulatorValue) -> std::optional<E> { return accumulatorValue; });
@@ -1580,13 +1819,19 @@ auto useToForwardList() -> Collector<E, std::forward_list<E>, std::forward_list<
         []() -> std::forward_list<E> { return std::forward_list<E>(); },
         [](std::forward_list<E> accumulatorValue, E element, function::Timestamp index) -> std::forward_list<E> {
             auto it = accumulatorValue.before_begin();
-            while (std::next(it) != accumulatorValue.end()) { ++it; }
+            while (std::next(it) != accumulatorValue.end())
+            {
+                ++it;
+            }
             accumulatorValue.insert_after(it, element);
             return accumulatorValue;
         },
         [](std::forward_list<E> a, std::forward_list<E> b) -> std::forward_list<E> {
             auto it = a.before_begin();
-            while (std::next(it) != a.end()) { ++it; }
+            while (std::next(it) != a.end())
+            {
+                ++it;
+            }
             a.splice_after(it, b);
             return a;
         },
@@ -1599,7 +1844,8 @@ auto useToArray() -> Collector<E, std::array<E, N>, std::array<E, N>>
     return useFull<E, std::array<E, N>, std::array<E, N>>(
         []() -> std::array<E, N> { std::array<E, N> arr; return arr; },
         [](std::array<E, N> accumulatorValue, E element, function::Timestamp index) -> std::array<E, N> {
-            if (index < N) accumulatorValue[index] = element;
+            if (index < N)
+                accumulatorValue[index] = element;
             return accumulatorValue;
         },
         [](std::array<E, N> a, std::array<E, N> b) -> std::array<E, N> { return a; },
@@ -1751,8 +1997,15 @@ auto useToStack() -> Collector<E, std::stack<E>, std::stack<E>>
         },
         [](std::stack<E> a, std::stack<E> b) -> std::stack<E> {
             std::vector<E> temp;
-            while (!b.empty()) { temp.push_back(b.top()); b.pop(); }
-            for (auto it = temp.rbegin(); it != temp.rend(); ++it) { a.push(*it); }
+            while (!b.empty())
+            {
+                temp.push_back(b.top());
+                b.pop();
+            }
+            for (auto it = temp.rbegin(); it != temp.rend(); ++it)
+            {
+                a.push(*it);
+            }
             return a;
         },
         [](std::stack<E> accumulatorValue) -> std::stack<E> { return accumulatorValue; });
@@ -1768,7 +2021,11 @@ auto useToQueue() -> Collector<E, std::queue<E>, std::queue<E>>
             return accumulatorValue;
         },
         [](std::queue<E> a, std::queue<E> b) -> std::queue<E> {
-            while (!b.empty()) { a.push(b.front()); b.pop(); }
+            while (!b.empty())
+            {
+                a.push(b.front());
+                b.pop();
+            }
             return a;
         },
         [](std::queue<E> accumulatorValue) -> std::queue<E> { return accumulatorValue; });
@@ -1784,7 +2041,11 @@ auto useToPriorityQueue() -> Collector<E, std::priority_queue<E>, std::priority_
             return accumulatorValue;
         },
         [](std::priority_queue<E> a, std::priority_queue<E> b) -> std::priority_queue<E> {
-            while (!b.empty()) { a.push(b.top()); b.pop(); }
+            while (!b.empty())
+            {
+                a.push(b.top());
+                b.pop();
+            }
             return a;
         },
         [](std::priority_queue<E> accumulatorValue) -> std::priority_queue<E> { return accumulatorValue; });
@@ -1810,7 +2071,8 @@ auto useDFT() -> Collector<E, std::vector<std::complex<double>>, std::vector<std
         },
         [](std::vector<std::complex<double>> accumulatorValue) -> std::vector<std::complex<double>> {
             std::size_t N = accumulatorValue.size();
-            if (N == 0) return accumulatorValue;
+            if (N == 0)
+                return accumulatorValue;
             std::vector<std::complex<double>> result(N);
             for (std::size_t k = 0; k < N; ++k)
             {
@@ -1846,7 +2108,8 @@ auto useIDFT() -> Collector<E, std::vector<std::complex<double>>, std::vector<st
         },
         [](std::vector<std::complex<double>> accumulatorValue) -> std::vector<std::complex<double>> {
             std::size_t N = accumulatorValue.size();
-            if (N == 0) return accumulatorValue;
+            if (N == 0)
+                return accumulatorValue;
             std::vector<std::complex<double>> result(N);
             for (std::size_t k = 0; k < N; ++k)
             {
@@ -1882,19 +2145,24 @@ auto useFFT() -> Collector<E, std::vector<std::complex<double>>, std::vector<std
         },
         [](std::vector<std::complex<double>> accumulatorValue) -> std::vector<std::complex<double>> {
             std::size_t N = accumulatorValue.size();
-            if (N == 0) return accumulatorValue;
+            if (N == 0)
+                return accumulatorValue;
             std::size_t paddedSize = 1;
-            while (paddedSize < N) paddedSize <<= 1;
+            while (paddedSize < N)
+                paddedSize <<= 1;
             std::vector<std::complex<double>> data = accumulatorValue;
             data.resize(paddedSize, std::complex<double>(0.0, 0.0));
             std::size_t bits = 0;
-            for (std::size_t temp = paddedSize; temp > 1; temp >>= 1) bits++;
+            for (std::size_t temp = paddedSize; temp > 1; temp >>= 1)
+                bits++;
             for (std::size_t i = 0; i < paddedSize; ++i)
             {
                 std::size_t reversed = 0;
                 for (std::size_t bit = 0; bit < bits; ++bit)
-                    if (i & (1 << bit)) reversed |= (1 << (bits - 1 - bit));
-                if (i < reversed) std::swap(data[i], data[reversed]);
+                    if (i & (1 << bit))
+                        reversed |= (1 << (bits - 1 - bit));
+                if (i < reversed)
+                    std::swap(data[i], data[reversed]);
             }
             for (std::size_t length = 2; length <= paddedSize; length <<= 1)
             {
@@ -1939,19 +2207,24 @@ auto useIFFT() -> Collector<E, std::vector<std::complex<double>>, std::vector<st
         },
         [](std::vector<std::complex<double>> accumulatorValue) -> std::vector<std::complex<double>> {
             std::size_t N = accumulatorValue.size();
-            if (N == 0) return accumulatorValue;
+            if (N == 0)
+                return accumulatorValue;
             std::size_t paddedSize = 1;
-            while (paddedSize < N) paddedSize <<= 1;
+            while (paddedSize < N)
+                paddedSize <<= 1;
             std::vector<std::complex<double>> data = accumulatorValue;
             data.resize(paddedSize, std::complex<double>(0.0, 0.0));
             std::size_t bits = 0;
-            for (std::size_t temp = paddedSize; temp > 1; temp >>= 1) bits++;
+            for (std::size_t temp = paddedSize; temp > 1; temp >>= 1)
+                bits++;
             for (std::size_t i = 0; i < paddedSize; ++i)
             {
                 std::size_t reversed = 0;
                 for (std::size_t bit = 0; bit < bits; ++bit)
-                    if (i & (1 << bit)) reversed |= (1 << (bits - 1 - bit));
-                if (i < reversed) std::swap(data[i], data[reversed]);
+                    if (i & (1 << bit))
+                        reversed |= (1 << (bits - 1 - bit));
+                if (i < reversed)
+                    std::swap(data[i], data[reversed]);
             }
             for (std::size_t length = 2; length <= paddedSize; length <<= 1)
             {
@@ -1972,7 +2245,8 @@ auto useIFFT() -> Collector<E, std::vector<std::complex<double>>, std::vector<st
                 }
             }
             data.resize(N);
-            for (std::size_t i = 0; i < N; ++i) data[i] /= static_cast<double>(N);
+            for (std::size_t i = 0; i < N; ++i)
+                data[i] /= static_cast<double>(N);
             return data;
         });
 }
@@ -1996,7 +2270,8 @@ auto useGradient(const std::function<std::vector<double>(const std::vector<E> &)
             return a;
         },
         [gradientFunction, learningRate, maxIterations, convergenceThreshold](std::vector<double> accumulatorValue) -> std::vector<double> {
-            if (accumulatorValue.empty()) return accumulatorValue;
+            if (accumulatorValue.empty())
+                return accumulatorValue;
             std::vector<double> parameters = accumulatorValue;
             std::size_t dimensions = parameters.size();
             for (std::size_t iteration = 0; iteration < maxIterations; ++iteration)
@@ -2018,9 +2293,11 @@ auto useGradient(const std::function<std::vector<double>(const std::vector<E> &)
                 {
                     parameters[i] -= learningRate * gradients[i];
                     double gradMag = std::abs(gradients[i]);
-                    if (gradMag > maxGradientMagnitude) maxGradientMagnitude = gradMag;
+                    if (gradMag > maxGradientMagnitude)
+                        maxGradientMagnitude = gradMag;
                 }
-                if (maxGradientMagnitude < convergenceThreshold) break;
+                if (maxGradientMagnitude < convergenceThreshold)
+                    break;
             }
             return parameters;
         });
@@ -2045,7 +2322,8 @@ auto useGradient(const std::function<double(const std::vector<E> &)> &costFuncti
             return a;
         },
         [costFunction, learningRate, maxIterations, convergenceThreshold, numericalH](std::vector<double> accumulatorValue) -> std::vector<double> {
-            if (accumulatorValue.empty()) return accumulatorValue;
+            if (accumulatorValue.empty())
+                return accumulatorValue;
             std::vector<double> parameters = accumulatorValue;
             std::size_t dimensions = parameters.size();
             for (std::size_t iteration = 0; iteration < maxIterations; ++iteration)
@@ -2084,9 +2362,11 @@ auto useGradient(const std::function<double(const std::vector<E> &)> &costFuncti
                 {
                     parameters[i] -= learningRate * gradients[i];
                     double gradMag = std::abs(gradients[i]);
-                    if (gradMag > maxGradientMagnitude) maxGradientMagnitude = gradMag;
+                    if (gradMag > maxGradientMagnitude)
+                        maxGradientMagnitude = gradMag;
                 }
-                if (maxGradientMagnitude < convergenceThreshold) break;
+                if (maxGradientMagnitude < convergenceThreshold)
+                    break;
             }
             return parameters;
         });
@@ -2106,10 +2386,12 @@ auto useSkewness() -> Collector<E, std::vector<D>, D>
             return a;
         },
         [](std::vector<D> accumulatorValue) -> D {
-            if (accumulatorValue.size() < 3) return D{};
+            if (accumulatorValue.size() < 3)
+                return D{};
             D n = static_cast<D>(accumulatorValue.size());
             D mean = D{};
-            for (const D &val : accumulatorValue) mean += val;
+            for (const D &val : accumulatorValue)
+                mean += val;
             mean /= n;
             D variance = D{};
             for (const D &val : accumulatorValue)
@@ -2118,7 +2400,8 @@ auto useSkewness() -> Collector<E, std::vector<D>, D>
                 variance += diff * diff;
             }
             variance /= n;
-            if (variance == D{}) return D{};
+            if (variance == D{})
+                return D{};
             D stdDev = static_cast<D>(std::sqrt(static_cast<double>(variance)));
             D sumOfCubes = D{};
             for (const D &val : accumulatorValue)
@@ -2144,10 +2427,12 @@ auto useSkewness(const function::Function<E, D> &mapper) -> Collector<E, std::ve
             return a;
         },
         [](std::vector<D> accumulatorValue) -> D {
-            if (accumulatorValue.size() < 3) return D{};
+            if (accumulatorValue.size() < 3)
+                return D{};
             D n = static_cast<D>(accumulatorValue.size());
             D mean = D{};
-            for (const D &val : accumulatorValue) mean += val;
+            for (const D &val : accumulatorValue)
+                mean += val;
             mean /= n;
             D variance = D{};
             for (const D &val : accumulatorValue)
@@ -2156,7 +2441,8 @@ auto useSkewness(const function::Function<E, D> &mapper) -> Collector<E, std::ve
                 variance += diff * diff;
             }
             variance /= n;
-            if (variance == D{}) return D{};
+            if (variance == D{})
+                return D{};
             D stdDev = static_cast<D>(std::sqrt(static_cast<double>(variance)));
             D sumOfCubes = D{};
             for (const D &val : accumulatorValue)
@@ -2182,10 +2468,12 @@ auto useKurtosis() -> Collector<E, std::vector<D>, D>
             return a;
         },
         [](std::vector<D> accumulatorValue) -> D {
-            if (accumulatorValue.size() < 4) return D{};
+            if (accumulatorValue.size() < 4)
+                return D{};
             D n = static_cast<D>(accumulatorValue.size());
             D mean = D{};
-            for (const D &val : accumulatorValue) mean += val;
+            for (const D &val : accumulatorValue)
+                mean += val;
             mean /= n;
             D variance = D{};
             for (const D &val : accumulatorValue)
@@ -2194,7 +2482,8 @@ auto useKurtosis() -> Collector<E, std::vector<D>, D>
                 variance += diff * diff;
             }
             variance /= n;
-            if (variance == D{}) return D{};
+            if (variance == D{})
+                return D{};
             D sumOfQuads = D{};
             for (const D &val : accumulatorValue)
             {
@@ -2204,7 +2493,8 @@ auto useKurtosis() -> Collector<E, std::vector<D>, D>
             D s4 = variance * variance;
             D num = n * (n + 1) * (n - 1) * sumOfQuads;
             D denom = (n - 2) * (n - 3) * s4 * n * n;
-            if (denom == D{}) return D{};
+            if (denom == D{})
+                return D{};
             D kurt = num / denom;
             D adjustment = 3.0 * (n - 1) * (n - 1) / ((n - 2) * (n - 3));
             return kurt - adjustment;
@@ -2225,10 +2515,12 @@ auto useKurtosis(const function::Function<E, D> &mapper) -> Collector<E, std::ve
             return a;
         },
         [](std::vector<D> accumulatorValue) -> D {
-            if (accumulatorValue.size() < 4) return D{};
+            if (accumulatorValue.size() < 4)
+                return D{};
             D n = static_cast<D>(accumulatorValue.size());
             D mean = D{};
-            for (const D &val : accumulatorValue) mean += val;
+            for (const D &val : accumulatorValue)
+                mean += val;
             mean /= n;
             D variance = D{};
             for (const D &val : accumulatorValue)
@@ -2237,7 +2529,8 @@ auto useKurtosis(const function::Function<E, D> &mapper) -> Collector<E, std::ve
                 variance += diff * diff;
             }
             variance /= n;
-            if (variance == D{}) return D{};
+            if (variance == D{})
+                return D{};
             D sumOfQuads = D{};
             for (const D &val : accumulatorValue)
             {
@@ -2247,7 +2540,8 @@ auto useKurtosis(const function::Function<E, D> &mapper) -> Collector<E, std::ve
             D s4 = variance * variance;
             D num = n * (n + 1) * (n - 1) * sumOfQuads;
             D denom = (n - 2) * (n - 3) * s4 * n * n;
-            if (denom == D{}) return D{};
+            if (denom == D{})
+                return D{};
             D kurt = num / denom;
             D adjustment = 3.0 * (n - 1) * (n - 1) / ((n - 2) * (n - 3));
             return kurt - adjustment;

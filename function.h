@@ -51,7 +51,7 @@ template <typename T, typename U, typename V>
 using TriPredicate = std::function<bool(T, U, V)>;
 
 template <typename T>
-using Comparator = std::function<int(const T &, const T &)>;
+using Comparator = std::function<bool(const T &, const T &)>;
 
 template <typename T>
 using Generator = BiConsumer<BiConsumer<T, Timestamp>, BiPredicate<T, Timestamp>>;

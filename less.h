@@ -28,6 +28,14 @@
 namespace std
 {
 template <typename T>
+bool operator<(const std::complex<T> &left, const std::complex<T> &right)
+{
+    if (left.real() != right.real())
+        return left.real() < right.real();
+    return left.imag() < right.imag();
+}
+
+template <typename T>
 bool operator<(const std::unordered_set<T> &left, const std::unordered_set<T> &right)
 {
     std::vector<T> leftSorted(left.begin(), left.end());

@@ -83,24 +83,6 @@ class Collectable
         return collectorValue.collect(this->source(), this->concurrent);
     }
 
-    auto error() const -> void
-    {
-        collector::Collector<E, charsequence::Builder, charsequence::Charsequence> collectorValue = collector::useError<E>();
-        collectorValue.collect(this->source(), this->concurrent);
-    }
-
-    auto error(const charsequence::Charsequence &delimiter) const -> void
-    {
-        collector::Collector<E, charsequence::Builder, charsequence::Charsequence> collectorValue = collector::useError<E>(delimiter);
-        collectorValue.collect(this->source(), this->concurrent);
-    }
-
-    auto error(const charsequence::Charsequence &prefix, const charsequence::Charsequence &delimiter, const charsequence::Charsequence &suffix) const -> void
-    {
-        collector::Collector<E, charsequence::Builder, charsequence::Charsequence> collectorValue = collector::useError<E>(prefix, delimiter, suffix);
-        collectorValue.collect(this->source(), this->concurrent);
-    }
-
     auto empty() const -> bool
     {
         collector::Collector<E, function::Module, function::Module> collectorValue = collector::useCount<E>();
@@ -196,10 +178,10 @@ class Collectable
         return collectorValue.collect(this->source(), this->concurrent);
     }
 
-    template <typename Predicate>
-    auto noneMatch(Predicate &&predicate) const -> bool
+    template <typename Converter>
+    auto join(const charsequence::Charsequence &prefix, Converter &&converter, const charsequence::Charsequence &suffix) const -> charsequence::Charsequence
     {
-        collector::Collector<E, bool, bool> collectorValue = collector::useNoneMatch<E>(std::forward<Predicate>(predicate));
+        collector::Collector<E, charsequence::Builder, charsequence::Charsequence> collectorValue = collector::useJoin<E>(prefix, std::forward<Converter>(converter), suffix);
         return collectorValue.collect(this->source(), this->concurrent);
     }
 
@@ -218,6 +200,45 @@ class Collectable
     auto out(const charsequence::Charsequence &prefix, const charsequence::Charsequence &delimiter, const charsequence::Charsequence &suffix) const -> charsequence::Charsequence
     {
         collector::Collector<E, charsequence::Builder, charsequence::Charsequence> collectorValue = collector::useOut<E>(prefix, delimiter, suffix);
+        return collectorValue.collect(this->source(), this->concurrent);
+    }
+
+    template <typename Converter>
+    auto out(const charsequence::Charsequence &prefix, Converter &&converter, const charsequence::Charsequence &suffix) const -> charsequence::Charsequence
+    {
+        collector::Collector<E, charsequence::Builder, charsequence::Charsequence> collectorValue = collector::useOut<E>(prefix, std::forward<Converter>(converter), suffix);
+        return collectorValue.collect(this->source(), this->concurrent);
+    }
+
+    auto error() const -> void
+    {
+        collector::Collector<E, charsequence::Builder, charsequence::Charsequence> collectorValue = collector::useError<E>();
+        collectorValue.collect(this->source(), this->concurrent);
+    }
+
+    auto error(const charsequence::Charsequence &delimiter) const -> void
+    {
+        collector::Collector<E, charsequence::Builder, charsequence::Charsequence> collectorValue = collector::useError<E>(delimiter);
+        collectorValue.collect(this->source(), this->concurrent);
+    }
+
+    auto error(const charsequence::Charsequence &prefix, const charsequence::Charsequence &delimiter, const charsequence::Charsequence &suffix) const -> void
+    {
+        collector::Collector<E, charsequence::Builder, charsequence::Charsequence> collectorValue = collector::useError<E>(prefix, delimiter, suffix);
+        collectorValue.collect(this->source(), this->concurrent);
+    }
+
+    template <typename Converter>
+    auto error(const charsequence::Charsequence &prefix, Converter &&converter, const charsequence::Charsequence &suffix) const -> void
+    {
+        collector::Collector<E, charsequence::Builder, charsequence::Charsequence> collectorValue = collector::useError<E>(prefix, std::forward<Converter>(converter), suffix);
+        collectorValue.collect(this->source(), this->concurrent);
+    }
+
+    template <typename Predicate>
+    auto noneMatch(Predicate &&predicate) const -> bool
+    {
+        collector::Collector<E, bool, bool> collectorValue = collector::useNoneMatch<E>(std::forward<Predicate>(predicate));
         return collectorValue.collect(this->source(), this->concurrent);
     }
 

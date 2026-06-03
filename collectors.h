@@ -791,6 +791,18 @@ auto useJoin() -> Collector<E, charsequence::Builder, charsequence::Charsequence
                     accumulatorValue.append(comma);
                 accumulatorValue.append(element);
             }
+            else if constexpr (std::is_convertible_v<E, charsequence::Charsequence>)
+            {
+                if (accumulatorValue.size() > 0)
+                    accumulatorValue.append(comma);
+                accumulatorValue.append(static_cast<charsequence::Charsequence>(element));
+            }
+            else if constexpr (std::is_convertible_v<E, std::string>)
+            {
+                if (accumulatorValue.size() > 0)
+                    accumulatorValue.append(comma);
+                accumulatorValue.append(static_cast<std::string>(element));
+            }
             else if constexpr (std::is_arithmetic_v<E>)
             {
                 if (accumulatorValue.size() > 0)
@@ -834,6 +846,18 @@ auto useJoin(const charsequence::Charsequence &delimiter) -> Collector<E, charse
                     accumulatorValue.append(delimiter);
                 accumulatorValue.append(element);
             }
+            else if constexpr (std::is_convertible_v<E, charsequence::Charsequence>)
+            {
+                if (accumulatorValue.size() > 0)
+                    accumulatorValue.append(delimiter);
+                accumulatorValue.append(static_cast<charsequence::Charsequence>(element));
+            }
+            else if constexpr (std::is_convertible_v<E, std::string>)
+            {
+                if (accumulatorValue.size() > 0)
+                    accumulatorValue.append(delimiter);
+                accumulatorValue.append(static_cast<std::string>(element));
+            }
             else if constexpr (std::is_arithmetic_v<E>)
             {
                 if (accumulatorValue.size() > 0)
@@ -875,6 +899,18 @@ auto useJoin(const charsequence::Charsequence &prefix, const charsequence::Chars
                     accumulatorValue.append(delimiter);
                 accumulatorValue.append(element);
             }
+            else if constexpr (std::is_convertible_v<E, charsequence::Charsequence>)
+            {
+                if (accumulatorValue.size() > 0)
+                    accumulatorValue.append(delimiter);
+                accumulatorValue.append(static_cast<charsequence::Charsequence>(element));
+            }
+            else if constexpr (std::is_convertible_v<E, std::string>)
+            {
+                if (accumulatorValue.size() > 0)
+                    accumulatorValue.append(delimiter);
+                accumulatorValue.append(static_cast<std::string>(element));
+            }
             else if constexpr (std::is_arithmetic_v<E>)
             {
                 if (accumulatorValue.size() > 0)
@@ -886,6 +922,61 @@ auto useJoin(const charsequence::Charsequence &prefix, const charsequence::Chars
         [delimiter](charsequence::Builder a, charsequence::Builder b) -> charsequence::Builder {
             if (a.size() > 0 && b.size() > 0)
                 a.append(delimiter);
+            a.append(b.toCharsequence());
+            return a;
+        },
+        [prefix, suffix](charsequence::Builder accumulatorValue) -> charsequence::Charsequence {
+            charsequence::Builder result;
+            result.append(prefix);
+            result.append(accumulatorValue.toCharsequence());
+            result.append(suffix);
+            return result.toCharsequence();
+        });
+}
+
+template <typename E, typename Converter>
+auto useJoin(const charsequence::Charsequence &prefix, Converter &&converter, const charsequence::Charsequence &suffix) -> Collector<E, charsequence::Builder, charsequence::Charsequence>
+{
+    static const charsequence::Charsequence comma(",");
+    return useFull<E, charsequence::Builder, charsequence::Charsequence>(
+        []() -> charsequence::Builder { return charsequence::Builder(); },
+        [converter = std::forward<Converter>(converter)](charsequence::Builder accumulatorValue, E element, function::Timestamp index) -> charsequence::Builder {
+            auto converted = converter(element);
+            if constexpr (std::is_same_v<decltype(converted), charsequence::Charsequence>)
+            {
+                if (accumulatorValue.size() > 0)
+                    accumulatorValue.append(comma);
+                accumulatorValue.append(converted);
+            }
+            else if constexpr (std::is_same_v<decltype(converted), std::string>)
+            {
+                if (accumulatorValue.size() > 0)
+                    accumulatorValue.append(comma);
+                accumulatorValue.append(converted);
+            }
+            else if constexpr (std::is_convertible_v<decltype(converted), charsequence::Charsequence>)
+            {
+                if (accumulatorValue.size() > 0)
+                    accumulatorValue.append(comma);
+                accumulatorValue.append(static_cast<charsequence::Charsequence>(converted));
+            }
+            else if constexpr (std::is_convertible_v<decltype(converted), std::string>)
+            {
+                if (accumulatorValue.size() > 0)
+                    accumulatorValue.append(comma);
+                accumulatorValue.append(static_cast<std::string>(converted));
+            }
+            else if constexpr (std::is_arithmetic_v<decltype(converted)>)
+            {
+                if (accumulatorValue.size() > 0)
+                    accumulatorValue.append(comma);
+                accumulatorValue.append(converted);
+            }
+            return accumulatorValue;
+        },
+        [](charsequence::Builder a, charsequence::Builder b) -> charsequence::Builder {
+            if (a.size() > 0 && b.size() > 0)
+                a.append(comma);
             a.append(b.toCharsequence());
             return a;
         },
@@ -918,6 +1009,18 @@ auto useOut() -> Collector<E, charsequence::Builder, charsequence::Charsequence>
                 if (accumulatorValue.size() > 0)
                     accumulatorValue.append(comma);
                 accumulatorValue.append(element);
+            }
+            else if constexpr (std::is_convertible_v<E, charsequence::Charsequence>)
+            {
+                if (accumulatorValue.size() > 0)
+                    accumulatorValue.append(comma);
+                accumulatorValue.append(static_cast<charsequence::Charsequence>(element));
+            }
+            else if constexpr (std::is_convertible_v<E, std::string>)
+            {
+                if (accumulatorValue.size() > 0)
+                    accumulatorValue.append(comma);
+                accumulatorValue.append(static_cast<std::string>(element));
             }
             else if constexpr (std::is_arithmetic_v<E>)
             {
@@ -964,6 +1067,18 @@ auto useOut(const charsequence::Charsequence &delimiter) -> Collector<E, charseq
                     accumulatorValue.append(delimiter);
                 accumulatorValue.append(element);
             }
+            else if constexpr (std::is_convertible_v<E, charsequence::Charsequence>)
+            {
+                if (accumulatorValue.size() > 0)
+                    accumulatorValue.append(delimiter);
+                accumulatorValue.append(static_cast<charsequence::Charsequence>(element));
+            }
+            else if constexpr (std::is_convertible_v<E, std::string>)
+            {
+                if (accumulatorValue.size() > 0)
+                    accumulatorValue.append(delimiter);
+                accumulatorValue.append(static_cast<std::string>(element));
+            }
             else if constexpr (std::is_arithmetic_v<E>)
             {
                 if (accumulatorValue.size() > 0)
@@ -1007,6 +1122,18 @@ auto useOut(const charsequence::Charsequence &prefix, const charsequence::Charse
                     accumulatorValue.append(delimiter);
                 accumulatorValue.append(element);
             }
+            else if constexpr (std::is_convertible_v<E, charsequence::Charsequence>)
+            {
+                if (accumulatorValue.size() > 0)
+                    accumulatorValue.append(delimiter);
+                accumulatorValue.append(static_cast<charsequence::Charsequence>(element));
+            }
+            else if constexpr (std::is_convertible_v<E, std::string>)
+            {
+                if (accumulatorValue.size() > 0)
+                    accumulatorValue.append(delimiter);
+                accumulatorValue.append(static_cast<std::string>(element));
+            }
             else if constexpr (std::is_arithmetic_v<E>)
             {
                 if (accumulatorValue.size() > 0)
@@ -1018,6 +1145,63 @@ auto useOut(const charsequence::Charsequence &prefix, const charsequence::Charse
         [delimiter](charsequence::Builder a, charsequence::Builder b) -> charsequence::Builder {
             if (a.size() > 0 && b.size() > 0)
                 a.append(delimiter);
+            a.append(b.toCharsequence());
+            return a;
+        },
+        [prefix, suffix](charsequence::Builder accumulatorValue) -> charsequence::Charsequence {
+            charsequence::Builder result;
+            result.append(prefix);
+            result.append(accumulatorValue.toCharsequence());
+            result.append(suffix);
+            charsequence::Charsequence finalResult = result.toCharsequence();
+            std::cout << finalResult << '\n';
+            return finalResult;
+        });
+}
+
+template <typename E, typename Converter>
+auto useOut(const charsequence::Charsequence &prefix, Converter &&converter, const charsequence::Charsequence &suffix) -> Collector<E, charsequence::Builder, charsequence::Charsequence>
+{
+    static const charsequence::Charsequence comma(",");
+    return useFull<E, charsequence::Builder, charsequence::Charsequence>(
+        []() -> charsequence::Builder { return charsequence::Builder(); },
+        [converter = std::forward<Converter>(converter)](charsequence::Builder accumulatorValue, E element, function::Timestamp index) -> charsequence::Builder {
+            auto converted = converter(element);
+            if constexpr (std::is_same_v<decltype(converted), charsequence::Charsequence>)
+            {
+                if (accumulatorValue.size() > 0)
+                    accumulatorValue.append(comma);
+                accumulatorValue.append(converted);
+            }
+            else if constexpr (std::is_same_v<decltype(converted), std::string>)
+            {
+                if (accumulatorValue.size() > 0)
+                    accumulatorValue.append(comma);
+                accumulatorValue.append(converted);
+            }
+            else if constexpr (std::is_convertible_v<decltype(converted), charsequence::Charsequence>)
+            {
+                if (accumulatorValue.size() > 0)
+                    accumulatorValue.append(comma);
+                accumulatorValue.append(static_cast<charsequence::Charsequence>(converted));
+            }
+            else if constexpr (std::is_convertible_v<decltype(converted), std::string>)
+            {
+                if (accumulatorValue.size() > 0)
+                    accumulatorValue.append(comma);
+                accumulatorValue.append(static_cast<std::string>(converted));
+            }
+            else if constexpr (std::is_arithmetic_v<decltype(converted)>)
+            {
+                if (accumulatorValue.size() > 0)
+                    accumulatorValue.append(comma);
+                accumulatorValue.append(converted);
+            }
+            return accumulatorValue;
+        },
+        [](charsequence::Builder a, charsequence::Builder b) -> charsequence::Builder {
+            if (a.size() > 0 && b.size() > 0)
+                a.append(comma);
             a.append(b.toCharsequence());
             return a;
         },
@@ -1052,6 +1236,18 @@ auto useError() -> Collector<E, charsequence::Builder, charsequence::Charsequenc
                 if (accumulatorValue.size() > 0)
                     accumulatorValue.append(comma);
                 accumulatorValue.append(element);
+            }
+            else if constexpr (std::is_convertible_v<E, charsequence::Charsequence>)
+            {
+                if (accumulatorValue.size() > 0)
+                    accumulatorValue.append(comma);
+                accumulatorValue.append(static_cast<charsequence::Charsequence>(element));
+            }
+            else if constexpr (std::is_convertible_v<E, std::string>)
+            {
+                if (accumulatorValue.size() > 0)
+                    accumulatorValue.append(comma);
+                accumulatorValue.append(static_cast<std::string>(element));
             }
             else if constexpr (std::is_arithmetic_v<E>)
             {
@@ -1098,6 +1294,18 @@ auto useError(const charsequence::Charsequence &delimiter) -> Collector<E, chars
                     accumulatorValue.append(delimiter);
                 accumulatorValue.append(element);
             }
+            else if constexpr (std::is_convertible_v<E, charsequence::Charsequence>)
+            {
+                if (accumulatorValue.size() > 0)
+                    accumulatorValue.append(delimiter);
+                accumulatorValue.append(static_cast<charsequence::Charsequence>(element));
+            }
+            else if constexpr (std::is_convertible_v<E, std::string>)
+            {
+                if (accumulatorValue.size() > 0)
+                    accumulatorValue.append(delimiter);
+                accumulatorValue.append(static_cast<std::string>(element));
+            }
             else if constexpr (std::is_arithmetic_v<E>)
             {
                 if (accumulatorValue.size() > 0)
@@ -1141,6 +1349,18 @@ auto useError(const charsequence::Charsequence &prefix, const charsequence::Char
                     accumulatorValue.append(delimiter);
                 accumulatorValue.append(element);
             }
+            else if constexpr (std::is_convertible_v<E, charsequence::Charsequence>)
+            {
+                if (accumulatorValue.size() > 0)
+                    accumulatorValue.append(delimiter);
+                accumulatorValue.append(static_cast<charsequence::Charsequence>(element));
+            }
+            else if constexpr (std::is_convertible_v<E, std::string>)
+            {
+                if (accumulatorValue.size() > 0)
+                    accumulatorValue.append(delimiter);
+                accumulatorValue.append(static_cast<std::string>(element));
+            }
             else if constexpr (std::is_arithmetic_v<E>)
             {
                 if (accumulatorValue.size() > 0)
@@ -1152,6 +1372,63 @@ auto useError(const charsequence::Charsequence &prefix, const charsequence::Char
         [delimiter](charsequence::Builder a, charsequence::Builder b) -> charsequence::Builder {
             if (a.size() > 0 && b.size() > 0)
                 a.append(delimiter);
+            a.append(b.toCharsequence());
+            return a;
+        },
+        [prefix, suffix](charsequence::Builder accumulatorValue) -> charsequence::Charsequence {
+            charsequence::Builder result;
+            result.append(prefix);
+            result.append(accumulatorValue.toCharsequence());
+            result.append(suffix);
+            charsequence::Charsequence finalResult = result.toCharsequence();
+            std::cerr << finalResult << '\n';
+            return finalResult;
+        });
+}
+
+template <typename E, typename Converter>
+auto useError(const charsequence::Charsequence &prefix, Converter &&converter, const charsequence::Charsequence &suffix) -> Collector<E, charsequence::Builder, charsequence::Charsequence>
+{
+    static const charsequence::Charsequence comma(",");
+    return useFull<E, charsequence::Builder, charsequence::Charsequence>(
+        []() -> charsequence::Builder { return charsequence::Builder(); },
+        [converter = std::forward<Converter>(converter)](charsequence::Builder accumulatorValue, E element, function::Timestamp index) -> charsequence::Builder {
+            auto converted = converter(element);
+            if constexpr (std::is_same_v<decltype(converted), charsequence::Charsequence>)
+            {
+                if (accumulatorValue.size() > 0)
+                    accumulatorValue.append(comma);
+                accumulatorValue.append(converted);
+            }
+            else if constexpr (std::is_same_v<decltype(converted), std::string>)
+            {
+                if (accumulatorValue.size() > 0)
+                    accumulatorValue.append(comma);
+                accumulatorValue.append(converted);
+            }
+            else if constexpr (std::is_convertible_v<decltype(converted), charsequence::Charsequence>)
+            {
+                if (accumulatorValue.size() > 0)
+                    accumulatorValue.append(comma);
+                accumulatorValue.append(static_cast<charsequence::Charsequence>(converted));
+            }
+            else if constexpr (std::is_convertible_v<decltype(converted), std::string>)
+            {
+                if (accumulatorValue.size() > 0)
+                    accumulatorValue.append(comma);
+                accumulatorValue.append(static_cast<std::string>(converted));
+            }
+            else if constexpr (std::is_arithmetic_v<decltype(converted)>)
+            {
+                if (accumulatorValue.size() > 0)
+                    accumulatorValue.append(comma);
+                accumulatorValue.append(converted);
+            }
+            return accumulatorValue;
+        },
+        [](charsequence::Builder a, charsequence::Builder b) -> charsequence::Builder {
+            if (a.size() > 0 && b.size() > 0)
+                a.append(comma);
             a.append(b.toCharsequence());
             return a;
         },

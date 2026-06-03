@@ -670,8 +670,6 @@ class Charsequence
 
     Charsequence(const char *str) : Charsequence(std::string_view(str), charset::utf8, charset::utf8) {}
 
-    Charsequence(const std::string &str) : Charsequence(std::string_view(str), charset::utf8, charset::utf8) {}
-
     explicit Charsequence(charset encoding) : pointStorage(), storageEncoding(encoding) {}
 
     Charsequence(std::string_view source, charset sourceEncoding = charset::utf8, charset targetEncoding = charset::utf8)
@@ -688,56 +686,6 @@ class Charsequence
         else
         {
             std::string converted = convert(source, sourceEncoding, targetEncoding);
-            std::string_view remaining = converted;
-            while (!remaining.empty())
-            {
-                pointStorage.push_back(Point(decode(remaining, targetEncoding)));
-            }
-        }
-    }
-
-    Charsequence(std::istream &stream, std::size_t maxLength, charset sourceEncoding = charset::utf8, charset targetEncoding = charset::utf8)
-        : pointStorage(), storageEncoding(targetEncoding)
-    {
-        std::string temp;
-        temp.resize(maxLength);
-        stream.read(&temp[0], maxLength);
-        std::size_t bytesRead = stream.gcount();
-        temp.resize(bytesRead);
-        if (sourceEncoding == targetEncoding)
-        {
-            std::string_view remaining = temp;
-            while (!remaining.empty())
-            {
-                pointStorage.push_back(Point(decode(remaining, targetEncoding)));
-            }
-        }
-        else
-        {
-            std::string converted = convert(std::string_view(temp), sourceEncoding, targetEncoding);
-            std::string_view remaining = converted;
-            while (!remaining.empty())
-            {
-                pointStorage.push_back(Point(decode(remaining, targetEncoding)));
-            }
-        }
-    }
-
-    Charsequence(std::stringstream &stream, charset sourceEncoding = charset::utf8, charset targetEncoding = charset::utf8)
-        : pointStorage(), storageEncoding(targetEncoding)
-    {
-        std::string temp = stream.str();
-        if (sourceEncoding == targetEncoding)
-        {
-            std::string_view remaining = temp;
-            while (!remaining.empty())
-            {
-                pointStorage.push_back(Point(decode(remaining, targetEncoding)));
-            }
-        }
-        else
-        {
-            std::string converted = convert(std::string_view(temp), sourceEncoding, targetEncoding);
             std::string_view remaining = converted;
             while (!remaining.empty())
             {
@@ -1401,22 +1349,6 @@ class Charsequence
         return stream;
     }
 
-    friend std::stringstream &operator<<(std::stringstream &stream, const Charsequence &sequence)
-    {
-        auto bytes = sequence.getBytes();
-        stream.write(reinterpret_cast<const char *>(bytes.data()), bytes.size());
-        return stream;
-    }
-
-    friend std::stringstream &operator>>(std::stringstream &stream, Charsequence &sequence)
-    {
-        std::string temp = stream.str();
-        stream.str("");
-        stream.clear();
-        sequence = Charsequence(std::string_view(temp), charset::utf8, sequence.storageEncoding);
-        return stream;
-    }
-
     friend Charsequence operator+(std::string_view left, const Charsequence &right)
     {
         Charsequence temp(left, charset::utf8, right.storageEncoding);
@@ -1479,102 +1411,6 @@ class Builder
         else
         {
             convert(source, sourceEncoding, targetEncoding, storage);
-        }
-    }
-
-    Builder(std::istream &stream, std::size_t maxLength, charset sourceEncoding = charset::utf8, charset targetEncoding = charset::utf8)
-        : storage(), storageEncoding(targetEncoding)
-    {
-        std::string chunk;
-        std::deque<unsigned char> leftover;
-        constexpr std::size_t chunkSize = 4096;
-        std::size_t totalRead = 0;
-        while (totalRead < maxLength && stream.good())
-        {
-            std::size_t toRead = std::min(chunkSize, maxLength - totalRead);
-            chunk.resize(toRead);
-            stream.read(&chunk[0], toRead);
-            std::size_t bytesRead = stream.gcount();
-            if (bytesRead == 0)
-            {
-                break;
-            }
-            chunk.resize(bytesRead);
-            std::deque<unsigned char> combined;
-            if (!leftover.empty())
-            {
-                combined = std::move(leftover);
-                leftover.clear();
-                combined.insert(combined.end(), chunk.begin(), chunk.end());
-            }
-            else
-            {
-                combined.assign(chunk.begin(), chunk.end());
-            }
-            std::size_t safeSize = combined.size();
-            if (sourceEncoding == charset::utf8 && safeSize > 0)
-            {
-                std::size_t trailing = 0;
-                auto it = combined.end();
-                while (it != combined.begin())
-                {
-                    --it;
-                    unsigned char b = *it;
-                    if (b < 0x80)
-                    {
-                        break;
-                    }
-                    if (b >= 0xC0 && b < 0xF5)
-                    {
-                        std::size_t expectedLen = sequenceLength(b, charset::utf8);
-                        std::size_t remaining = static_cast<std::size_t>(combined.end() - it);
-                        if (remaining < expectedLen)
-                        {
-                            trailing = remaining;
-                        }
-                        break;
-                    }
-                }
-                if (trailing > 0)
-                {
-                    auto startIt = combined.end();
-                    std::advance(startIt, -static_cast<std::ptrdiff_t>(trailing));
-                    leftover.assign(startIt, combined.end());
-                    safeSize -= trailing;
-                }
-            }
-            if (sourceEncoding == targetEncoding)
-            {
-                auto endIt = combined.begin();
-                std::advance(endIt, safeSize);
-                storage.insert(storage.end(), combined.begin(), endIt);
-            }
-            else
-            {
-                std::vector<unsigned char> contiguous(combined.begin(), combined.end());
-                contiguous.resize(safeSize);
-                std::string_view tempView(reinterpret_cast<const char *>(contiguous.data()), contiguous.size());
-                convert(tempView, sourceEncoding, targetEncoding, storage);
-            }
-            totalRead += bytesRead;
-        }
-        for (auto byte : leftover)
-        {
-            storage.push_back(byte);
-        }
-    }
-
-    Builder(std::stringstream &stream, charset sourceEncoding = charset::utf8, charset targetEncoding = charset::utf8)
-        : storage(), storageEncoding(targetEncoding)
-    {
-        std::string temp = stream.str();
-        if (sourceEncoding == targetEncoding)
-        {
-            storage.assign(temp.begin(), temp.end());
-        }
-        else
-        {
-            convert(std::string_view(temp), sourceEncoding, targetEncoding, storage);
         }
     }
 
@@ -1931,22 +1767,6 @@ class Builder
         return stream;
     }
 
-    friend std::stringstream &operator<<(std::stringstream &stream, const Builder &builder)
-    {
-        auto bytes = builder.getBytes();
-        stream.write(reinterpret_cast<const char *>(bytes.data()), bytes.size());
-        return stream;
-    }
-
-    friend std::stringstream &operator>>(std::stringstream &stream, Builder &builder)
-    {
-        std::string temp = stream.str();
-        stream.str("");
-        stream.clear();
-        builder = Builder(std::string_view(temp), builder.storageEncoding, builder.storageEncoding);
-        return stream;
-    }
-
     friend Builder operator+(std::string_view left, const Builder &right)
     {
         Builder result(left, right.storageEncoding, right.storageEncoding);
@@ -1970,26 +1790,6 @@ class Buffer
     Buffer(std::string_view source) : storage(source.size() > 0 ? source.size() : defaultCapacity), readPosition(0), writePosition(0), elementCount(0)
     {
         write(source);
-    }
-
-    Buffer(std::istream &stream, std::size_t maxLength) : storage(maxLength > 0 ? maxLength : defaultCapacity), readPosition(0), writePosition(0), elementCount(0)
-    {
-        std::string temp;
-        temp.resize(maxLength);
-        stream.read(&temp[0], maxLength);
-        std::size_t bytesRead = stream.gcount();
-        temp.resize(bytesRead);
-        write(std::string_view(temp));
-    }
-
-    Buffer(std::stringstream &stream) : storage(defaultCapacity), readPosition(0), writePosition(0), elementCount(0)
-    {
-        std::string temp = stream.str();
-        if (temp.size() > 0)
-        {
-            storage.resize(temp.size());
-        }
-        write(std::string_view(temp));
     }
 
     Buffer(const Buffer &other) : storage(), readPosition(0), writePosition(0), elementCount(0)
@@ -2643,22 +2443,6 @@ class Buffer
     {
         std::string temp;
         std::getline(stream, temp);
-        buffer.write(std::string_view(temp));
-        return stream;
-    }
-
-    friend std::stringstream &operator<<(std::stringstream &stream, const Buffer &buffer)
-    {
-        auto d = buffer.data();
-        stream.write(reinterpret_cast<const char *>(d.data()), d.size());
-        return stream;
-    }
-
-    friend std::stringstream &operator>>(std::stringstream &stream, Buffer &buffer)
-    {
-        std::string temp = stream.str();
-        stream.str("");
-        stream.clear();
         buffer.write(std::string_view(temp));
         return stream;
     }

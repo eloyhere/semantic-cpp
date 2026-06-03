@@ -773,13 +773,19 @@ auto useGroupBy(KeyExtractor &&keyExtractor, ValueExtractor &&valueExtractor)
 template <typename E>
 auto useJoin() -> Collector<E, charsequence::Builder, charsequence::Charsequence>
 {
-    static const auto comma = std::string_view(",");
-    static const auto leftBracket = std::string_view("[");
-    static const auto rightBracket = std::string_view("]");
+    static const charsequence::Charsequence comma(",");
+    static const charsequence::Charsequence leftBracket("[");
+    static const charsequence::Charsequence rightBracket("]");
     return useFull<E, charsequence::Builder, charsequence::Charsequence>(
         []() -> charsequence::Builder { return charsequence::Builder(); },
         [](charsequence::Builder accumulatorValue, E element, function::Timestamp index) -> charsequence::Builder {
             if constexpr (std::is_same_v<E, charsequence::Charsequence>)
+            {
+                if (accumulatorValue.size() > 0)
+                    accumulatorValue.append(comma);
+                accumulatorValue.append(element);
+            }
+            else if constexpr (std::is_same_v<E, std::string>)
             {
                 if (accumulatorValue.size() > 0)
                     accumulatorValue.append(comma);
@@ -811,12 +817,18 @@ auto useJoin() -> Collector<E, charsequence::Builder, charsequence::Charsequence
 template <typename E>
 auto useJoin(const charsequence::Charsequence &delimiter) -> Collector<E, charsequence::Builder, charsequence::Charsequence>
 {
-    static const auto leftBracket = std::string_view("[");
-    static const auto rightBracket = std::string_view("]");
+    static const charsequence::Charsequence leftBracket("[");
+    static const charsequence::Charsequence rightBracket("]");
     return useFull<E, charsequence::Builder, charsequence::Charsequence>(
         []() -> charsequence::Builder { return charsequence::Builder(); },
         [delimiter](charsequence::Builder accumulatorValue, E element, function::Timestamp index) -> charsequence::Builder {
             if constexpr (std::is_same_v<E, charsequence::Charsequence>)
+            {
+                if (accumulatorValue.size() > 0)
+                    accumulatorValue.append(delimiter);
+                accumulatorValue.append(element);
+            }
+            else if constexpr (std::is_same_v<E, std::string>)
             {
                 if (accumulatorValue.size() > 0)
                     accumulatorValue.append(delimiter);
@@ -852,6 +864,12 @@ auto useJoin(const charsequence::Charsequence &prefix, const charsequence::Chars
         []() -> charsequence::Builder { return charsequence::Builder(); },
         [delimiter](charsequence::Builder accumulatorValue, E element, function::Timestamp index) -> charsequence::Builder {
             if constexpr (std::is_same_v<E, charsequence::Charsequence>)
+            {
+                if (accumulatorValue.size() > 0)
+                    accumulatorValue.append(delimiter);
+                accumulatorValue.append(element);
+            }
+            else if constexpr (std::is_same_v<E, std::string>)
             {
                 if (accumulatorValue.size() > 0)
                     accumulatorValue.append(delimiter);

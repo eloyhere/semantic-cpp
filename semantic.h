@@ -44,6 +44,11 @@ class Collectable
 
     virtual ~Collectable() = default;
 
+    Collectable(const Collectable &) = default;
+    Collectable(Collectable &&) = default;
+    Collectable &operator=(const Collectable &) = default;
+    Collectable &operator=(Collectable &&) = default;
+
     template <typename Predicate>
     auto anyMatch(Predicate &&predicate) const -> bool
     {
@@ -486,7 +491,7 @@ class OrderedCollectable : public Collectable<E>
         return *this;
     }
 
-    auto operator=(OrderedCollectable<E> &&other) noexcept -> OrderedCollectable &
+    auto operator=(OrderedCollectable<E> &&other) noexcept -> OrderedCollectable<E> &
     {
         if (this != &other)
         {
@@ -515,22 +520,33 @@ template <typename E, typename D>
 class Statistics : public OrderedCollectable<E>
 {
   public:
+    Statistics() : OrderedCollectable<E>(1) {}
+
     Statistics(const function::Module &concurrent) : OrderedCollectable<E>(concurrent) {}
+
+    Statistics(const function::Generator<E> &generator) : OrderedCollectable<E>(generator) {}
+
     Statistics(const function::Generator<E> &generator, const function::Module &concurrent) : OrderedCollectable<E>(generator, concurrent) {}
+
     Statistics(const Statistics<E, D> &other) : OrderedCollectable<E>(other) {}
+
     Statistics(Statistics<E, D> &&other) noexcept : OrderedCollectable<E>(std::move(other)) {}
 
     auto operator=(const Statistics<E, D> &other) -> Statistics<E, D> &
     {
         if (this != &other)
+        {
             OrderedCollectable<E>::operator=(other);
+        }
         return *this;
     }
 
     auto operator=(Statistics<E, D> &&other) noexcept -> Statistics<E, D> &
     {
         if (this != &other)
+        {
             OrderedCollectable<E>::operator=(std::move(other));
+        }
         return *this;
     }
 
@@ -5940,6 +5956,388 @@ class Semantic<std::unordered_set<E>>
     auto toStatistics() const -> collectable::Statistics<std::unordered_set<E>, D> { return collectable::Statistics<std::unordered_set<E>, D>(this->source(), this->concurrent); }
 };
 
+template <typename T1, typename T2>
+class Semantic<std::pair<T1, T2>>
+{
+  private:
+    std::unique_ptr<function::Generator<std::pair<T1, T2>>> generator;
+    function::Module concurrent;
+
+  public:
+    using Element = std::pair<T1, T2>;
+
+    Semantic(std::pair<T1, T2> &&container) : generator(std::make_unique<function::Generator<std::pair<T1, T2>>>([elements = std::move(container)](function::BiConsumer<std::pair<T1, T2>, function::Timestamp> accept, function::BiPredicate<std::pair<T1, T2>, function::Timestamp> interrupt) -> void {
+                                                  accept(elements, 0LL);
+                                              })),
+                                              concurrent(1) {}
+
+    Semantic(std::pair<T1, T2> &&container, const function::Module &concurrent) : generator(std::make_unique<function::Generator<std::pair<T1, T2>>>([elements = std::move(container)](function::BiConsumer<std::pair<T1, T2>, function::Timestamp> accept, function::BiPredicate<std::pair<T1, T2>, function::Timestamp> interrupt) -> void {
+                                                                                      accept(elements, 0LL);
+                                                                                  })),
+                                                                                  concurrent(concurrent) {}
+
+    Semantic(const function::Generator<std::pair<T1, T2>> &generator) : generator(std::make_unique<function::Generator<std::pair<T1, T2>>>(generator)), concurrent(1) {}
+
+    Semantic(const function::Generator<std::pair<T1, T2>> &generator, const function::Module &concurrent) : generator(std::make_unique<function::Generator<std::pair<T1, T2>>>(generator)), concurrent(concurrent) {}
+
+    Semantic(const Semantic<std::pair<T1, T2>> &other) : generator(std::make_unique<function::Generator<std::pair<T1, T2>>>(*other.generator)), concurrent(other.concurrent) {}
+
+    Semantic(Semantic<std::pair<T1, T2>> &&other) noexcept = default;
+
+    Semantic<std::pair<T1, T2>> &operator=(const Semantic<std::pair<T1, T2>> &other)
+    {
+        if (this != &other)
+        {
+            generator = std::make_unique<function::Generator<std::pair<T1, T2>>>(*other.generator);
+            concurrent = other.concurrent;
+        }
+        return *this;
+    }
+
+    Semantic<std::pair<T1, T2>> &operator=(Semantic<std::pair<T1, T2>> &&other) noexcept = default;
+
+    auto source() const -> function::Generator<std::pair<T1, T2>>
+    {
+        return [generator = *(this->generator)](function::BiConsumer<std::pair<T1, T2>, function::Timestamp> accept, function::BiPredicate<std::pair<T1, T2>, function::Timestamp> interrupt) -> void {
+            generator(accept, interrupt);
+        };
+    }
+
+    auto getConcurrent() const -> function::Module { return concurrent; }
+
+    template <typename Mapper>
+    auto map(Mapper &&mapper) const
+    {
+        if constexpr (std::is_invocable_v<Mapper, std::pair<T1, T2>, function::Timestamp>)
+        {
+            using R = std::invoke_result_t<Mapper, std::pair<T1, T2>, function::Timestamp>;
+            return Semantic<R>([generator = *(this->generator), mapper = std::forward<Mapper>(mapper)](function::BiConsumer<R, function::Timestamp> accept, function::BiPredicate<R, function::Timestamp> interrupt) -> void {
+                bool stop = false;
+                generator([&accept, &mapper, &stop, &interrupt](std::pair<T1, T2> container, function::Timestamp index) -> void {
+                    R mapped = std::invoke(mapper, container, index);
+                    accept(mapped, index);
+                    stop = stop || interrupt(mapped, index); }, [&stop](std::pair<T1, T2> container, function::Timestamp index) -> bool { return stop; });
+            },
+                               this->concurrent);
+        }
+        else if constexpr (std::is_invocable_v<Mapper, std::pair<T1, T2>>)
+        {
+            using R = std::invoke_result_t<Mapper, std::pair<T1, T2>>;
+            return Semantic<R>([generator = *(this->generator), mapper = std::forward<Mapper>(mapper)](function::BiConsumer<R, function::Timestamp> accept, function::BiPredicate<R, function::Timestamp> interrupt) -> void {
+                bool stop = false;
+                generator([&accept, &mapper, &stop, &interrupt](std::pair<T1, T2> container, function::Timestamp index) -> void {
+                    R mapped = std::invoke(mapper, container);
+                    accept(mapped, index);
+                    stop = stop || interrupt(mapped, index); }, [&stop](std::pair<T1, T2> container, function::Timestamp index) -> bool { return stop; });
+            },
+                               this->concurrent);
+        }
+        else
+        {
+            static_assert(std::is_invocable_v<Mapper, std::pair<T1, T2>, function::Timestamp> || std::is_invocable_v<Mapper, std::pair<T1, T2>>, "Mapper must be callable as either (pair<T1,T2>, Timestamp) -> R or (pair<T1,T2>) -> R");
+        }
+    }
+
+    template <typename Predicate>
+    auto filter(Predicate &&predicate) const -> Semantic<std::pair<T1, T2>>
+    {
+        return Semantic<std::pair<T1, T2>>([generator = *(this->generator), predicate = std::forward<Predicate>(predicate)](function::BiConsumer<std::pair<T1, T2>, function::Timestamp> accept, function::BiPredicate<std::pair<T1, T2>, function::Timestamp> interrupt) -> void {
+            function::Timestamp count = 0LL;
+            generator([&accept, &count, &predicate](std::pair<T1, T2> container, function::Timestamp index) -> void {
+                bool matches = false;
+                if constexpr (std::is_invocable_r_v<bool, Predicate, std::pair<T1, T2>, function::Timestamp>)
+                {
+                    matches = std::invoke(predicate, container, index);
+                }
+                else if constexpr (std::is_invocable_r_v<bool, Predicate, std::pair<T1, T2>>)
+                {
+                    matches = std::invoke(predicate, container);
+                }
+                else
+                {
+                    static_assert(std::is_invocable_r_v<bool, Predicate, std::pair<T1, T2>, function::Timestamp> || std::is_invocable_r_v<bool, Predicate, std::pair<T1, T2>>, "Predicate must be callable as either (pair<T1,T2>, Timestamp) -> bool or (pair<T1,T2>) -> bool");
+                }
+                if (matches)
+                {
+                    accept(container, count);
+                    count++;
+                } }, [&interrupt, &count](std::pair<T1, T2> container, function::Timestamp index) -> bool { return interrupt(container, count); });
+        },
+                                           this->concurrent);
+    }
+
+    template <typename Predicate>
+    auto takeWhile(Predicate &&predicate) const -> Semantic<std::pair<T1, T2>>
+    {
+        return Semantic<std::pair<T1, T2>>([generator = *(this->generator), predicate = std::forward<Predicate>(predicate)](function::BiConsumer<std::pair<T1, T2>, function::Timestamp> accept, function::BiPredicate<std::pair<T1, T2>, function::Timestamp> interrupt) -> void {
+            bool stop = false;
+            generator([&accept, &stop, &predicate](std::pair<T1, T2> container, function::Timestamp index) -> void {
+                bool matches = false;
+                if constexpr (std::is_invocable_r_v<bool, Predicate, std::pair<T1, T2>, function::Timestamp>)
+                {
+                    matches = std::invoke(predicate, container, index);
+                }
+                else if constexpr (std::is_invocable_r_v<bool, Predicate, std::pair<T1, T2>>)
+                {
+                    matches = std::invoke(predicate, container);
+                }
+                if (matches)
+                {
+                    accept(container, index);
+                }
+                else
+                {
+                    stop = true;
+                } }, [&interrupt, &stop](std::pair<T1, T2> container, function::Timestamp index) -> bool { return interrupt(container, index) || stop; });
+        },
+                                           this->concurrent);
+    }
+
+    template <typename Predicate>
+    auto dropWhile(Predicate &&predicate) const -> Semantic<std::pair<T1, T2>>
+    {
+        return Semantic<std::pair<T1, T2>>([generator = *(this->generator), predicate = std::forward<Predicate>(predicate)](function::BiConsumer<std::pair<T1, T2>, function::Timestamp> accept, function::BiPredicate<std::pair<T1, T2>, function::Timestamp> interrupt) -> void {
+            bool dropping = true;
+            function::Timestamp count = 0LL;
+            generator([&accept, &dropping, &count, &predicate](std::pair<T1, T2> container, function::Timestamp index) -> void {
+                if (dropping)
+                {
+                    bool matches = false;
+                    if constexpr (std::is_invocable_r_v<bool, Predicate, std::pair<T1, T2>, function::Timestamp>)
+                    {
+                        matches = std::invoke(predicate, container, index);
+                    }
+                    else if constexpr (std::is_invocable_r_v<bool, Predicate, std::pair<T1, T2>>)
+                    {
+                        matches = std::invoke(predicate, container);
+                    }
+                    if (!matches)
+                    {
+                        dropping = false;
+                        accept(container, count);
+                        count++;
+                    }
+                }
+                else
+                {
+                    accept(container, count);
+                    count++;
+                } }, [&interrupt, &count](std::pair<T1, T2> container, function::Timestamp index) -> bool { return interrupt(container, count); });
+        },
+                                           this->concurrent);
+    }
+
+    auto distinct() const -> Semantic<std::pair<T1, T2>>
+    {
+        return Semantic<std::pair<T1, T2>>([generator = *(this->generator)](function::BiConsumer<std::pair<T1, T2>, function::Timestamp> accept, function::BiPredicate<std::pair<T1, T2>, function::Timestamp> interrupt) -> void {
+            std::unordered_set<std::pair<T1, T2>> seen;
+            function::Timestamp count = 0LL;
+            generator([&accept, &seen, &count](std::pair<T1, T2> container, function::Timestamp index) -> void {
+                if (seen.find(container) == seen.end())
+                {
+                    seen.insert(container);
+                    accept(container, count);
+                    count++;
+                } }, [&interrupt, &count](std::pair<T1, T2> container, function::Timestamp index) -> bool { return interrupt(container, count); });
+        },
+                                           this->concurrent);
+    }
+
+    auto distinct(const function::Comparator<std::pair<T1, T2>> &comparator) const -> Semantic<std::pair<T1, T2>>
+    {
+        return Semantic<std::pair<T1, T2>>([generator = *(this->generator), comparator](function::BiConsumer<std::pair<T1, T2>, function::Timestamp> accept, function::BiPredicate<std::pair<T1, T2>, function::Timestamp> interrupt) -> void {
+            std::set<std::pair<T1, T2>, function::Comparator<std::pair<T1, T2>>> seen(comparator);
+            function::Timestamp count = 0LL;
+            generator([&accept, &seen, &count](std::pair<T1, T2> container, function::Timestamp index) -> void {
+                if (seen.find(container) == seen.end())
+                {
+                    seen.insert(container);
+                    accept(container, count);
+                    count++;
+                } }, [&interrupt, &count](std::pair<T1, T2> container, function::Timestamp index) -> bool { return interrupt(container, count); });
+        },
+                                           this->concurrent);
+    }
+
+    auto sort() const -> collectable::OrderedCollectable<std::pair<T1, T2>>
+    {
+        if constexpr (std::is_invocable_v<std::less<std::pair<T1, T2>>, std::pair<T1, T2>, std::pair<T1, T2>>)
+        {
+            return collectable::OrderedCollectable<std::pair<T1, T2>>(
+                this->source(),
+                [](const std::pair<T1, T2> &a, const std::pair<T1, T2> &b) -> bool { return a < b; },
+                this->concurrent);
+        }
+        else
+        {
+            return collectable::OrderedCollectable<std::pair<T1, T2>>(this->source(), this->concurrent);
+        }
+    }
+
+    auto sort(const function::Comparator<std::pair<T1, T2>> &comparator) const -> collectable::OrderedCollectable<std::pair<T1, T2>>
+    {
+        return collectable::OrderedCollectable<std::pair<T1, T2>>(this->source(), comparator, this->concurrent);
+    }
+
+    auto limit(const function::Module &n) const -> Semantic<std::pair<T1, T2>>
+    {
+        return Semantic<std::pair<T1, T2>>([generator = *(this->generator), n](function::BiConsumer<std::pair<T1, T2>, function::Timestamp> accept, function::BiPredicate<std::pair<T1, T2>, function::Timestamp> interrupt) -> void {
+            function::Module count = 0;
+            generator([&accept, &count](std::pair<T1, T2> container, function::Timestamp index) -> void {
+                accept(container, count);
+                count++; }, [&interrupt, &count, &n](std::pair<T1, T2> container, function::Timestamp index) -> bool { return interrupt(container, count) || count >= n; });
+        },
+                                           this->concurrent);
+    }
+
+    auto skip(const function::Module &n) const -> Semantic<std::pair<T1, T2>>
+    {
+        return Semantic<std::pair<T1, T2>>([generator = *(this->generator), n](function::BiConsumer<std::pair<T1, T2>, function::Timestamp> accept, function::BiPredicate<std::pair<T1, T2>, function::Timestamp> interrupt) -> void {
+            function::Module count = 0;
+            generator([&accept, &count, &n](std::pair<T1, T2> container, function::Timestamp index) -> void {
+                if (count >= n)
+                {
+                    accept(container, count);
+                }
+                count++; }, [&interrupt, &count](std::pair<T1, T2> container, function::Timestamp index) -> bool { return interrupt(container, count); });
+        },
+                                           this->concurrent);
+    }
+
+    template <typename Consumer>
+    auto peek(Consumer &&consumer) const -> Semantic<std::pair<T1, T2>>
+    {
+        return Semantic<std::pair<T1, T2>>([generator = *(this->generator), consumer = std::forward<Consumer>(consumer)](function::BiConsumer<std::pair<T1, T2>, function::Timestamp> accept, function::BiPredicate<std::pair<T1, T2>, function::Timestamp> interrupt) -> void {
+            generator([&accept, &consumer](std::pair<T1, T2> container, function::Timestamp index) -> void {
+                if constexpr (std::is_invocable_r_v<void, Consumer, std::pair<T1, T2>, function::Timestamp>)
+                {
+                    std::invoke(consumer, container, index);
+                }
+                else if constexpr (std::is_invocable_r_v<void, Consumer, std::pair<T1, T2>>)
+                {
+                    std::invoke(consumer, container);
+                }
+                accept(container, index);
+            },
+                      interrupt);
+        },
+                                           this->concurrent);
+    }
+
+    auto parallel() const -> Semantic<std::pair<T1, T2>> { return Semantic<std::pair<T1, T2>>(this->source(), 1); }
+    auto parallel(const function::Module &concurrent) const -> Semantic<std::pair<T1, T2>> { return Semantic<std::pair<T1, T2>>(this->source(), std::max(concurrent, 1ULL)); }
+
+    auto reverse() const -> Semantic<std::pair<T1, T2>>
+    {
+        return Semantic<std::pair<T1, T2>>([generator = *(this->generator)](function::BiConsumer<std::pair<T1, T2>, function::Timestamp> accept, function::BiPredicate<std::pair<T1, T2>, function::Timestamp> interrupt) -> void {
+            generator([&accept](std::pair<T1, T2> container, function::Timestamp index) -> void { accept(container, -index); }, [&interrupt](std::pair<T1, T2> container, function::Timestamp index) -> bool { return interrupt(container, -index); });
+        },
+                                           this->concurrent);
+    }
+
+    auto translate(const function::Timestamp &offset) const -> Semantic<std::pair<T1, T2>>
+    {
+        return Semantic<std::pair<T1, T2>>([generator = *(this->generator), offset](function::BiConsumer<std::pair<T1, T2>, function::Timestamp> accept, function::BiPredicate<std::pair<T1, T2>, function::Timestamp> interrupt) -> void {
+            generator([&accept, &offset](std::pair<T1, T2> container, function::Timestamp index) -> void { accept(container, index + offset); }, [&interrupt, &offset](std::pair<T1, T2> container, function::Timestamp index) -> bool { return interrupt(container, index + offset); });
+        },
+                                           this->concurrent);
+    }
+
+    auto translate(const function::BiFunction<std::pair<T1, T2>, function::Timestamp, function::Timestamp> &translator) const -> Semantic<std::pair<T1, T2>>
+    {
+        return Semantic<std::pair<T1, T2>>([generator = *(this->generator), translator](function::BiConsumer<std::pair<T1, T2>, function::Timestamp> accept, function::BiPredicate<std::pair<T1, T2>, function::Timestamp> interrupt) -> void {
+            generator([&accept, &translator](std::pair<T1, T2> container, function::Timestamp index) -> void { accept(container, translator(container, index)); }, [&interrupt, &translator](std::pair<T1, T2> container, function::Timestamp index) -> bool { return interrupt(container, translator(container, index)); });
+        },
+                                           this->concurrent);
+    }
+
+    auto redirect(const function::BiFunction<std::pair<T1, T2>, function::Timestamp, std::pair<T1, T2>> &redirector) const -> Semantic<std::pair<T1, T2>>
+    {
+        return Semantic<std::pair<T1, T2>>([generator = *(this->generator), redirector](function::BiConsumer<std::pair<T1, T2>, function::Timestamp> accept, function::BiPredicate<std::pair<T1, T2>, function::Timestamp> interrupt) -> void {
+            generator([&accept, &redirector](std::pair<T1, T2> container, function::Timestamp index) -> void { accept(redirector(container, index), index); }, [&interrupt, &redirector](std::pair<T1, T2> container, function::Timestamp index) -> bool { return interrupt(redirector(container, index), index); });
+        },
+                                           this->concurrent);
+    }
+
+    auto sub(const function::Module &start, const function::Module &end) const -> Semantic<std::pair<T1, T2>>
+    {
+        return Semantic<std::pair<T1, T2>>([generator = *(this->generator), start, end](function::BiConsumer<std::pair<T1, T2>, function::Timestamp> accept, function::BiPredicate<std::pair<T1, T2>, function::Timestamp> interrupt) -> void {
+            function::Module count = 0;
+            generator([&accept, &count, &start, &end](std::pair<T1, T2> container, function::Timestamp index) -> void {
+                if (count >= start && count < end)
+                {
+                    accept(container, count);
+                }
+                count++; }, [&interrupt, &count, &end](std::pair<T1, T2> container, function::Timestamp index) -> bool { return interrupt(container, count) || count >= end; });
+        },
+                                           this->concurrent);
+    }
+
+    template <typename Container>
+    auto concatenate(Container &&container) const -> Semantic<std::pair<T1, T2>>
+    {
+        if constexpr (std::is_same_v<std::decay_t<Container>, Semantic<std::pair<T1, T2>>>)
+        {
+            return Semantic<std::pair<T1, T2>>([generator = *(this->generator), other = std::forward<Container>(container)](function::BiConsumer<std::pair<T1, T2>, function::Timestamp> accept, function::BiPredicate<std::pair<T1, T2>, function::Timestamp> interrupt) -> void {
+                function::Timestamp count = 0LL;
+                bool stop = false;
+                generator([&accept, &count](std::pair<T1, T2> container, function::Timestamp index) -> void {
+                    accept(container, count);
+                    count++; }, [&stop](std::pair<T1, T2> container, function::Timestamp index) -> bool { return stop; });
+                other.source()([&accept, &count](std::pair<T1, T2> container, function::Timestamp index) -> void {
+                    accept(container, count);
+                    count++; }, [&interrupt, &stop, &count](std::pair<T1, T2> container, function::Timestamp index) -> bool {
+                    if (interrupt(container, count))
+                    {
+                        stop = true;
+                        return true;
+                    }
+                    return false; });
+            },
+                                               this->concurrent);
+        }
+        else if constexpr (std::is_same_v<std::decay_t<Container>, std::pair<T1, T2>>)
+        {
+            return Semantic<std::pair<T1, T2>>([generator = *(this->generator), elements = std::forward<Container>(container)](function::BiConsumer<std::pair<T1, T2>, function::Timestamp> accept, function::BiPredicate<std::pair<T1, T2>, function::Timestamp> interrupt) -> void {
+                function::Timestamp count = 0LL;
+                generator([&accept, &count](std::pair<T1, T2> container, function::Timestamp index) -> void {
+                    accept(container, count);
+                    count++; }, [&interrupt, &count](std::pair<T1, T2> container, function::Timestamp index) -> bool { return interrupt(container, count); });
+                if (!interrupt(elements, count))
+                {
+                    accept(elements, count);
+                }
+            },
+                                               this->concurrent);
+        }
+        else
+        {
+            return Semantic<std::pair<T1, T2>>([generator = *(this->generator), elements = std::forward<Container>(container)](function::BiConsumer<std::pair<T1, T2>, function::Timestamp> accept, function::BiPredicate<std::pair<T1, T2>, function::Timestamp> interrupt) -> void {
+                function::Timestamp count = 0LL;
+                generator([&accept, &count](std::pair<T1, T2> container, function::Timestamp index) -> void {
+                    accept(container, count);
+                    count++; }, [&interrupt, &count](std::pair<T1, T2> container, function::Timestamp index) -> bool { return interrupt(container, count); });
+                for (const auto &element : elements)
+                {
+                    if (interrupt(element, count))
+                    {
+                        break;
+                    }
+                    accept(element, count);
+                    count++;
+                }
+            },
+                                               this->concurrent);
+        }
+    }
+
+    auto toUnordered() const -> collectable::UnorderedCollectable<std::pair<T1, T2>> { return collectable::UnorderedCollectable<std::pair<T1, T2>>(this->source(), this->concurrent); }
+    auto toOrdered() const -> collectable::OrderedCollectable<std::pair<T1, T2>> { return collectable::OrderedCollectable<std::pair<T1, T2>>(this->source(), this->concurrent); }
+    auto toWindow() const -> collectable::WindowCollectable<std::pair<T1, T2>> { return collectable::WindowCollectable<std::pair<T1, T2>>(this->source(), this->concurrent); }
+    template <typename D>
+    auto toStatistics() const -> collectable::Statistics<std::pair<T1, T2>, D> { return collectable::Statistics<std::pair<T1, T2>, D>(this->source(), this->concurrent); }
+};
+
 template <typename K, typename V>
 class Semantic<std::map<K, V>>
 {
@@ -6214,20 +6612,20 @@ class Semantic<std::map<K, V>>
             function::Timestamp count = 0LL;
             bool stop = false;
             generator([&accept, &count, &stop, &interrupt](std::map<K, V> container, function::Timestamp index) -> void {
-                for (const auto &element : container)
+            for (const auto &element : container)
+            {
+                if (stop)
                 {
-                    if (stop)
-                    {
-                        break;
-                    }
-                    if (interrupt(element, count))
-                    {
-                        stop = true;
-                        break;
-                    }
-                    accept(element, count);
-                    count++;
-                } }, [&stop](std::map<K, V> container, function::Timestamp index) -> bool { return stop; });
+                    break;
+                }
+                if (interrupt(element, count))
+                {
+                    stop = true;
+                    break;
+                }
+                accept(element, count);
+                count++;
+            } }, [&stop](std::map<K, V> container, function::Timestamp index) -> bool { return stop; });
         },
                                                this->concurrent);
     }
@@ -6239,40 +6637,40 @@ class Semantic<std::map<K, V>>
             function::Timestamp count = 0LL;
             bool stop = false;
             generator([&accept, &count, &stop, &flatten, &interrupt](std::map<K, V> container, function::Timestamp index) -> void {
-                if constexpr (std::is_invocable_r_v<Semantic<std::pair<const K, V>>, Flatten, std::map<K, V>, function::Timestamp>)
-                {
-                    Semantic<std::pair<const K, V>> inner = std::invoke(flatten, container, index);
-                    inner.source()([&accept, &count](std::pair<const K, V> innerElement, function::Timestamp innerIndex) -> void {
-                        accept(innerElement, count);
-                        count++;
-                    }, [&interrupt, &stop, &count](std::pair<const K, V> innerElement, function::Timestamp innerIndex) -> bool {
-                        if (interrupt(innerElement, count))
-                        {
-                            stop = true;
-                            return true;
-                        }
-                        return false;
-                    });
-                }
-                else if constexpr (std::is_invocable_r_v<Semantic<std::pair<const K, V>>, Flatten, std::map<K, V>>)
-                {
-                    Semantic<std::pair<const K, V>> inner = std::invoke(flatten, container);
-                    inner.source()([&accept, &count](std::pair<const K, V> innerElement, function::Timestamp innerIndex) -> void {
-                        accept(innerElement, count);
-                        count++;
-                    }, [&interrupt, &stop, &count](std::pair<const K, V> innerElement, function::Timestamp innerIndex) -> bool {
-                        if (interrupt(innerElement, count))
-                        {
-                            stop = true;
-                            return true;
-                        }
-                        return false;
-                    });
-                }
-                else
-                {
-                    static_assert(std::is_invocable_r_v<Semantic<std::pair<const K, V>>, Flatten, std::map<K, V>, function::Timestamp> || std::is_invocable_r_v<Semantic<std::pair<const K, V>>, Flatten, std::map<K, V>>, "flat: Flatten must return Semantic<pair<const K,V>>");
-                } }, [&stop](std::map<K, V> container, function::Timestamp index) -> bool { return stop; });
+            if constexpr (std::is_invocable_r_v<Semantic<std::pair<const K, V>>, Flatten, std::map<K, V>, function::Timestamp>)
+            {
+                Semantic<std::pair<const K, V>> inner = std::invoke(flatten, container, index);
+                inner.source()([&accept, &count](std::pair<const K, V> innerElement, function::Timestamp innerIndex) -> void {
+                    accept(innerElement, count);
+                    count++;
+                }, [&interrupt, &stop, &count](std::pair<const K, V> innerElement, function::Timestamp innerIndex) -> bool {
+                    if (interrupt(innerElement, count))
+                    {
+                        stop = true;
+                        return true;
+                    }
+                    return false;
+                });
+            }
+            else if constexpr (std::is_invocable_r_v<Semantic<std::pair<const K, V>>, Flatten, std::map<K, V>>)
+            {
+                Semantic<std::pair<const K, V>> inner = std::invoke(flatten, container);
+                inner.source()([&accept, &count](std::pair<const K, V> innerElement, function::Timestamp innerIndex) -> void {
+                    accept(innerElement, count);
+                    count++;
+                }, [&interrupt, &stop, &count](std::pair<const K, V> innerElement, function::Timestamp innerIndex) -> bool {
+                    if (interrupt(innerElement, count))
+                    {
+                        stop = true;
+                        return true;
+                    }
+                    return false;
+                });
+            }
+            else
+            {
+                static_assert(std::is_invocable_r_v<Semantic<std::pair<const K, V>>, Flatten, std::map<K, V>, function::Timestamp> || std::is_invocable_r_v<Semantic<std::pair<const K, V>>, Flatten, std::map<K, V>>, "flat: Flatten must return Semantic<pair<const K,V>>");
+            } }, [&stop](std::map<K, V> container, function::Timestamp index) -> bool { return stop; });
         },
                                                this->concurrent);
     }
@@ -6288,18 +6686,18 @@ class Semantic<std::map<K, V>>
                 function::Timestamp count = 0LL;
                 bool stop = false;
                 generator([&accept, &count, &stop, &flatten, &interrupt](std::map<K, V> container, function::Timestamp index) -> void {
-                    Semantic<R> inner = std::invoke(flatten, container, index);
-                    inner.source()([&accept, &count](R innerElement, function::Timestamp innerIndex) -> void {
-                        accept(innerElement, count);
-                        count++;
-                    }, [&interrupt, &stop, &count](R innerElement, function::Timestamp innerIndex) -> bool {
-                        if (interrupt(innerElement, count))
-                        {
-                            stop = true;
-                            return true;
-                        }
-                        return false;
-                    }); }, [&stop](std::map<K, V> container, function::Timestamp index) -> bool { return stop; });
+                Semantic<R> inner = std::invoke(flatten, container, index);
+                inner.source()([&accept, &count](R innerElement, function::Timestamp innerIndex) -> void {
+                    accept(innerElement, count);
+                    count++;
+                }, [&interrupt, &stop, &count](R innerElement, function::Timestamp innerIndex) -> bool {
+                    if (interrupt(innerElement, count))
+                    {
+                        stop = true;
+                        return true;
+                    }
+                    return false;
+                }); }, [&stop](std::map<K, V> container, function::Timestamp index) -> bool { return stop; });
             },
                                this->concurrent);
         }
@@ -6311,18 +6709,18 @@ class Semantic<std::map<K, V>>
                 function::Timestamp count = 0LL;
                 bool stop = false;
                 generator([&accept, &count, &stop, &flatten, &interrupt](std::map<K, V> container, function::Timestamp index) -> void {
-                    Semantic<R> inner = std::invoke(flatten, container);
-                    inner.source()([&accept, &count](R innerElement, function::Timestamp innerIndex) -> void {
-                        accept(innerElement, count);
-                        count++;
-                    }, [&interrupt, &stop, &count](R innerElement, function::Timestamp innerIndex) -> bool {
-                        if (interrupt(innerElement, count))
-                        {
-                            stop = true;
-                            return true;
-                        }
-                        return false;
-                    }); }, [&stop](std::map<K, V> container, function::Timestamp index) -> bool { return stop; });
+                Semantic<R> inner = std::invoke(flatten, container);
+                inner.source()([&accept, &count](R innerElement, function::Timestamp innerIndex) -> void {
+                    accept(innerElement, count);
+                    count++;
+                }, [&interrupt, &stop, &count](R innerElement, function::Timestamp innerIndex) -> bool {
+                    if (interrupt(innerElement, count))
+                    {
+                        stop = true;
+                        return true;
+                    }
+                    return false;
+                }); }, [&stop](std::map<K, V> container, function::Timestamp index) -> bool { return stop; });
             },
                                this->concurrent);
         }
@@ -6720,20 +7118,20 @@ class Semantic<std::unordered_map<K, V>>
             function::Timestamp count = 0LL;
             bool stop = false;
             generator([&accept, &count, &stop, &interrupt](std::unordered_map<K, V> container, function::Timestamp index) -> void {
-                for (const auto &element : container)
+            for (const auto &element : container)
+            {
+                if (stop)
                 {
-                    if (stop)
-                    {
-                        break;
-                    }
-                    if (interrupt(element, count))
-                    {
-                        stop = true;
-                        break;
-                    }
-                    accept(element, count);
-                    count++;
-                } }, [&stop](std::unordered_map<K, V> container, function::Timestamp index) -> bool { return stop; });
+                    break;
+                }
+                if (interrupt(element, count))
+                {
+                    stop = true;
+                    break;
+                }
+                accept(element, count);
+                count++;
+            } }, [&stop](std::unordered_map<K, V> container, function::Timestamp index) -> bool { return stop; });
         },
                                                this->concurrent);
     }
@@ -6745,40 +7143,40 @@ class Semantic<std::unordered_map<K, V>>
             function::Timestamp count = 0LL;
             bool stop = false;
             generator([&accept, &count, &stop, &flatten, &interrupt](std::unordered_map<K, V> container, function::Timestamp index) -> void {
-                if constexpr (std::is_invocable_r_v<Semantic<std::pair<const K, V>>, Flatten, std::unordered_map<K, V>, function::Timestamp>)
-                {
-                    Semantic<std::pair<const K, V>> inner = std::invoke(flatten, container, index);
-                    inner.source()([&accept, &count](std::pair<const K, V> innerElement, function::Timestamp innerIndex) -> void {
-                        accept(innerElement, count);
-                        count++;
-                    }, [&interrupt, &stop, &count](std::pair<const K, V> innerElement, function::Timestamp innerIndex) -> bool {
-                        if (interrupt(innerElement, count))
-                        {
-                            stop = true;
-                            return true;
-                        }
-                        return false;
-                    });
-                }
-                else if constexpr (std::is_invocable_r_v<Semantic<std::pair<const K, V>>, Flatten, std::unordered_map<K, V>>)
-                {
-                    Semantic<std::pair<const K, V>> inner = std::invoke(flatten, container);
-                    inner.source()([&accept, &count](std::pair<const K, V> innerElement, function::Timestamp innerIndex) -> void {
-                        accept(innerElement, count);
-                        count++;
-                    }, [&interrupt, &stop, &count](std::pair<const K, V> innerElement, function::Timestamp innerIndex) -> bool {
-                        if (interrupt(innerElement, count))
-                        {
-                            stop = true;
-                            return true;
-                        }
-                        return false;
-                    });
-                }
-                else
-                {
-                    static_assert(std::is_invocable_r_v<Semantic<std::pair<const K, V>>, Flatten, std::unordered_map<K, V>, function::Timestamp> || std::is_invocable_r_v<Semantic<std::pair<const K, V>>, Flatten, std::unordered_map<K, V>>, "flat: Flatten must return Semantic<pair<const K,V>>");
-                } }, [&stop](std::unordered_map<K, V> container, function::Timestamp index) -> bool { return stop; });
+            if constexpr (std::is_invocable_r_v<Semantic<std::pair<const K, V>>, Flatten, std::unordered_map<K, V>, function::Timestamp>)
+            {
+                Semantic<std::pair<const K, V>> inner = std::invoke(flatten, container, index);
+                inner.source()([&accept, &count](std::pair<const K, V> innerElement, function::Timestamp innerIndex) -> void {
+                    accept(innerElement, count);
+                    count++;
+                }, [&interrupt, &stop, &count](std::pair<const K, V> innerElement, function::Timestamp innerIndex) -> bool {
+                    if (interrupt(innerElement, count))
+                    {
+                        stop = true;
+                        return true;
+                    }
+                    return false;
+                });
+            }
+            else if constexpr (std::is_invocable_r_v<Semantic<std::pair<const K, V>>, Flatten, std::unordered_map<K, V>>)
+            {
+                Semantic<std::pair<const K, V>> inner = std::invoke(flatten, container);
+                inner.source()([&accept, &count](std::pair<const K, V> innerElement, function::Timestamp innerIndex) -> void {
+                    accept(innerElement, count);
+                    count++;
+                }, [&interrupt, &stop, &count](std::pair<const K, V> innerElement, function::Timestamp innerIndex) -> bool {
+                    if (interrupt(innerElement, count))
+                    {
+                        stop = true;
+                        return true;
+                    }
+                    return false;
+                });
+            }
+            else
+            {
+                static_assert(std::is_invocable_r_v<Semantic<std::pair<const K, V>>, Flatten, std::unordered_map<K, V>, function::Timestamp> || std::is_invocable_r_v<Semantic<std::pair<const K, V>>, Flatten, std::unordered_map<K, V>>, "flat: Flatten must return Semantic<pair<const K,V>>");
+            } }, [&stop](std::unordered_map<K, V> container, function::Timestamp index) -> bool { return stop; });
         },
                                                this->concurrent);
     }
@@ -6794,18 +7192,18 @@ class Semantic<std::unordered_map<K, V>>
                 function::Timestamp count = 0LL;
                 bool stop = false;
                 generator([&accept, &count, &stop, &flatten, &interrupt](std::unordered_map<K, V> container, function::Timestamp index) -> void {
-                    Semantic<R> inner = std::invoke(flatten, container, index);
-                    inner.source()([&accept, &count](R innerElement, function::Timestamp innerIndex) -> void {
-                        accept(innerElement, count);
-                        count++;
-                    }, [&interrupt, &stop, &count](R innerElement, function::Timestamp innerIndex) -> bool {
-                        if (interrupt(innerElement, count))
-                        {
-                            stop = true;
-                            return true;
-                        }
-                        return false;
-                    }); }, [&stop](std::unordered_map<K, V> container, function::Timestamp index) -> bool { return stop; });
+                Semantic<R> inner = std::invoke(flatten, container, index);
+                inner.source()([&accept, &count](R innerElement, function::Timestamp innerIndex) -> void {
+                    accept(innerElement, count);
+                    count++;
+                }, [&interrupt, &stop, &count](R innerElement, function::Timestamp innerIndex) -> bool {
+                    if (interrupt(innerElement, count))
+                    {
+                        stop = true;
+                        return true;
+                    }
+                    return false;
+                }); }, [&stop](std::unordered_map<K, V> container, function::Timestamp index) -> bool { return stop; });
             },
                                this->concurrent);
         }
@@ -6817,18 +7215,18 @@ class Semantic<std::unordered_map<K, V>>
                 function::Timestamp count = 0LL;
                 bool stop = false;
                 generator([&accept, &count, &stop, &flatten, &interrupt](std::unordered_map<K, V> container, function::Timestamp index) -> void {
-                    Semantic<R> inner = std::invoke(flatten, container);
-                    inner.source()([&accept, &count](R innerElement, function::Timestamp innerIndex) -> void {
-                        accept(innerElement, count);
-                        count++;
-                    }, [&interrupt, &stop, &count](R innerElement, function::Timestamp innerIndex) -> bool {
-                        if (interrupt(innerElement, count))
-                        {
-                            stop = true;
-                            return true;
-                        }
-                        return false;
-                    }); }, [&stop](std::unordered_map<K, V> container, function::Timestamp index) -> bool { return stop; });
+                Semantic<R> inner = std::invoke(flatten, container);
+                inner.source()([&accept, &count](R innerElement, function::Timestamp innerIndex) -> void {
+                    accept(innerElement, count);
+                    count++;
+                }, [&interrupt, &stop, &count](R innerElement, function::Timestamp innerIndex) -> bool {
+                    if (interrupt(innerElement, count))
+                    {
+                        stop = true;
+                        return true;
+                    }
+                    return false;
+                }); }, [&stop](std::unordered_map<K, V> container, function::Timestamp index) -> bool { return stop; });
             },
                                this->concurrent);
         }
@@ -7012,8 +7410,7 @@ class Semantic<std::multiset<E>>
                 generator([&accept, &mapper, &stop, &interrupt](std::multiset<E> container, function::Timestamp index) -> void {
                     R mapped = std::invoke(mapper, container, index);
                     accept(mapped, index);
-                    stop = stop || interrupt(mapped, index);
-                }, [&stop](std::multiset<E> container, function::Timestamp index) -> bool { return stop; });
+                    stop = stop || interrupt(mapped, index); }, [&stop](std::multiset<E> container, function::Timestamp index) -> bool { return stop; });
             },
                                this->concurrent);
         }
@@ -7025,8 +7422,7 @@ class Semantic<std::multiset<E>>
                 generator([&accept, &mapper, &stop, &interrupt](std::multiset<E> container, function::Timestamp index) -> void {
                     R mapped = std::invoke(mapper, container);
                     accept(mapped, index);
-                    stop = stop || interrupt(mapped, index);
-                }, [&stop](std::multiset<E> container, function::Timestamp index) -> bool { return stop; });
+                    stop = stop || interrupt(mapped, index); }, [&stop](std::multiset<E> container, function::Timestamp index) -> bool { return stop; });
             },
                                this->concurrent);
         }
@@ -7241,8 +7637,7 @@ class Semantic<std::multiset<E>>
                     }
                     accept(element, count);
                     count++;
-                }
-            }, [&stop](std::multiset<E> container, function::Timestamp index) -> bool { return stop; });
+                } }, [&stop](std::multiset<E> container, function::Timestamp index) -> bool { return stop; });
         },
                            this->concurrent);
     }
@@ -7314,8 +7709,7 @@ class Semantic<std::multiset<E>>
                             return true;
                         }
                         return false;
-                    });
-                }, [&stop](std::multiset<E> container, function::Timestamp index) -> bool { return stop; });
+                    }); }, [&stop](std::multiset<E> container, function::Timestamp index) -> bool { return stop; });
             },
                                this->concurrent);
         }
@@ -7338,8 +7732,7 @@ class Semantic<std::multiset<E>>
                             return true;
                         }
                         return false;
-                    });
-                }, [&stop](std::multiset<E> container, function::Timestamp index) -> bool { return stop; });
+                    }); }, [&stop](std::multiset<E> container, function::Timestamp index) -> bool { return stop; });
             },
                                this->concurrent);
         }
@@ -7523,8 +7916,7 @@ class Semantic<std::multimap<K, V>>
                 generator([&accept, &mapper, &stop, &interrupt](std::multimap<K, V> container, function::Timestamp index) -> void {
                     R mapped = std::invoke(mapper, container, index);
                     accept(mapped, index);
-                    stop = stop || interrupt(mapped, index);
-                }, [&stop](std::multimap<K, V> container, function::Timestamp index) -> bool { return stop; });
+                    stop = stop || interrupt(mapped, index); }, [&stop](std::multimap<K, V> container, function::Timestamp index) -> bool { return stop; });
             },
                                this->concurrent);
         }
@@ -7536,8 +7928,7 @@ class Semantic<std::multimap<K, V>>
                 generator([&accept, &mapper, &stop, &interrupt](std::multimap<K, V> container, function::Timestamp index) -> void {
                     R mapped = std::invoke(mapper, container);
                     accept(mapped, index);
-                    stop = stop || interrupt(mapped, index);
-                }, [&stop](std::multimap<K, V> container, function::Timestamp index) -> bool { return stop; });
+                    stop = stop || interrupt(mapped, index); }, [&stop](std::multimap<K, V> container, function::Timestamp index) -> bool { return stop; });
             },
                                this->concurrent);
         }
@@ -7739,23 +8130,22 @@ class Semantic<std::multimap<K, V>>
             function::Timestamp count = 0LL;
             bool stop = false;
             generator([&accept, &count, &stop, &interrupt](std::multimap<K, V> container, function::Timestamp index) -> void {
-                for (const auto &element : container)
+            for (const auto &element : container)
+            {
+                if (stop)
                 {
-                    if (stop)
-                    {
-                        break;
-                    }
-                    if (interrupt(element, count))
-                    {
-                        stop = true;
-                        break;
-                    }
-                    accept(element, count);
-                    count++;
+                    break;
                 }
-            }, [&stop](std::multimap<K, V> container, function::Timestamp index) -> bool { return stop; });
+                if (interrupt(element, count))
+                {
+                    stop = true;
+                    break;
+                }
+                accept(element, count);
+                count++;
+            } }, [&stop](std::multimap<K, V> container, function::Timestamp index) -> bool { return stop; });
         },
-                           this->concurrent);
+                                               this->concurrent);
     }
 
     template <typename Flatten>
@@ -7765,42 +8155,42 @@ class Semantic<std::multimap<K, V>>
             function::Timestamp count = 0LL;
             bool stop = false;
             generator([&accept, &count, &stop, &flatten, &interrupt](std::multimap<K, V> container, function::Timestamp index) -> void {
-                if constexpr (std::is_invocable_r_v<Semantic<std::pair<const K, V>>, Flatten, std::multimap<K, V>, function::Timestamp>)
-                {
-                    Semantic<std::pair<const K, V>> inner = std::invoke(flatten, container, index);
-                    inner.source()([&accept, &count](std::pair<const K, V> innerElement, function::Timestamp innerIndex) -> void {
-                        accept(innerElement, count);
-                        count++;
-                    }, [&interrupt, &stop, &count](std::pair<const K, V> innerElement, function::Timestamp innerIndex) -> bool {
-                        if (interrupt(innerElement, count))
-                        {
-                            stop = true;
-                            return true;
-                        }
-                        return false;
-                    });
-                }
-                else if constexpr (std::is_invocable_r_v<Semantic<std::pair<const K, V>>, Flatten, std::multimap<K, V>>)
-                {
-                    Semantic<std::pair<const K, V>> inner = std::invoke(flatten, container);
-                    inner.source()([&accept, &count](std::pair<const K, V> innerElement, function::Timestamp innerIndex) -> void {
-                        accept(innerElement, count);
-                        count++;
-                    }, [&interrupt, &stop, &count](std::pair<const K, V> innerElement, function::Timestamp innerIndex) -> bool {
-                        if (interrupt(innerElement, count))
-                        {
-                            stop = true;
-                            return true;
-                        }
-                        return false;
-                    });
-                }
-                else
-                {
-                    static_assert(std::is_invocable_r_v<Semantic<std::pair<const K, V>>, Flatten, std::multimap<K, V>, function::Timestamp> || std::is_invocable_r_v<Semantic<std::pair<const K, V>>, Flatten, std::multimap<K, V>>, "flat: Flatten must return Semantic<pair<const K,V>>");
-                } }, [&stop](std::multimap<K, V> container, function::Timestamp index) -> bool { return stop; });
+            if constexpr (std::is_invocable_r_v<Semantic<std::pair<const K, V>>, Flatten, std::multimap<K, V>, function::Timestamp>)
+            {
+                Semantic<std::pair<const K, V>> inner = std::invoke(flatten, container, index);
+                inner.source()([&accept, &count](std::pair<const K, V> innerElement, function::Timestamp innerIndex) -> void {
+                    accept(innerElement, count);
+                    count++;
+                }, [&interrupt, &stop, &count](std::pair<const K, V> innerElement, function::Timestamp innerIndex) -> bool {
+                    if (interrupt(innerElement, count))
+                    {
+                        stop = true;
+                        return true;
+                    }
+                    return false;
+                });
+            }
+            else if constexpr (std::is_invocable_r_v<Semantic<std::pair<const K, V>>, Flatten, std::multimap<K, V>>)
+            {
+                Semantic<std::pair<const K, V>> inner = std::invoke(flatten, container);
+                inner.source()([&accept, &count](std::pair<const K, V> innerElement, function::Timestamp innerIndex) -> void {
+                    accept(innerElement, count);
+                    count++;
+                }, [&interrupt, &stop, &count](std::pair<const K, V> innerElement, function::Timestamp innerIndex) -> bool {
+                    if (interrupt(innerElement, count))
+                    {
+                        stop = true;
+                        return true;
+                    }
+                    return false;
+                });
+            }
+            else
+            {
+                static_assert(std::is_invocable_r_v<Semantic<std::pair<const K, V>>, Flatten, std::multimap<K, V>, function::Timestamp> || std::is_invocable_r_v<Semantic<std::pair<const K, V>>, Flatten, std::multimap<K, V>>, "flat: Flatten must return Semantic<pair<const K,V>>");
+            } }, [&stop](std::multimap<K, V> container, function::Timestamp index) -> bool { return stop; });
         },
-                           this->concurrent);
+                                               this->concurrent);
     }
 
     template <typename Flatten>
@@ -7814,19 +8204,18 @@ class Semantic<std::multimap<K, V>>
                 function::Timestamp count = 0LL;
                 bool stop = false;
                 generator([&accept, &count, &stop, &flatten, &interrupt](std::multimap<K, V> container, function::Timestamp index) -> void {
-                    Semantic<R> inner = std::invoke(flatten, container, index);
-                    inner.source()([&accept, &count](R innerElement, function::Timestamp innerIndex) -> void {
-                        accept(innerElement, count);
-                        count++;
-                    }, [&interrupt, &stop, &count](R innerElement, function::Timestamp innerIndex) -> bool {
-                        if (interrupt(innerElement, count))
-                        {
-                            stop = true;
-                            return true;
-                        }
-                        return false;
-                    });
-                }, [&stop](std::multimap<K, V> container, function::Timestamp index) -> bool { return stop; });
+                Semantic<R> inner = std::invoke(flatten, container, index);
+                inner.source()([&accept, &count](R innerElement, function::Timestamp innerIndex) -> void {
+                    accept(innerElement, count);
+                    count++;
+                }, [&interrupt, &stop, &count](R innerElement, function::Timestamp innerIndex) -> bool {
+                    if (interrupt(innerElement, count))
+                    {
+                        stop = true;
+                        return true;
+                    }
+                    return false;
+                }); }, [&stop](std::multimap<K, V> container, function::Timestamp index) -> bool { return stop; });
             },
                                this->concurrent);
         }
@@ -7838,19 +8227,18 @@ class Semantic<std::multimap<K, V>>
                 function::Timestamp count = 0LL;
                 bool stop = false;
                 generator([&accept, &count, &stop, &flatten, &interrupt](std::multimap<K, V> container, function::Timestamp index) -> void {
-                    Semantic<R> inner = std::invoke(flatten, container);
-                    inner.source()([&accept, &count](R innerElement, function::Timestamp innerIndex) -> void {
-                        accept(innerElement, count);
-                        count++;
-                    }, [&interrupt, &stop, &count](R innerElement, function::Timestamp innerIndex) -> bool {
-                        if (interrupt(innerElement, count))
-                        {
-                            stop = true;
-                            return true;
-                        }
-                        return false;
-                    });
-                }, [&stop](std::multimap<K, V> container, function::Timestamp index) -> bool { return stop; });
+                Semantic<R> inner = std::invoke(flatten, container);
+                inner.source()([&accept, &count](R innerElement, function::Timestamp innerIndex) -> void {
+                    accept(innerElement, count);
+                    count++;
+                }, [&interrupt, &stop, &count](R innerElement, function::Timestamp innerIndex) -> bool {
+                    if (interrupt(innerElement, count))
+                    {
+                        stop = true;
+                        return true;
+                    }
+                    return false;
+                }); }, [&stop](std::multimap<K, V> container, function::Timestamp index) -> bool { return stop; });
             },
                                this->concurrent);
         }
@@ -7985,14 +8373,14 @@ class Semantic<std::priority_queue<E>>
     using Element = std::priority_queue<E>;
 
     Semantic(std::priority_queue<E> &&container) : generator(std::make_unique<function::Generator<std::priority_queue<E>>>([elements = std::move(container)](function::BiConsumer<std::priority_queue<E>, function::Timestamp> accept, function::BiPredicate<std::priority_queue<E>, function::Timestamp> interrupt) -> void {
-                                                         accept(elements, 0LL);
-                                                     })),
-                                                     concurrent(1) {}
+                                                       accept(elements, 0LL);
+                                                   })),
+                                                   concurrent(1) {}
 
     Semantic(std::priority_queue<E> &&container, const function::Module &concurrent) : generator(std::make_unique<function::Generator<std::priority_queue<E>>>([elements = std::move(container)](function::BiConsumer<std::priority_queue<E>, function::Timestamp> accept, function::BiPredicate<std::priority_queue<E>, function::Timestamp> interrupt) -> void {
-                                                                                             accept(elements, 0LL);
-                                                                                         })),
-                                                                                         concurrent(concurrent) {}
+                                                                                           accept(elements, 0LL);
+                                                                                       })),
+                                                                                       concurrent(concurrent) {}
 
     Semantic(const function::Generator<std::priority_queue<E>> &generator) : generator(std::make_unique<function::Generator<std::priority_queue<E>>>(generator)), concurrent(1) {}
 
@@ -8034,8 +8422,7 @@ class Semantic<std::priority_queue<E>>
                 generator([&accept, &mapper, &stop, &interrupt](std::priority_queue<E> container, function::Timestamp index) -> void {
                     R mapped = std::invoke(mapper, container, index);
                     accept(mapped, index);
-                    stop = stop || interrupt(mapped, index);
-                }, [&stop](std::priority_queue<E> container, function::Timestamp index) -> bool { return stop; });
+                    stop = stop || interrupt(mapped, index); }, [&stop](std::priority_queue<E> container, function::Timestamp index) -> bool { return stop; });
             },
                                this->concurrent);
         }
@@ -8047,8 +8434,7 @@ class Semantic<std::priority_queue<E>>
                 generator([&accept, &mapper, &stop, &interrupt](std::priority_queue<E> container, function::Timestamp index) -> void {
                     R mapped = std::invoke(mapper, container);
                     accept(mapped, index);
-                    stop = stop || interrupt(mapped, index);
-                }, [&stop](std::priority_queue<E> container, function::Timestamp index) -> bool { return stop; });
+                    stop = stop || interrupt(mapped, index); }, [&stop](std::priority_queue<E> container, function::Timestamp index) -> bool { return stop; });
             },
                                this->concurrent);
         }
@@ -8083,7 +8469,7 @@ class Semantic<std::priority_queue<E>>
                     count++;
                 } }, [&interrupt, &count](std::priority_queue<E> container, function::Timestamp index) -> bool { return interrupt(container, count); });
         },
-                                                  this->concurrent);
+                                                this->concurrent);
     }
 
     template <typename Predicate>
@@ -8110,7 +8496,7 @@ class Semantic<std::priority_queue<E>>
                     stop = true;
                 } }, [&interrupt, &stop](std::priority_queue<E> container, function::Timestamp index) -> bool { return interrupt(container, index) || stop; });
         },
-                                                  this->concurrent);
+                                                this->concurrent);
     }
 
     template <typename Predicate>
@@ -8144,7 +8530,7 @@ class Semantic<std::priority_queue<E>>
                     count++;
                 } }, [&interrupt, &count](std::priority_queue<E> container, function::Timestamp index) -> bool { return interrupt(container, count); });
         },
-                                                  this->concurrent);
+                                                this->concurrent);
     }
 
     auto distinct() const -> Semantic<std::priority_queue<E>>
@@ -8160,7 +8546,7 @@ class Semantic<std::priority_queue<E>>
                     count++;
                 } }, [&interrupt, &count](std::priority_queue<E> container, function::Timestamp index) -> bool { return interrupt(container, count); });
         },
-                                                  this->concurrent);
+                                                this->concurrent);
     }
 
     auto distinct(const function::Comparator<std::priority_queue<E>> &comparator) const -> Semantic<std::priority_queue<E>>
@@ -8176,7 +8562,7 @@ class Semantic<std::priority_queue<E>>
                     count++;
                 } }, [&interrupt, &count](std::priority_queue<E> container, function::Timestamp index) -> bool { return interrupt(container, count); });
         },
-                                                  this->concurrent);
+                                                this->concurrent);
     }
 
     auto sort() const -> collectable::OrderedCollectable<std::priority_queue<E>>
@@ -8207,7 +8593,7 @@ class Semantic<std::priority_queue<E>>
                 accept(container, count);
                 count++; }, [&interrupt, &count, &n](std::priority_queue<E> container, function::Timestamp index) -> bool { return interrupt(container, count) || count >= n; });
         },
-                                                  this->concurrent);
+                                                this->concurrent);
     }
 
     auto skip(const function::Module &n) const -> Semantic<std::priority_queue<E>>
@@ -8221,7 +8607,7 @@ class Semantic<std::priority_queue<E>>
                 }
                 count++; }, [&interrupt, &count](std::priority_queue<E> container, function::Timestamp index) -> bool { return interrupt(container, count); });
         },
-                                                  this->concurrent);
+                                                this->concurrent);
     }
 
     template <typename Consumer>
@@ -8241,7 +8627,7 @@ class Semantic<std::priority_queue<E>>
             },
                       interrupt);
         },
-                                                  this->concurrent);
+                                                this->concurrent);
     }
 
     auto flat() const -> Semantic<E>
@@ -8265,8 +8651,7 @@ class Semantic<std::priority_queue<E>>
                     accept(temp.top(), count);
                     count++;
                     temp.pop();
-                }
-            }, [&stop](std::priority_queue<E> container, function::Timestamp index) -> bool { return stop; });
+                } }, [&stop](std::priority_queue<E> container, function::Timestamp index) -> bool { return stop; });
         },
                            this->concurrent);
     }
@@ -8338,8 +8723,7 @@ class Semantic<std::priority_queue<E>>
                             return true;
                         }
                         return false;
-                    });
-                }, [&stop](std::priority_queue<E> container, function::Timestamp index) -> bool { return stop; });
+                    }); }, [&stop](std::priority_queue<E> container, function::Timestamp index) -> bool { return stop; });
             },
                                this->concurrent);
         }
@@ -8362,8 +8746,7 @@ class Semantic<std::priority_queue<E>>
                             return true;
                         }
                         return false;
-                    });
-                }, [&stop](std::priority_queue<E> container, function::Timestamp index) -> bool { return stop; });
+                    }); }, [&stop](std::priority_queue<E> container, function::Timestamp index) -> bool { return stop; });
             },
                                this->concurrent);
         }
@@ -8381,7 +8764,7 @@ class Semantic<std::priority_queue<E>>
         return Semantic<std::priority_queue<E>>([generator = *(this->generator)](function::BiConsumer<std::priority_queue<E>, function::Timestamp> accept, function::BiPredicate<std::priority_queue<E>, function::Timestamp> interrupt) -> void {
             generator([&accept](std::priority_queue<E> container, function::Timestamp index) -> void { accept(container, -index); }, [&interrupt](std::priority_queue<E> container, function::Timestamp index) -> bool { return interrupt(container, -index); });
         },
-                                                  this->concurrent);
+                                                this->concurrent);
     }
 
     auto translate(const function::Timestamp &offset) const -> Semantic<std::priority_queue<E>>
@@ -8389,7 +8772,7 @@ class Semantic<std::priority_queue<E>>
         return Semantic<std::priority_queue<E>>([generator = *(this->generator), offset](function::BiConsumer<std::priority_queue<E>, function::Timestamp> accept, function::BiPredicate<std::priority_queue<E>, function::Timestamp> interrupt) -> void {
             generator([&accept, &offset](std::priority_queue<E> container, function::Timestamp index) -> void { accept(container, index + offset); }, [&interrupt, &offset](std::priority_queue<E> container, function::Timestamp index) -> bool { return interrupt(container, index + offset); });
         },
-                                                  this->concurrent);
+                                                this->concurrent);
     }
 
     auto translate(const function::BiFunction<std::priority_queue<E>, function::Timestamp, function::Timestamp> &translator) const -> Semantic<std::priority_queue<E>>
@@ -8397,7 +8780,7 @@ class Semantic<std::priority_queue<E>>
         return Semantic<std::priority_queue<E>>([generator = *(this->generator), translator](function::BiConsumer<std::priority_queue<E>, function::Timestamp> accept, function::BiPredicate<std::priority_queue<E>, function::Timestamp> interrupt) -> void {
             generator([&accept, &translator](std::priority_queue<E> container, function::Timestamp index) -> void { accept(container, translator(container, index)); }, [&interrupt, &translator](std::priority_queue<E> container, function::Timestamp index) -> bool { return interrupt(container, translator(container, index)); });
         },
-                                                  this->concurrent);
+                                                this->concurrent);
     }
 
     auto redirect(const function::BiFunction<std::priority_queue<E>, function::Timestamp, std::priority_queue<E>> &redirector) const -> Semantic<std::priority_queue<E>>
@@ -8405,7 +8788,7 @@ class Semantic<std::priority_queue<E>>
         return Semantic<std::priority_queue<E>>([generator = *(this->generator), redirector](function::BiConsumer<std::priority_queue<E>, function::Timestamp> accept, function::BiPredicate<std::priority_queue<E>, function::Timestamp> interrupt) -> void {
             generator([&accept, &redirector](std::priority_queue<E> container, function::Timestamp index) -> void { accept(redirector(container, index), index); }, [&interrupt, &redirector](std::priority_queue<E> container, function::Timestamp index) -> bool { return interrupt(redirector(container, index), index); });
         },
-                                                  this->concurrent);
+                                                this->concurrent);
     }
 
     auto sub(const function::Module &start, const function::Module &end) const -> Semantic<std::priority_queue<E>>
@@ -8419,7 +8802,7 @@ class Semantic<std::priority_queue<E>>
                 }
                 count++; }, [&interrupt, &count, &end](std::priority_queue<E> container, function::Timestamp index) -> bool { return interrupt(container, count) || count >= end; });
         },
-                                                  this->concurrent);
+                                                this->concurrent);
     }
 
     template <typename Container>
@@ -8443,7 +8826,7 @@ class Semantic<std::priority_queue<E>>
                     }
                     return false; });
             },
-                                                      this->concurrent);
+                                                    this->concurrent);
         }
         else if constexpr (std::is_same_v<std::decay_t<Container>, std::priority_queue<E>>)
         {
@@ -8457,7 +8840,7 @@ class Semantic<std::priority_queue<E>>
                     accept(elements, count);
                 }
             },
-                                                      this->concurrent);
+                                                    this->concurrent);
         }
         else
         {
@@ -8476,7 +8859,7 @@ class Semantic<std::priority_queue<E>>
                     count++;
                 }
             },
-                                                      this->concurrent);
+                                                    this->concurrent);
         }
     }
 
@@ -8485,390 +8868,6 @@ class Semantic<std::priority_queue<E>>
     auto toWindow() const -> collectable::WindowCollectable<std::priority_queue<E>> { return collectable::WindowCollectable<std::priority_queue<E>>(this->source(), this->concurrent); }
     template <typename D>
     auto toStatistics() const -> collectable::Statistics<std::priority_queue<E>, D> { return collectable::Statistics<std::priority_queue<E>, D>(this->source(), this->concurrent); }
-};
-
-template <typename T1, typename T2>
-class Semantic<std::pair<T1, T2>>
-{
-  private:
-    std::unique_ptr<function::Generator<std::pair<T1, T2>>> generator;
-    function::Module concurrent;
-
-  public:
-    using Element = std::pair<T1, T2>;
-
-    Semantic(std::pair<T1, T2> &&container) : generator(std::make_unique<function::Generator<std::pair<T1, T2>>>([elements = std::move(container)](function::BiConsumer<std::pair<T1, T2>, function::Timestamp> accept, function::BiPredicate<std::pair<T1, T2>, function::Timestamp> interrupt) -> void {
-                                                  accept(elements, 0LL);
-                                              })),
-                                              concurrent(1) {}
-
-    Semantic(std::pair<T1, T2> &&container, const function::Module &concurrent) : generator(std::make_unique<function::Generator<std::pair<T1, T2>>>([elements = std::move(container)](function::BiConsumer<std::pair<T1, T2>, function::Timestamp> accept, function::BiPredicate<std::pair<T1, T2>, function::Timestamp> interrupt) -> void {
-                                                                                      accept(elements, 0LL);
-                                                                                  })),
-                                                                                  concurrent(concurrent) {}
-
-    Semantic(const function::Generator<std::pair<T1, T2>> &generator) : generator(std::make_unique<function::Generator<std::pair<T1, T2>>>(generator)), concurrent(1) {}
-
-    Semantic(const function::Generator<std::pair<T1, T2>> &generator, const function::Module &concurrent) : generator(std::make_unique<function::Generator<std::pair<T1, T2>>>(generator)), concurrent(concurrent) {}
-
-    Semantic(const Semantic<std::pair<T1, T2>> &other) : generator(std::make_unique<function::Generator<std::pair<T1, T2>>>(*other.generator)), concurrent(other.concurrent) {}
-
-    Semantic(Semantic<std::pair<T1, T2>> &&other) noexcept = default;
-
-    Semantic<std::pair<T1, T2>> &operator=(const Semantic<std::pair<T1, T2>> &other)
-    {
-        if (this != &other)
-        {
-            generator = std::make_unique<function::Generator<std::pair<T1, T2>>>(*other.generator);
-            concurrent = other.concurrent;
-        }
-        return *this;
-    }
-
-    Semantic<std::pair<T1, T2>> &operator=(Semantic<std::pair<T1, T2>> &&other) noexcept = default;
-
-    auto source() const -> function::Generator<std::pair<T1, T2>>
-    {
-        return [generator = *(this->generator)](function::BiConsumer<std::pair<T1, T2>, function::Timestamp> accept, function::BiPredicate<std::pair<T1, T2>, function::Timestamp> interrupt) -> void {
-            generator(accept, interrupt);
-        };
-    }
-
-    auto getConcurrent() const -> function::Module { return concurrent; }
-
-    template <typename Mapper>
-    auto map(Mapper &&mapper) const
-    {
-        if constexpr (std::is_invocable_v<Mapper, std::pair<T1, T2>, function::Timestamp>)
-        {
-            using R = std::invoke_result_t<Mapper, std::pair<T1, T2>, function::Timestamp>;
-            return Semantic<R>([generator = *(this->generator), mapper = std::forward<Mapper>(mapper)](function::BiConsumer<R, function::Timestamp> accept, function::BiPredicate<R, function::Timestamp> interrupt) -> void {
-                bool stop = false;
-                generator([&accept, &mapper, &stop, &interrupt](std::pair<T1, T2> container, function::Timestamp index) -> void {
-                    R mapped = std::invoke(mapper, container, index);
-                    accept(mapped, index);
-                    stop = stop || interrupt(mapped, index);
-                }, [&stop](std::pair<T1, T2> container, function::Timestamp index) -> bool { return stop; });
-            },
-                               this->concurrent);
-        }
-        else if constexpr (std::is_invocable_v<Mapper, std::pair<T1, T2>>)
-        {
-            using R = std::invoke_result_t<Mapper, std::pair<T1, T2>>;
-            return Semantic<R>([generator = *(this->generator), mapper = std::forward<Mapper>(mapper)](function::BiConsumer<R, function::Timestamp> accept, function::BiPredicate<R, function::Timestamp> interrupt) -> void {
-                bool stop = false;
-                generator([&accept, &mapper, &stop, &interrupt](std::pair<T1, T2> container, function::Timestamp index) -> void {
-                    R mapped = std::invoke(mapper, container);
-                    accept(mapped, index);
-                    stop = stop || interrupt(mapped, index);
-                }, [&stop](std::pair<T1, T2> container, function::Timestamp index) -> bool { return stop; });
-            },
-                               this->concurrent);
-        }
-        else
-        {
-            static_assert(std::is_invocable_v<Mapper, std::pair<T1, T2>, function::Timestamp> || std::is_invocable_v<Mapper, std::pair<T1, T2>>, "Mapper must be callable as either (pair<T1,T2>, Timestamp) -> R or (pair<T1,T2>) -> R");
-        }
-    }
-
-    template <typename Predicate>
-    auto filter(Predicate &&predicate) const -> Semantic<std::pair<T1, T2>>
-    {
-        return Semantic<std::pair<T1, T2>>([generator = *(this->generator), predicate = std::forward<Predicate>(predicate)](function::BiConsumer<std::pair<T1, T2>, function::Timestamp> accept, function::BiPredicate<std::pair<T1, T2>, function::Timestamp> interrupt) -> void {
-            function::Timestamp count = 0LL;
-            generator([&accept, &count, &predicate](std::pair<T1, T2> container, function::Timestamp index) -> void {
-                bool matches = false;
-                if constexpr (std::is_invocable_r_v<bool, Predicate, std::pair<T1, T2>, function::Timestamp>)
-                {
-                    matches = std::invoke(predicate, container, index);
-                }
-                else if constexpr (std::is_invocable_r_v<bool, Predicate, std::pair<T1, T2>>)
-                {
-                    matches = std::invoke(predicate, container);
-                }
-                else
-                {
-                    static_assert(std::is_invocable_r_v<bool, Predicate, std::pair<T1, T2>, function::Timestamp> || std::is_invocable_r_v<bool, Predicate, std::pair<T1, T2>>, "Predicate must be callable as either (pair<T1,T2>, Timestamp) -> bool or (pair<T1,T2>) -> bool");
-                }
-                if (matches)
-                {
-                    accept(container, count);
-                    count++;
-                } }, [&interrupt, &count](std::pair<T1, T2> container, function::Timestamp index) -> bool { return interrupt(container, count); });
-        },
-                                           this->concurrent);
-    }
-
-    template <typename Predicate>
-    auto takeWhile(Predicate &&predicate) const -> Semantic<std::pair<T1, T2>>
-    {
-        return Semantic<std::pair<T1, T2>>([generator = *(this->generator), predicate = std::forward<Predicate>(predicate)](function::BiConsumer<std::pair<T1, T2>, function::Timestamp> accept, function::BiPredicate<std::pair<T1, T2>, function::Timestamp> interrupt) -> void {
-            bool stop = false;
-            generator([&accept, &stop, &predicate](std::pair<T1, T2> container, function::Timestamp index) -> void {
-                bool matches = false;
-                if constexpr (std::is_invocable_r_v<bool, Predicate, std::pair<T1, T2>, function::Timestamp>)
-                {
-                    matches = std::invoke(predicate, container, index);
-                }
-                else if constexpr (std::is_invocable_r_v<bool, Predicate, std::pair<T1, T2>>)
-                {
-                    matches = std::invoke(predicate, container);
-                }
-                if (matches)
-                {
-                    accept(container, index);
-                }
-                else
-                {
-                    stop = true;
-                } }, [&interrupt, &stop](std::pair<T1, T2> container, function::Timestamp index) -> bool { return interrupt(container, index) || stop; });
-        },
-                                           this->concurrent);
-    }
-
-    template <typename Predicate>
-    auto dropWhile(Predicate &&predicate) const -> Semantic<std::pair<T1, T2>>
-    {
-        return Semantic<std::pair<T1, T2>>([generator = *(this->generator), predicate = std::forward<Predicate>(predicate)](function::BiConsumer<std::pair<T1, T2>, function::Timestamp> accept, function::BiPredicate<std::pair<T1, T2>, function::Timestamp> interrupt) -> void {
-            bool dropping = true;
-            function::Timestamp count = 0LL;
-            generator([&accept, &dropping, &count, &predicate](std::pair<T1, T2> container, function::Timestamp index) -> void {
-                if (dropping)
-                {
-                    bool matches = false;
-                    if constexpr (std::is_invocable_r_v<bool, Predicate, std::pair<T1, T2>, function::Timestamp>)
-                    {
-                        matches = std::invoke(predicate, container, index);
-                    }
-                    else if constexpr (std::is_invocable_r_v<bool, Predicate, std::pair<T1, T2>>)
-                    {
-                        matches = std::invoke(predicate, container);
-                    }
-                    if (!matches)
-                    {
-                        dropping = false;
-                        accept(container, count);
-                        count++;
-                    }
-                }
-                else
-                {
-                    accept(container, count);
-                    count++;
-                } }, [&interrupt, &count](std::pair<T1, T2> container, function::Timestamp index) -> bool { return interrupt(container, count); });
-        },
-                                           this->concurrent);
-    }
-
-    auto distinct() const -> Semantic<std::pair<T1, T2>>
-    {
-        return Semantic<std::pair<T1, T2>>([generator = *(this->generator)](function::BiConsumer<std::pair<T1, T2>, function::Timestamp> accept, function::BiPredicate<std::pair<T1, T2>, function::Timestamp> interrupt) -> void {
-            std::unordered_set<std::pair<T1, T2>> seen;
-            function::Timestamp count = 0LL;
-            generator([&accept, &seen, &count](std::pair<T1, T2> container, function::Timestamp index) -> void {
-                if (seen.find(container) == seen.end())
-                {
-                    seen.insert(container);
-                    accept(container, count);
-                    count++;
-                } }, [&interrupt, &count](std::pair<T1, T2> container, function::Timestamp index) -> bool { return interrupt(container, count); });
-        },
-                                           this->concurrent);
-    }
-
-    auto distinct(const function::Comparator<std::pair<T1, T2>> &comparator) const -> Semantic<std::pair<T1, T2>>
-    {
-        return Semantic<std::pair<T1, T2>>([generator = *(this->generator), comparator](function::BiConsumer<std::pair<T1, T2>, function::Timestamp> accept, function::BiPredicate<std::pair<T1, T2>, function::Timestamp> interrupt) -> void {
-            std::set<std::pair<T1, T2>, function::Comparator<std::pair<T1, T2>>> seen(comparator);
-            function::Timestamp count = 0LL;
-            generator([&accept, &seen, &count](std::pair<T1, T2> container, function::Timestamp index) -> void {
-                if (seen.find(container) == seen.end())
-                {
-                    seen.insert(container);
-                    accept(container, count);
-                    count++;
-                } }, [&interrupt, &count](std::pair<T1, T2> container, function::Timestamp index) -> bool { return interrupt(container, count); });
-        },
-                                           this->concurrent);
-    }
-
-    auto sort() const -> collectable::OrderedCollectable<std::pair<T1, T2>>
-    {
-        if constexpr (std::is_invocable_v<std::less<std::pair<T1, T2>>, std::pair<T1, T2>, std::pair<T1, T2>>)
-        {
-            return collectable::OrderedCollectable<std::pair<T1, T2>>(
-                this->source(),
-                [](const std::pair<T1, T2> &a, const std::pair<T1, T2> &b) -> bool { return a < b; },
-                this->concurrent);
-        }
-        else
-        {
-            return collectable::OrderedCollectable<std::pair<T1, T2>>(this->source(), this->concurrent);
-        }
-    }
-
-    auto sort(const function::Comparator<std::pair<T1, T2>> &comparator) const -> collectable::OrderedCollectable<std::pair<T1, T2>>
-    {
-        return collectable::OrderedCollectable<std::pair<T1, T2>>(this->source(), comparator, this->concurrent);
-    }
-
-    auto limit(const function::Module &n) const -> Semantic<std::pair<T1, T2>>
-    {
-        return Semantic<std::pair<T1, T2>>([generator = *(this->generator), n](function::BiConsumer<std::pair<T1, T2>, function::Timestamp> accept, function::BiPredicate<std::pair<T1, T2>, function::Timestamp> interrupt) -> void {
-            function::Module count = 0;
-            generator([&accept, &count](std::pair<T1, T2> container, function::Timestamp index) -> void {
-                accept(container, count);
-                count++; }, [&interrupt, &count, &n](std::pair<T1, T2> container, function::Timestamp index) -> bool { return interrupt(container, count) || count >= n; });
-        },
-                                           this->concurrent);
-    }
-
-    auto skip(const function::Module &n) const -> Semantic<std::pair<T1, T2>>
-    {
-        return Semantic<std::pair<T1, T2>>([generator = *(this->generator), n](function::BiConsumer<std::pair<T1, T2>, function::Timestamp> accept, function::BiPredicate<std::pair<T1, T2>, function::Timestamp> interrupt) -> void {
-            function::Module count = 0;
-            generator([&accept, &count, &n](std::pair<T1, T2> container, function::Timestamp index) -> void {
-                if (count >= n)
-                {
-                    accept(container, count);
-                }
-                count++; }, [&interrupt, &count](std::pair<T1, T2> container, function::Timestamp index) -> bool { return interrupt(container, count); });
-        },
-                                           this->concurrent);
-    }
-
-    template <typename Consumer>
-    auto peek(Consumer &&consumer) const -> Semantic<std::pair<T1, T2>>
-    {
-        return Semantic<std::pair<T1, T2>>([generator = *(this->generator), consumer = std::forward<Consumer>(consumer)](function::BiConsumer<std::pair<T1, T2>, function::Timestamp> accept, function::BiPredicate<std::pair<T1, T2>, function::Timestamp> interrupt) -> void {
-            generator([&accept, &consumer](std::pair<T1, T2> container, function::Timestamp index) -> void {
-                if constexpr (std::is_invocable_r_v<void, Consumer, std::pair<T1, T2>, function::Timestamp>)
-                {
-                    std::invoke(consumer, container, index);
-                }
-                else if constexpr (std::is_invocable_r_v<void, Consumer, std::pair<T1, T2>>)
-                {
-                    std::invoke(consumer, container);
-                }
-                accept(container, index);
-            },
-                      interrupt);
-        },
-                                           this->concurrent);
-    }
-
-    auto parallel() const -> Semantic<std::pair<T1, T2>> { return Semantic<std::pair<T1, T2>>(this->source(), 1); }
-    auto parallel(const function::Module &concurrent) const -> Semantic<std::pair<T1, T2>> { return Semantic<std::pair<T1, T2>>(this->source(), std::max(concurrent, 1ULL)); }
-
-    auto reverse() const -> Semantic<std::pair<T1, T2>>
-    {
-        return Semantic<std::pair<T1, T2>>([generator = *(this->generator)](function::BiConsumer<std::pair<T1, T2>, function::Timestamp> accept, function::BiPredicate<std::pair<T1, T2>, function::Timestamp> interrupt) -> void {
-            generator([&accept](std::pair<T1, T2> container, function::Timestamp index) -> void { accept(container, -index); }, [&interrupt](std::pair<T1, T2> container, function::Timestamp index) -> bool { return interrupt(container, -index); });
-        },
-                                           this->concurrent);
-    }
-
-    auto translate(const function::Timestamp &offset) const -> Semantic<std::pair<T1, T2>>
-    {
-        return Semantic<std::pair<T1, T2>>([generator = *(this->generator), offset](function::BiConsumer<std::pair<T1, T2>, function::Timestamp> accept, function::BiPredicate<std::pair<T1, T2>, function::Timestamp> interrupt) -> void {
-            generator([&accept, &offset](std::pair<T1, T2> container, function::Timestamp index) -> void { accept(container, index + offset); }, [&interrupt, &offset](std::pair<T1, T2> container, function::Timestamp index) -> bool { return interrupt(container, index + offset); });
-        },
-                                           this->concurrent);
-    }
-
-    auto translate(const function::BiFunction<std::pair<T1, T2>, function::Timestamp, function::Timestamp> &translator) const -> Semantic<std::pair<T1, T2>>
-    {
-        return Semantic<std::pair<T1, T2>>([generator = *(this->generator), translator](function::BiConsumer<std::pair<T1, T2>, function::Timestamp> accept, function::BiPredicate<std::pair<T1, T2>, function::Timestamp> interrupt) -> void {
-            generator([&accept, &translator](std::pair<T1, T2> container, function::Timestamp index) -> void { accept(container, translator(container, index)); }, [&interrupt, &translator](std::pair<T1, T2> container, function::Timestamp index) -> bool { return interrupt(container, translator(container, index)); });
-        },
-                                           this->concurrent);
-    }
-
-    auto redirect(const function::BiFunction<std::pair<T1, T2>, function::Timestamp, std::pair<T1, T2>> &redirector) const -> Semantic<std::pair<T1, T2>>
-    {
-        return Semantic<std::pair<T1, T2>>([generator = *(this->generator), redirector](function::BiConsumer<std::pair<T1, T2>, function::Timestamp> accept, function::BiPredicate<std::pair<T1, T2>, function::Timestamp> interrupt) -> void {
-            generator([&accept, &redirector](std::pair<T1, T2> container, function::Timestamp index) -> void { accept(redirector(container, index), index); }, [&interrupt, &redirector](std::pair<T1, T2> container, function::Timestamp index) -> bool { return interrupt(redirector(container, index), index); });
-        },
-                                           this->concurrent);
-    }
-
-    auto sub(const function::Module &start, const function::Module &end) const -> Semantic<std::pair<T1, T2>>
-    {
-        return Semantic<std::pair<T1, T2>>([generator = *(this->generator), start, end](function::BiConsumer<std::pair<T1, T2>, function::Timestamp> accept, function::BiPredicate<std::pair<T1, T2>, function::Timestamp> interrupt) -> void {
-            function::Module count = 0;
-            generator([&accept, &count, &start, &end](std::pair<T1, T2> container, function::Timestamp index) -> void {
-                if (count >= start && count < end)
-                {
-                    accept(container, count);
-                }
-                count++; }, [&interrupt, &count, &end](std::pair<T1, T2> container, function::Timestamp index) -> bool { return interrupt(container, count) || count >= end; });
-        },
-                                           this->concurrent);
-    }
-
-    template <typename Container>
-    auto concatenate(Container &&container) const -> Semantic<std::pair<T1, T2>>
-    {
-        if constexpr (std::is_same_v<std::decay_t<Container>, Semantic<std::pair<T1, T2>>>)
-        {
-            return Semantic<std::pair<T1, T2>>([generator = *(this->generator), other = std::forward<Container>(container)](function::BiConsumer<std::pair<T1, T2>, function::Timestamp> accept, function::BiPredicate<std::pair<T1, T2>, function::Timestamp> interrupt) -> void {
-                function::Timestamp count = 0LL;
-                bool stop = false;
-                generator([&accept, &count](std::pair<T1, T2> container, function::Timestamp index) -> void {
-                    accept(container, count);
-                    count++; }, [&stop](std::pair<T1, T2> container, function::Timestamp index) -> bool { return stop; });
-                other.source()([&accept, &count](std::pair<T1, T2> container, function::Timestamp index) -> void {
-                    accept(container, count);
-                    count++; }, [&interrupt, &stop, &count](std::pair<T1, T2> container, function::Timestamp index) -> bool {
-                    if (interrupt(container, count))
-                    {
-                        stop = true;
-                        return true;
-                    }
-                    return false; });
-            },
-                                               this->concurrent);
-        }
-        else if constexpr (std::is_same_v<std::decay_t<Container>, std::pair<T1, T2>>)
-        {
-            return Semantic<std::pair<T1, T2>>([generator = *(this->generator), elements = std::forward<Container>(container)](function::BiConsumer<std::pair<T1, T2>, function::Timestamp> accept, function::BiPredicate<std::pair<T1, T2>, function::Timestamp> interrupt) -> void {
-                function::Timestamp count = 0LL;
-                generator([&accept, &count](std::pair<T1, T2> container, function::Timestamp index) -> void {
-                    accept(container, count);
-                    count++; }, [&interrupt, &count](std::pair<T1, T2> container, function::Timestamp index) -> bool { return interrupt(container, count); });
-                if (!interrupt(elements, count))
-                {
-                    accept(elements, count);
-                }
-            },
-                                               this->concurrent);
-        }
-        else
-        {
-            return Semantic<std::pair<T1, T2>>([generator = *(this->generator), elements = std::forward<Container>(container)](function::BiConsumer<std::pair<T1, T2>, function::Timestamp> accept, function::BiPredicate<std::pair<T1, T2>, function::Timestamp> interrupt) -> void {
-                function::Timestamp count = 0LL;
-                generator([&accept, &count](std::pair<T1, T2> container, function::Timestamp index) -> void {
-                    accept(container, count);
-                    count++; }, [&interrupt, &count](std::pair<T1, T2> container, function::Timestamp index) -> bool { return interrupt(container, count); });
-                for (const auto &element : elements)
-                {
-                    if (interrupt(element, count))
-                    {
-                        break;
-                    }
-                    accept(element, count);
-                    count++;
-                }
-            },
-                                               this->concurrent);
-        }
-    }
-
-    auto toUnordered() const -> collectable::UnorderedCollectable<std::pair<T1, T2>> { return collectable::UnorderedCollectable<std::pair<T1, T2>>(this->source(), this->concurrent); }
-    auto toOrdered() const -> collectable::OrderedCollectable<std::pair<T1, T2>> { return collectable::OrderedCollectable<std::pair<T1, T2>>(this->source(), this->concurrent); }
-    auto toWindow() const -> collectable::WindowCollectable<std::pair<T1, T2>> { return collectable::WindowCollectable<std::pair<T1, T2>>(this->source(), this->concurrent); }
-    template <typename D>
-    auto toStatistics() const -> collectable::Statistics<std::pair<T1, T2>, D> { return collectable::Statistics<std::pair<T1, T2>, D>(this->source(), this->concurrent); }
 };
 
 template <typename... Ts>
@@ -8882,14 +8881,14 @@ class Semantic<std::tuple<Ts...>>
     using Element = std::tuple<Ts...>;
 
     Semantic(std::tuple<Ts...> &&container) : generator(std::make_unique<function::Generator<std::tuple<Ts...>>>([elements = std::move(container)](function::BiConsumer<std::tuple<Ts...>, function::Timestamp> accept, function::BiPredicate<std::tuple<Ts...>, function::Timestamp> interrupt) -> void {
-                                                   accept(elements, 0LL);
-                                               })),
-                                               concurrent(1) {}
+                                                  accept(elements, 0LL);
+                                              })),
+                                              concurrent(1) {}
 
     Semantic(std::tuple<Ts...> &&container, const function::Module &concurrent) : generator(std::make_unique<function::Generator<std::tuple<Ts...>>>([elements = std::move(container)](function::BiConsumer<std::tuple<Ts...>, function::Timestamp> accept, function::BiPredicate<std::tuple<Ts...>, function::Timestamp> interrupt) -> void {
-                                                                                       accept(elements, 0LL);
-                                                                                   })),
-                                                                                   concurrent(concurrent) {}
+                                                                                      accept(elements, 0LL);
+                                                                                  })),
+                                                                                  concurrent(concurrent) {}
 
     Semantic(const function::Generator<std::tuple<Ts...>> &generator) : generator(std::make_unique<function::Generator<std::tuple<Ts...>>>(generator)), concurrent(1) {}
 
@@ -8931,8 +8930,7 @@ class Semantic<std::tuple<Ts...>>
                 generator([&accept, &mapper, &stop, &interrupt](std::tuple<Ts...> container, function::Timestamp index) -> void {
                     R mapped = std::invoke(mapper, container, index);
                     accept(mapped, index);
-                    stop = stop || interrupt(mapped, index);
-                }, [&stop](std::tuple<Ts...> container, function::Timestamp index) -> bool { return stop; });
+                    stop = stop || interrupt(mapped, index); }, [&stop](std::tuple<Ts...> container, function::Timestamp index) -> bool { return stop; });
             },
                                this->concurrent);
         }
@@ -8944,8 +8942,7 @@ class Semantic<std::tuple<Ts...>>
                 generator([&accept, &mapper, &stop, &interrupt](std::tuple<Ts...> container, function::Timestamp index) -> void {
                     R mapped = std::invoke(mapper, container);
                     accept(mapped, index);
-                    stop = stop || interrupt(mapped, index);
-                }, [&stop](std::tuple<Ts...> container, function::Timestamp index) -> bool { return stop; });
+                    stop = stop || interrupt(mapped, index); }, [&stop](std::tuple<Ts...> container, function::Timestamp index) -> bool { return stop; });
             },
                                this->concurrent);
         }
@@ -8980,7 +8977,7 @@ class Semantic<std::tuple<Ts...>>
                     count++;
                 } }, [&interrupt, &count](std::tuple<Ts...> container, function::Timestamp index) -> bool { return interrupt(container, count); });
         },
-                                            this->concurrent);
+                                           this->concurrent);
     }
 
     template <typename Predicate>
@@ -9007,7 +9004,7 @@ class Semantic<std::tuple<Ts...>>
                     stop = true;
                 } }, [&interrupt, &stop](std::tuple<Ts...> container, function::Timestamp index) -> bool { return interrupt(container, index) || stop; });
         },
-                                            this->concurrent);
+                                           this->concurrent);
     }
 
     template <typename Predicate>
@@ -9041,7 +9038,7 @@ class Semantic<std::tuple<Ts...>>
                     count++;
                 } }, [&interrupt, &count](std::tuple<Ts...> container, function::Timestamp index) -> bool { return interrupt(container, count); });
         },
-                                            this->concurrent);
+                                           this->concurrent);
     }
 
     auto limit(const function::Module &n) const -> Semantic<std::tuple<Ts...>>
@@ -9052,7 +9049,7 @@ class Semantic<std::tuple<Ts...>>
                 accept(container, count);
                 count++; }, [&interrupt, &count, &n](std::tuple<Ts...> container, function::Timestamp index) -> bool { return interrupt(container, count) || count >= n; });
         },
-                                            this->concurrent);
+                                           this->concurrent);
     }
 
     auto skip(const function::Module &n) const -> Semantic<std::tuple<Ts...>>
@@ -9066,7 +9063,7 @@ class Semantic<std::tuple<Ts...>>
                 }
                 count++; }, [&interrupt, &count](std::tuple<Ts...> container, function::Timestamp index) -> bool { return interrupt(container, count); });
         },
-                                            this->concurrent);
+                                           this->concurrent);
     }
 
     template <typename Consumer>
@@ -9086,7 +9083,7 @@ class Semantic<std::tuple<Ts...>>
             },
                       interrupt);
         },
-                                            this->concurrent);
+                                           this->concurrent);
     }
 
     auto parallel() const -> Semantic<std::tuple<Ts...>> { return Semantic<std::tuple<Ts...>>(this->source(), 1); }
@@ -9097,7 +9094,7 @@ class Semantic<std::tuple<Ts...>>
         return Semantic<std::tuple<Ts...>>([generator = *(this->generator)](function::BiConsumer<std::tuple<Ts...>, function::Timestamp> accept, function::BiPredicate<std::tuple<Ts...>, function::Timestamp> interrupt) -> void {
             generator([&accept](std::tuple<Ts...> container, function::Timestamp index) -> void { accept(container, -index); }, [&interrupt](std::tuple<Ts...> container, function::Timestamp index) -> bool { return interrupt(container, -index); });
         },
-                                            this->concurrent);
+                                           this->concurrent);
     }
 
     auto translate(const function::Timestamp &offset) const -> Semantic<std::tuple<Ts...>>
@@ -9105,7 +9102,7 @@ class Semantic<std::tuple<Ts...>>
         return Semantic<std::tuple<Ts...>>([generator = *(this->generator), offset](function::BiConsumer<std::tuple<Ts...>, function::Timestamp> accept, function::BiPredicate<std::tuple<Ts...>, function::Timestamp> interrupt) -> void {
             generator([&accept, &offset](std::tuple<Ts...> container, function::Timestamp index) -> void { accept(container, index + offset); }, [&interrupt, &offset](std::tuple<Ts...> container, function::Timestamp index) -> bool { return interrupt(container, index + offset); });
         },
-                                            this->concurrent);
+                                           this->concurrent);
     }
 
     auto translate(const function::BiFunction<std::tuple<Ts...>, function::Timestamp, function::Timestamp> &translator) const -> Semantic<std::tuple<Ts...>>
@@ -9113,7 +9110,7 @@ class Semantic<std::tuple<Ts...>>
         return Semantic<std::tuple<Ts...>>([generator = *(this->generator), translator](function::BiConsumer<std::tuple<Ts...>, function::Timestamp> accept, function::BiPredicate<std::tuple<Ts...>, function::Timestamp> interrupt) -> void {
             generator([&accept, &translator](std::tuple<Ts...> container, function::Timestamp index) -> void { accept(container, translator(container, index)); }, [&interrupt, &translator](std::tuple<Ts...> container, function::Timestamp index) -> bool { return interrupt(container, translator(container, index)); });
         },
-                                            this->concurrent);
+                                           this->concurrent);
     }
 
     auto redirect(const function::BiFunction<std::tuple<Ts...>, function::Timestamp, std::tuple<Ts...>> &redirector) const -> Semantic<std::tuple<Ts...>>
@@ -9121,7 +9118,7 @@ class Semantic<std::tuple<Ts...>>
         return Semantic<std::tuple<Ts...>>([generator = *(this->generator), redirector](function::BiConsumer<std::tuple<Ts...>, function::Timestamp> accept, function::BiPredicate<std::tuple<Ts...>, function::Timestamp> interrupt) -> void {
             generator([&accept, &redirector](std::tuple<Ts...> container, function::Timestamp index) -> void { accept(redirector(container, index), index); }, [&interrupt, &redirector](std::tuple<Ts...> container, function::Timestamp index) -> bool { return interrupt(redirector(container, index), index); });
         },
-                                            this->concurrent);
+                                           this->concurrent);
     }
 
     auto sub(const function::Module &start, const function::Module &end) const -> Semantic<std::tuple<Ts...>>
@@ -9135,7 +9132,7 @@ class Semantic<std::tuple<Ts...>>
                 }
                 count++; }, [&interrupt, &count, &end](std::tuple<Ts...> container, function::Timestamp index) -> bool { return interrupt(container, count) || count >= end; });
         },
-                                            this->concurrent);
+                                           this->concurrent);
     }
 
     template <typename Container>
@@ -9159,7 +9156,7 @@ class Semantic<std::tuple<Ts...>>
                     }
                     return false; });
             },
-                                                this->concurrent);
+                                               this->concurrent);
         }
         else if constexpr (std::is_same_v<std::decay_t<Container>, std::tuple<Ts...>>)
         {
@@ -9173,7 +9170,7 @@ class Semantic<std::tuple<Ts...>>
                     accept(elements, count);
                 }
             },
-                                                this->concurrent);
+                                               this->concurrent);
         }
         else
         {
@@ -9192,7 +9189,7 @@ class Semantic<std::tuple<Ts...>>
                     count++;
                 }
             },
-                                                this->concurrent);
+                                               this->concurrent);
         }
     }
 
@@ -9214,14 +9211,14 @@ class Semantic<std::variant<Ts...>>
     using Element = std::variant<Ts...>;
 
     Semantic(std::variant<Ts...> &&container) : generator(std::make_unique<function::Generator<std::variant<Ts...>>>([elements = std::move(container)](function::BiConsumer<std::variant<Ts...>, function::Timestamp> accept, function::BiPredicate<std::variant<Ts...>, function::Timestamp> interrupt) -> void {
-                                                   accept(elements, 0LL);
-                                               })),
-                                               concurrent(1) {}
+                                                    accept(elements, 0LL);
+                                                })),
+                                                concurrent(1) {}
 
     Semantic(std::variant<Ts...> &&container, const function::Module &concurrent) : generator(std::make_unique<function::Generator<std::variant<Ts...>>>([elements = std::move(container)](function::BiConsumer<std::variant<Ts...>, function::Timestamp> accept, function::BiPredicate<std::variant<Ts...>, function::Timestamp> interrupt) -> void {
-                                                                                       accept(elements, 0LL);
-                                                                                   })),
-                                                                                   concurrent(concurrent) {}
+                                                                                        accept(elements, 0LL);
+                                                                                    })),
+                                                                                    concurrent(concurrent) {}
 
     Semantic(const function::Generator<std::variant<Ts...>> &generator) : generator(std::make_unique<function::Generator<std::variant<Ts...>>>(generator)), concurrent(1) {}
 
@@ -9263,8 +9260,7 @@ class Semantic<std::variant<Ts...>>
                 generator([&accept, &mapper, &stop, &interrupt](std::variant<Ts...> container, function::Timestamp index) -> void {
                     R mapped = std::invoke(mapper, container, index);
                     accept(mapped, index);
-                    stop = stop || interrupt(mapped, index);
-                }, [&stop](std::variant<Ts...> container, function::Timestamp index) -> bool { return stop; });
+                    stop = stop || interrupt(mapped, index); }, [&stop](std::variant<Ts...> container, function::Timestamp index) -> bool { return stop; });
             },
                                this->concurrent);
         }
@@ -9276,8 +9272,7 @@ class Semantic<std::variant<Ts...>>
                 generator([&accept, &mapper, &stop, &interrupt](std::variant<Ts...> container, function::Timestamp index) -> void {
                     R mapped = std::invoke(mapper, container);
                     accept(mapped, index);
-                    stop = stop || interrupt(mapped, index);
-                }, [&stop](std::variant<Ts...> container, function::Timestamp index) -> bool { return stop; });
+                    stop = stop || interrupt(mapped, index); }, [&stop](std::variant<Ts...> container, function::Timestamp index) -> bool { return stop; });
             },
                                this->concurrent);
         }
@@ -9312,7 +9307,7 @@ class Semantic<std::variant<Ts...>>
                     count++;
                 } }, [&interrupt, &count](std::variant<Ts...> container, function::Timestamp index) -> bool { return interrupt(container, count); });
         },
-                                               this->concurrent);
+                                             this->concurrent);
     }
 
     template <typename Predicate>
@@ -9339,7 +9334,7 @@ class Semantic<std::variant<Ts...>>
                     stop = true;
                 } }, [&interrupt, &stop](std::variant<Ts...> container, function::Timestamp index) -> bool { return interrupt(container, index) || stop; });
         },
-                                               this->concurrent);
+                                             this->concurrent);
     }
 
     template <typename Predicate>
@@ -9373,7 +9368,7 @@ class Semantic<std::variant<Ts...>>
                     count++;
                 } }, [&interrupt, &count](std::variant<Ts...> container, function::Timestamp index) -> bool { return interrupt(container, count); });
         },
-                                               this->concurrent);
+                                             this->concurrent);
     }
 
     auto limit(const function::Module &n) const -> Semantic<std::variant<Ts...>>
@@ -9384,7 +9379,7 @@ class Semantic<std::variant<Ts...>>
                 accept(container, count);
                 count++; }, [&interrupt, &count, &n](std::variant<Ts...> container, function::Timestamp index) -> bool { return interrupt(container, count) || count >= n; });
         },
-                                               this->concurrent);
+                                             this->concurrent);
     }
 
     auto skip(const function::Module &n) const -> Semantic<std::variant<Ts...>>
@@ -9398,7 +9393,7 @@ class Semantic<std::variant<Ts...>>
                 }
                 count++; }, [&interrupt, &count](std::variant<Ts...> container, function::Timestamp index) -> bool { return interrupt(container, count); });
         },
-                                               this->concurrent);
+                                             this->concurrent);
     }
 
     template <typename Consumer>
@@ -9418,7 +9413,7 @@ class Semantic<std::variant<Ts...>>
             },
                       interrupt);
         },
-                                               this->concurrent);
+                                             this->concurrent);
     }
 
     auto parallel() const -> Semantic<std::variant<Ts...>> { return Semantic<std::variant<Ts...>>(this->source(), 1); }
@@ -9429,7 +9424,7 @@ class Semantic<std::variant<Ts...>>
         return Semantic<std::variant<Ts...>>([generator = *(this->generator)](function::BiConsumer<std::variant<Ts...>, function::Timestamp> accept, function::BiPredicate<std::variant<Ts...>, function::Timestamp> interrupt) -> void {
             generator([&accept](std::variant<Ts...> container, function::Timestamp index) -> void { accept(container, -index); }, [&interrupt](std::variant<Ts...> container, function::Timestamp index) -> bool { return interrupt(container, -index); });
         },
-                                               this->concurrent);
+                                             this->concurrent);
     }
 
     auto translate(const function::Timestamp &offset) const -> Semantic<std::variant<Ts...>>
@@ -9437,7 +9432,7 @@ class Semantic<std::variant<Ts...>>
         return Semantic<std::variant<Ts...>>([generator = *(this->generator), offset](function::BiConsumer<std::variant<Ts...>, function::Timestamp> accept, function::BiPredicate<std::variant<Ts...>, function::Timestamp> interrupt) -> void {
             generator([&accept, &offset](std::variant<Ts...> container, function::Timestamp index) -> void { accept(container, index + offset); }, [&interrupt, &offset](std::variant<Ts...> container, function::Timestamp index) -> bool { return interrupt(container, index + offset); });
         },
-                                               this->concurrent);
+                                             this->concurrent);
     }
 
     auto translate(const function::BiFunction<std::variant<Ts...>, function::Timestamp, function::Timestamp> &translator) const -> Semantic<std::variant<Ts...>>
@@ -9445,7 +9440,7 @@ class Semantic<std::variant<Ts...>>
         return Semantic<std::variant<Ts...>>([generator = *(this->generator), translator](function::BiConsumer<std::variant<Ts...>, function::Timestamp> accept, function::BiPredicate<std::variant<Ts...>, function::Timestamp> interrupt) -> void {
             generator([&accept, &translator](std::variant<Ts...> container, function::Timestamp index) -> void { accept(container, translator(container, index)); }, [&interrupt, &translator](std::variant<Ts...> container, function::Timestamp index) -> bool { return interrupt(container, translator(container, index)); });
         },
-                                               this->concurrent);
+                                             this->concurrent);
     }
 
     auto redirect(const function::BiFunction<std::variant<Ts...>, function::Timestamp, std::variant<Ts...>> &redirector) const -> Semantic<std::variant<Ts...>>
@@ -9453,7 +9448,7 @@ class Semantic<std::variant<Ts...>>
         return Semantic<std::variant<Ts...>>([generator = *(this->generator), redirector](function::BiConsumer<std::variant<Ts...>, function::Timestamp> accept, function::BiPredicate<std::variant<Ts...>, function::Timestamp> interrupt) -> void {
             generator([&accept, &redirector](std::variant<Ts...> container, function::Timestamp index) -> void { accept(redirector(container, index), index); }, [&interrupt, &redirector](std::variant<Ts...> container, function::Timestamp index) -> bool { return interrupt(redirector(container, index), index); });
         },
-                                               this->concurrent);
+                                             this->concurrent);
     }
 
     auto sub(const function::Module &start, const function::Module &end) const -> Semantic<std::variant<Ts...>>
@@ -9467,7 +9462,7 @@ class Semantic<std::variant<Ts...>>
                 }
                 count++; }, [&interrupt, &count, &end](std::variant<Ts...> container, function::Timestamp index) -> bool { return interrupt(container, count) || count >= end; });
         },
-                                               this->concurrent);
+                                             this->concurrent);
     }
 
     template <typename Container>
@@ -9491,7 +9486,7 @@ class Semantic<std::variant<Ts...>>
                     }
                     return false; });
             },
-                                                   this->concurrent);
+                                                 this->concurrent);
         }
         else if constexpr (std::is_same_v<std::decay_t<Container>, std::variant<Ts...>>)
         {
@@ -9505,7 +9500,7 @@ class Semantic<std::variant<Ts...>>
                     accept(elements, count);
                 }
             },
-                                                   this->concurrent);
+                                                 this->concurrent);
         }
         else
         {
@@ -9524,7 +9519,7 @@ class Semantic<std::variant<Ts...>>
                     count++;
                 }
             },
-                                                   this->concurrent);
+                                                 this->concurrent);
         }
     }
 
@@ -9546,14 +9541,14 @@ class Semantic<std::bitset<N>>
     using Element = std::bitset<N>;
 
     Semantic(std::bitset<N> &&container) : generator(std::make_unique<function::Generator<std::bitset<N>>>([elements = std::move(container)](function::BiConsumer<std::bitset<N>, function::Timestamp> accept, function::BiPredicate<std::bitset<N>, function::Timestamp> interrupt) -> void {
-                                                accept(elements, 0LL);
-                                            })),
-                                            concurrent(1) {}
+                                               accept(elements, 0LL);
+                                           })),
+                                           concurrent(1) {}
 
     Semantic(std::bitset<N> &&container, const function::Module &concurrent) : generator(std::make_unique<function::Generator<std::bitset<N>>>([elements = std::move(container)](function::BiConsumer<std::bitset<N>, function::Timestamp> accept, function::BiPredicate<std::bitset<N>, function::Timestamp> interrupt) -> void {
-                                                                                    accept(elements, 0LL);
-                                                                                })),
-                                                                                concurrent(concurrent) {}
+                                                                                   accept(elements, 0LL);
+                                                                               })),
+                                                                               concurrent(concurrent) {}
 
     Semantic(const function::Generator<std::bitset<N>> &generator) : generator(std::make_unique<function::Generator<std::bitset<N>>>(generator)), concurrent(1) {}
 
@@ -9595,8 +9590,7 @@ class Semantic<std::bitset<N>>
                 generator([&accept, &mapper, &stop, &interrupt](std::bitset<N> container, function::Timestamp index) -> void {
                     R mapped = std::invoke(mapper, container, index);
                     accept(mapped, index);
-                    stop = stop || interrupt(mapped, index);
-                }, [&stop](std::bitset<N> container, function::Timestamp index) -> bool { return stop; });
+                    stop = stop || interrupt(mapped, index); }, [&stop](std::bitset<N> container, function::Timestamp index) -> bool { return stop; });
             },
                                this->concurrent);
         }
@@ -9608,8 +9602,7 @@ class Semantic<std::bitset<N>>
                 generator([&accept, &mapper, &stop, &interrupt](std::bitset<N> container, function::Timestamp index) -> void {
                     R mapped = std::invoke(mapper, container);
                     accept(mapped, index);
-                    stop = stop || interrupt(mapped, index);
-                }, [&stop](std::bitset<N> container, function::Timestamp index) -> bool { return stop; });
+                    stop = stop || interrupt(mapped, index); }, [&stop](std::bitset<N> container, function::Timestamp index) -> bool { return stop; });
             },
                                this->concurrent);
         }
@@ -9644,7 +9637,7 @@ class Semantic<std::bitset<N>>
                     count++;
                 } }, [&interrupt, &count](std::bitset<N> container, function::Timestamp index) -> bool { return interrupt(container, count); });
         },
-                                          this->concurrent);
+                                        this->concurrent);
     }
 
     template <typename Predicate>
@@ -9671,7 +9664,7 @@ class Semantic<std::bitset<N>>
                     stop = true;
                 } }, [&interrupt, &stop](std::bitset<N> container, function::Timestamp index) -> bool { return interrupt(container, index) || stop; });
         },
-                                          this->concurrent);
+                                        this->concurrent);
     }
 
     template <typename Predicate>
@@ -9705,7 +9698,7 @@ class Semantic<std::bitset<N>>
                     count++;
                 } }, [&interrupt, &count](std::bitset<N> container, function::Timestamp index) -> bool { return interrupt(container, count); });
         },
-                                          this->concurrent);
+                                        this->concurrent);
     }
 
     auto limit(const function::Module &n) const -> Semantic<std::bitset<N>>
@@ -9716,7 +9709,7 @@ class Semantic<std::bitset<N>>
                 accept(container, count);
                 count++; }, [&interrupt, &count, &n](std::bitset<N> container, function::Timestamp index) -> bool { return interrupt(container, count) || count >= n; });
         },
-                                          this->concurrent);
+                                        this->concurrent);
     }
 
     auto skip(const function::Module &n) const -> Semantic<std::bitset<N>>
@@ -9730,7 +9723,7 @@ class Semantic<std::bitset<N>>
                 }
                 count++; }, [&interrupt, &count](std::bitset<N> container, function::Timestamp index) -> bool { return interrupt(container, count); });
         },
-                                          this->concurrent);
+                                        this->concurrent);
     }
 
     template <typename Consumer>
@@ -9750,7 +9743,7 @@ class Semantic<std::bitset<N>>
             },
                       interrupt);
         },
-                                          this->concurrent);
+                                        this->concurrent);
     }
 
     auto parallel() const -> Semantic<std::bitset<N>> { return Semantic<std::bitset<N>>(this->source(), 1); }
@@ -9761,7 +9754,7 @@ class Semantic<std::bitset<N>>
         return Semantic<std::bitset<N>>([generator = *(this->generator)](function::BiConsumer<std::bitset<N>, function::Timestamp> accept, function::BiPredicate<std::bitset<N>, function::Timestamp> interrupt) -> void {
             generator([&accept](std::bitset<N> container, function::Timestamp index) -> void { accept(container, -index); }, [&interrupt](std::bitset<N> container, function::Timestamp index) -> bool { return interrupt(container, -index); });
         },
-                                          this->concurrent);
+                                        this->concurrent);
     }
 
     auto translate(const function::Timestamp &offset) const -> Semantic<std::bitset<N>>
@@ -9769,7 +9762,7 @@ class Semantic<std::bitset<N>>
         return Semantic<std::bitset<N>>([generator = *(this->generator), offset](function::BiConsumer<std::bitset<N>, function::Timestamp> accept, function::BiPredicate<std::bitset<N>, function::Timestamp> interrupt) -> void {
             generator([&accept, &offset](std::bitset<N> container, function::Timestamp index) -> void { accept(container, index + offset); }, [&interrupt, &offset](std::bitset<N> container, function::Timestamp index) -> bool { return interrupt(container, index + offset); });
         },
-                                          this->concurrent);
+                                        this->concurrent);
     }
 
     auto translate(const function::BiFunction<std::bitset<N>, function::Timestamp, function::Timestamp> &translator) const -> Semantic<std::bitset<N>>
@@ -9777,7 +9770,7 @@ class Semantic<std::bitset<N>>
         return Semantic<std::bitset<N>>([generator = *(this->generator), translator](function::BiConsumer<std::bitset<N>, function::Timestamp> accept, function::BiPredicate<std::bitset<N>, function::Timestamp> interrupt) -> void {
             generator([&accept, &translator](std::bitset<N> container, function::Timestamp index) -> void { accept(container, translator(container, index)); }, [&interrupt, &translator](std::bitset<N> container, function::Timestamp index) -> bool { return interrupt(container, translator(container, index)); });
         },
-                                          this->concurrent);
+                                        this->concurrent);
     }
 
     auto redirect(const function::BiFunction<std::bitset<N>, function::Timestamp, std::bitset<N>> &redirector) const -> Semantic<std::bitset<N>>
@@ -9785,7 +9778,7 @@ class Semantic<std::bitset<N>>
         return Semantic<std::bitset<N>>([generator = *(this->generator), redirector](function::BiConsumer<std::bitset<N>, function::Timestamp> accept, function::BiPredicate<std::bitset<N>, function::Timestamp> interrupt) -> void {
             generator([&accept, &redirector](std::bitset<N> container, function::Timestamp index) -> void { accept(redirector(container, index), index); }, [&interrupt, &redirector](std::bitset<N> container, function::Timestamp index) -> bool { return interrupt(redirector(container, index), index); });
         },
-                                          this->concurrent);
+                                        this->concurrent);
     }
 
     auto sub(const function::Module &start, const function::Module &end) const -> Semantic<std::bitset<N>>
@@ -9799,7 +9792,7 @@ class Semantic<std::bitset<N>>
                 }
                 count++; }, [&interrupt, &count, &end](std::bitset<N> container, function::Timestamp index) -> bool { return interrupt(container, count) || count >= end; });
         },
-                                          this->concurrent);
+                                        this->concurrent);
     }
 
     template <typename Container>
@@ -9823,7 +9816,7 @@ class Semantic<std::bitset<N>>
                     }
                     return false; });
             },
-                                              this->concurrent);
+                                            this->concurrent);
         }
         else if constexpr (std::is_same_v<std::decay_t<Container>, std::bitset<N>>)
         {
@@ -9837,7 +9830,7 @@ class Semantic<std::bitset<N>>
                     accept(elements, count);
                 }
             },
-                                              this->concurrent);
+                                            this->concurrent);
         }
         else
         {
@@ -9856,7 +9849,7 @@ class Semantic<std::bitset<N>>
                     count++;
                 }
             },
-                                              this->concurrent);
+                                            this->concurrent);
         }
     }
 
@@ -9867,6 +9860,459 @@ class Semantic<std::bitset<N>>
     auto toStatistics() const -> collectable::Statistics<std::bitset<N>, D> { return collectable::Statistics<std::bitset<N>, D>(this->source(), this->concurrent); }
 };
 
+template <typename K, typename V>
+class Semantic<std::unordered_multimap<K, V>>
+{
+  private:
+    std::unique_ptr<function::Generator<std::unordered_multimap<K, V>>> generator;
+    function::Module concurrent;
+
+  public:
+    using Element = std::unordered_multimap<K, V>;
+
+    Semantic(std::unordered_multimap<K, V> &&container) : generator(std::make_unique<function::Generator<std::unordered_multimap<K, V>>>([elements = std::move(container)](function::BiConsumer<std::unordered_multimap<K, V>, function::Timestamp> accept, function::BiPredicate<std::unordered_multimap<K, V>, function::Timestamp> interrupt) -> void {
+                                                              accept(elements, 0LL);
+                                                          })),
+                                                          concurrent(1) {}
+
+    Semantic(std::unordered_multimap<K, V> &&container, const function::Module &concurrent) : generator(std::make_unique<function::Generator<std::unordered_multimap<K, V>>>([elements = std::move(container)](function::BiConsumer<std::unordered_multimap<K, V>, function::Timestamp> accept, function::BiPredicate<std::unordered_multimap<K, V>, function::Timestamp> interrupt) -> void {
+                                                                                                  accept(elements, 0LL);
+                                                                                              })),
+                                                                                              concurrent(concurrent) {}
+
+    Semantic(const function::Generator<std::unordered_multimap<K, V>> &generator) : generator(std::make_unique<function::Generator<std::unordered_multimap<K, V>>>(generator)), concurrent(1) {}
+
+    Semantic(const function::Generator<std::unordered_multimap<K, V>> &generator, const function::Module &concurrent) : generator(std::make_unique<function::Generator<std::unordered_multimap<K, V>>>(generator)), concurrent(concurrent) {}
+
+    Semantic(const Semantic<std::unordered_multimap<K, V>> &other) : generator(std::make_unique<function::Generator<std::unordered_multimap<K, V>>>(*other.generator)), concurrent(other.concurrent) {}
+
+    Semantic(Semantic<std::unordered_multimap<K, V>> &&other) noexcept = default;
+
+    Semantic<std::unordered_multimap<K, V>> &operator=(const Semantic<std::unordered_multimap<K, V>> &other)
+    {
+        if (this != &other)
+        {
+            generator = std::make_unique<function::Generator<std::unordered_multimap<K, V>>>(*other.generator);
+            concurrent = other.concurrent;
+        }
+        return *this;
+    }
+
+    Semantic<std::unordered_multimap<K, V>> &operator=(Semantic<std::unordered_multimap<K, V>> &&other) noexcept = default;
+
+    auto source() const -> function::Generator<std::unordered_multimap<K, V>>
+    {
+        return [generator = *(this->generator)](function::BiConsumer<std::unordered_multimap<K, V>, function::Timestamp> accept, function::BiPredicate<std::unordered_multimap<K, V>, function::Timestamp> interrupt) -> void {
+            generator(accept, interrupt);
+        };
+    }
+
+    auto getConcurrent() const -> function::Module { return concurrent; }
+
+    template <typename Mapper>
+    auto map(Mapper &&mapper) const
+    {
+        if constexpr (std::is_invocable_v<Mapper, std::unordered_multimap<K, V>, function::Timestamp>)
+        {
+            using R = std::invoke_result_t<Mapper, std::unordered_multimap<K, V>, function::Timestamp>;
+            return Semantic<R>([generator = *(this->generator), mapper = std::forward<Mapper>(mapper)](function::BiConsumer<R, function::Timestamp> accept, function::BiPredicate<R, function::Timestamp> interrupt) -> void {
+                bool stop = false;
+                generator([&accept, &mapper, &stop, &interrupt](std::unordered_multimap<K, V> container, function::Timestamp index) -> void {
+                    R mapped = std::invoke(mapper, container, index);
+                    accept(mapped, index);
+                    stop = stop || interrupt(mapped, index); }, [&stop](std::unordered_multimap<K, V> container, function::Timestamp index) -> bool { return stop; });
+            },
+                               this->concurrent);
+        }
+        else if constexpr (std::is_invocable_v<Mapper, std::unordered_multimap<K, V>>)
+        {
+            using R = std::invoke_result_t<Mapper, std::unordered_multimap<K, V>>;
+            return Semantic<R>([generator = *(this->generator), mapper = std::forward<Mapper>(mapper)](function::BiConsumer<R, function::Timestamp> accept, function::BiPredicate<R, function::Timestamp> interrupt) -> void {
+                bool stop = false;
+                generator([&accept, &mapper, &stop, &interrupt](std::unordered_multimap<K, V> container, function::Timestamp index) -> void {
+                    R mapped = std::invoke(mapper, container);
+                    accept(mapped, index);
+                    stop = stop || interrupt(mapped, index); }, [&stop](std::unordered_multimap<K, V> container, function::Timestamp index) -> bool { return stop; });
+            },
+                               this->concurrent);
+        }
+        else
+        {
+            static_assert(std::is_invocable_v<Mapper, std::unordered_multimap<K, V>, function::Timestamp> || std::is_invocable_v<Mapper, std::unordered_multimap<K, V>>, "Mapper must be callable as either (unordered_multimap<K,V>, Timestamp) -> R or (unordered_multimap<K,V>) -> R");
+        }
+    }
+
+    template <typename Predicate>
+    auto filter(Predicate &&predicate) const -> Semantic<std::unordered_multimap<K, V>>
+    {
+        return Semantic<std::unordered_multimap<K, V>>([generator = *(this->generator), predicate = std::forward<Predicate>(predicate)](function::BiConsumer<std::unordered_multimap<K, V>, function::Timestamp> accept, function::BiPredicate<std::unordered_multimap<K, V>, function::Timestamp> interrupt) -> void {
+            function::Timestamp count = 0LL;
+            generator([&accept, &count, &predicate](std::unordered_multimap<K, V> container, function::Timestamp index) -> void {
+                bool matches = false;
+                if constexpr (std::is_invocable_r_v<bool, Predicate, std::unordered_multimap<K, V>, function::Timestamp>)
+                {
+                    matches = std::invoke(predicate, container, index);
+                }
+                else if constexpr (std::is_invocable_r_v<bool, Predicate, std::unordered_multimap<K, V>>)
+                {
+                    matches = std::invoke(predicate, container);
+                }
+                else
+                {
+                    static_assert(std::is_invocable_r_v<bool, Predicate, std::unordered_multimap<K, V>, function::Timestamp> || std::is_invocable_r_v<bool, Predicate, std::unordered_multimap<K, V>>, "Predicate must be callable as either (unordered_multimap<K,V>, Timestamp) -> bool or (unordered_multimap<K,V>) -> bool");
+                }
+                if (matches)
+                {
+                    accept(container, count);
+                    count++;
+                } }, [&interrupt, &count](std::unordered_multimap<K, V> container, function::Timestamp index) -> bool { return interrupt(container, count); });
+        },
+                                                       this->concurrent);
+    }
+
+    template <typename Predicate>
+    auto takeWhile(Predicate &&predicate) const -> Semantic<std::unordered_multimap<K, V>>
+    {
+        return Semantic<std::unordered_multimap<K, V>>([generator = *(this->generator), predicate = std::forward<Predicate>(predicate)](function::BiConsumer<std::unordered_multimap<K, V>, function::Timestamp> accept, function::BiPredicate<std::unordered_multimap<K, V>, function::Timestamp> interrupt) -> void {
+            bool stop = false;
+            generator([&accept, &stop, &predicate](std::unordered_multimap<K, V> container, function::Timestamp index) -> void {
+                bool matches = false;
+                if constexpr (std::is_invocable_r_v<bool, Predicate, std::unordered_multimap<K, V>, function::Timestamp>)
+                {
+                    matches = std::invoke(predicate, container, index);
+                }
+                else if constexpr (std::is_invocable_r_v<bool, Predicate, std::unordered_multimap<K, V>>)
+                {
+                    matches = std::invoke(predicate, container);
+                }
+                if (matches)
+                {
+                    accept(container, index);
+                }
+                else
+                {
+                    stop = true;
+                } }, [&interrupt, &stop](std::unordered_multimap<K, V> container, function::Timestamp index) -> bool { return interrupt(container, index) || stop; });
+        },
+                                                       this->concurrent);
+    }
+
+    template <typename Predicate>
+    auto dropWhile(Predicate &&predicate) const -> Semantic<std::unordered_multimap<K, V>>
+    {
+        return Semantic<std::unordered_multimap<K, V>>([generator = *(this->generator), predicate = std::forward<Predicate>(predicate)](function::BiConsumer<std::unordered_multimap<K, V>, function::Timestamp> accept, function::BiPredicate<std::unordered_multimap<K, V>, function::Timestamp> interrupt) -> void {
+            bool dropping = true;
+            function::Timestamp count = 0LL;
+            generator([&accept, &dropping, &count, &predicate](std::unordered_multimap<K, V> container, function::Timestamp index) -> void {
+                if (dropping)
+                {
+                    bool matches = false;
+                    if constexpr (std::is_invocable_r_v<bool, Predicate, std::unordered_multimap<K, V>, function::Timestamp>)
+                    {
+                        matches = std::invoke(predicate, container, index);
+                    }
+                    else if constexpr (std::is_invocable_r_v<bool, Predicate, std::unordered_multimap<K, V>>)
+                    {
+                        matches = std::invoke(predicate, container);
+                    }
+                    if (!matches)
+                    {
+                        dropping = false;
+                        accept(container, count);
+                        count++;
+                    }
+                }
+                else
+                {
+                    accept(container, count);
+                    count++;
+                } }, [&interrupt, &count](std::unordered_multimap<K, V> container, function::Timestamp index) -> bool { return interrupt(container, count); });
+        },
+                                                       this->concurrent);
+    }
+
+    auto limit(const function::Module &n) const -> Semantic<std::unordered_multimap<K, V>>
+    {
+        return Semantic<std::unordered_multimap<K, V>>([generator = *(this->generator), n](function::BiConsumer<std::unordered_multimap<K, V>, function::Timestamp> accept, function::BiPredicate<std::unordered_multimap<K, V>, function::Timestamp> interrupt) -> void {
+            function::Module count = 0;
+            generator([&accept, &count](std::unordered_multimap<K, V> container, function::Timestamp index) -> void {
+                accept(container, count);
+                count++; }, [&interrupt, &count, &n](std::unordered_multimap<K, V> container, function::Timestamp index) -> bool { return interrupt(container, count) || count >= n; });
+        },
+                                                       this->concurrent);
+    }
+
+    auto skip(const function::Module &n) const -> Semantic<std::unordered_multimap<K, V>>
+    {
+        return Semantic<std::unordered_multimap<K, V>>([generator = *(this->generator), n](function::BiConsumer<std::unordered_multimap<K, V>, function::Timestamp> accept, function::BiPredicate<std::unordered_multimap<K, V>, function::Timestamp> interrupt) -> void {
+            function::Module count = 0;
+            generator([&accept, &count, &n](std::unordered_multimap<K, V> container, function::Timestamp index) -> void {
+                if (count >= n)
+                {
+                    accept(container, count);
+                }
+                count++; }, [&interrupt, &count](std::unordered_multimap<K, V> container, function::Timestamp index) -> bool { return interrupt(container, count); });
+        },
+                                                       this->concurrent);
+    }
+
+    template <typename Consumer>
+    auto peek(Consumer &&consumer) const -> Semantic<std::unordered_multimap<K, V>>
+    {
+        return Semantic<std::unordered_multimap<K, V>>([generator = *(this->generator), consumer = std::forward<Consumer>(consumer)](function::BiConsumer<std::unordered_multimap<K, V>, function::Timestamp> accept, function::BiPredicate<std::unordered_multimap<K, V>, function::Timestamp> interrupt) -> void {
+            generator([&accept, &consumer](std::unordered_multimap<K, V> container, function::Timestamp index) -> void {
+                if constexpr (std::is_invocable_r_v<void, Consumer, std::unordered_multimap<K, V>, function::Timestamp>)
+                {
+                    std::invoke(consumer, container, index);
+                }
+                else if constexpr (std::is_invocable_r_v<void, Consumer, std::unordered_multimap<K, V>>)
+                {
+                    std::invoke(consumer, container);
+                }
+                accept(container, index);
+            },
+                      interrupt);
+        },
+                                                       this->concurrent);
+    }
+
+    auto flat() const -> Semantic<std::pair<const K, V>>
+    {
+        return Semantic<std::pair<const K, V>>([generator = *(this->generator)](function::BiConsumer<std::pair<const K, V>, function::Timestamp> accept, function::BiPredicate<std::pair<const K, V>, function::Timestamp> interrupt) -> void {
+            function::Timestamp count = 0LL;
+            bool stop = false;
+            generator([&accept, &count, &stop, &interrupt](std::unordered_multimap<K, V> container, function::Timestamp index) -> void {
+                for (const auto &element : container)
+                {
+                    if (stop)
+                    {
+                        break;
+                    }
+                    if (interrupt(element, count))
+                    {
+                        stop = true;
+                        break;
+                    }
+                    accept(element, count);
+                    count++;
+                } }, [&stop](std::unordered_multimap<K, V> container, function::Timestamp index) -> bool { return stop; });
+        },
+                                               this->concurrent);
+    }
+
+    template <typename Flatten>
+    auto flat(Flatten &&flatten) const -> Semantic<std::pair<const K, V>>
+    {
+        return Semantic<std::pair<const K, V>>([generator = *(this->generator), flatten = std::forward<Flatten>(flatten)](function::BiConsumer<std::pair<const K, V>, function::Timestamp> accept, function::BiPredicate<std::pair<const K, V>, function::Timestamp> interrupt) -> void {
+            function::Timestamp count = 0LL;
+            bool stop = false;
+            generator([&accept, &count, &stop, &flatten, &interrupt](std::unordered_multimap<K, V> container, function::Timestamp index) -> void {
+                if constexpr (std::is_invocable_r_v<Semantic<std::pair<const K, V>>, Flatten, std::unordered_multimap<K, V>, function::Timestamp>)
+                {
+                    Semantic<std::pair<const K, V>> inner = std::invoke(flatten, container, index);
+                    inner.source()([&accept, &count](std::pair<const K, V> innerElement, function::Timestamp innerIndex) -> void {
+                        accept(innerElement, count);
+                        count++;
+                    }, [&interrupt, &stop, &count](std::pair<const K, V> innerElement, function::Timestamp innerIndex) -> bool {
+                        if (interrupt(innerElement, count))
+                        {
+                            stop = true;
+                            return true;
+                        }
+                        return false;
+                    });
+                }
+                else if constexpr (std::is_invocable_r_v<Semantic<std::pair<const K, V>>, Flatten, std::unordered_multimap<K, V>>)
+                {
+                    Semantic<std::pair<const K, V>> inner = std::invoke(flatten, container);
+                    inner.source()([&accept, &count](std::pair<const K, V> innerElement, function::Timestamp innerIndex) -> void {
+                        accept(innerElement, count);
+                        count++;
+                    }, [&interrupt, &stop, &count](std::pair<const K, V> innerElement, function::Timestamp innerIndex) -> bool {
+                        if (interrupt(innerElement, count))
+                        {
+                            stop = true;
+                            return true;
+                        }
+                        return false;
+                    });
+                }
+                else
+                {
+                    static_assert(std::is_invocable_r_v<Semantic<std::pair<const K, V>>, Flatten, std::unordered_multimap<K, V>, function::Timestamp> || std::is_invocable_r_v<Semantic<std::pair<const K, V>>, Flatten, std::unordered_multimap<K, V>>, "flat: Flatten must return Semantic<pair<const K,V>>");
+                } }, [&stop](std::unordered_multimap<K, V> container, function::Timestamp index) -> bool { return stop; });
+        },
+                                               this->concurrent);
+    }
+
+    template <typename Flatten>
+    auto flatMap(Flatten &&flatten) const
+    {
+        if constexpr (std::is_invocable_v<Flatten, std::unordered_multimap<K, V>, function::Timestamp>)
+        {
+            using InnerSemantic = std::invoke_result_t<Flatten, std::unordered_multimap<K, V>, function::Timestamp>;
+            using R = typename InnerSemantic::Element;
+            return Semantic<R>([generator = *(this->generator), flatten = std::forward<Flatten>(flatten)](function::BiConsumer<R, function::Timestamp> accept, function::BiPredicate<R, function::Timestamp> interrupt) -> void {
+                function::Timestamp count = 0LL;
+                bool stop = false;
+                generator([&accept, &count, &stop, &flatten, &interrupt](std::unordered_multimap<K, V> container, function::Timestamp index) -> void {
+                    Semantic<R> inner = std::invoke(flatten, container, index);
+                    inner.source()([&accept, &count](R innerElement, function::Timestamp innerIndex) -> void {
+                        accept(innerElement, count);
+                        count++;
+                    }, [&interrupt, &stop, &count](R innerElement, function::Timestamp innerIndex) -> bool {
+                        if (interrupt(innerElement, count))
+                        {
+                            stop = true;
+                            return true;
+                        }
+                        return false;
+                    }); }, [&stop](std::unordered_multimap<K, V> container, function::Timestamp index) -> bool { return stop; });
+            },
+                               this->concurrent);
+        }
+        else if constexpr (std::is_invocable_v<Flatten, std::unordered_multimap<K, V>>)
+        {
+            using InnerSemantic = std::invoke_result_t<Flatten, std::unordered_multimap<K, V>>;
+            using R = typename InnerSemantic::Element;
+            return Semantic<R>([generator = *(this->generator), flatten = std::forward<Flatten>(flatten)](function::BiConsumer<R, function::Timestamp> accept, function::BiPredicate<R, function::Timestamp> interrupt) -> void {
+                function::Timestamp count = 0LL;
+                bool stop = false;
+                generator([&accept, &count, &stop, &flatten, &interrupt](std::unordered_multimap<K, V> container, function::Timestamp index) -> void {
+                    Semantic<R> inner = std::invoke(flatten, container);
+                    inner.source()([&accept, &count](R innerElement, function::Timestamp innerIndex) -> void {
+                        accept(innerElement, count);
+                        count++;
+                    }, [&interrupt, &stop, &count](R innerElement, function::Timestamp innerIndex) -> bool {
+                        if (interrupt(innerElement, count))
+                        {
+                            stop = true;
+                            return true;
+                        }
+                        return false;
+                    }); }, [&stop](std::unordered_multimap<K, V> container, function::Timestamp index) -> bool { return stop; });
+            },
+                               this->concurrent);
+        }
+        else
+        {
+            static_assert(std::is_invocable_v<Flatten, std::unordered_multimap<K, V>, function::Timestamp> || std::is_invocable_v<Flatten, std::unordered_multimap<K, V>>, "flatMap: Flatten must return a Semantic type");
+        }
+    }
+
+    auto parallel() const -> Semantic<std::unordered_multimap<K, V>> { return Semantic<std::unordered_multimap<K, V>>(this->source(), 1); }
+    auto parallel(const function::Module &concurrent) const -> Semantic<std::unordered_multimap<K, V>> { return Semantic<std::unordered_multimap<K, V>>(this->source(), std::max(concurrent, 1ULL)); }
+
+    auto reverse() const -> Semantic<std::unordered_multimap<K, V>>
+    {
+        return Semantic<std::unordered_multimap<K, V>>([generator = *(this->generator)](function::BiConsumer<std::unordered_multimap<K, V>, function::Timestamp> accept, function::BiPredicate<std::unordered_multimap<K, V>, function::Timestamp> interrupt) -> void {
+            generator([&accept](std::unordered_multimap<K, V> container, function::Timestamp index) -> void { accept(container, -index); }, [&interrupt](std::unordered_multimap<K, V> container, function::Timestamp index) -> bool { return interrupt(container, -index); });
+        },
+                                                       this->concurrent);
+    }
+
+    auto translate(const function::Timestamp &offset) const -> Semantic<std::unordered_multimap<K, V>>
+    {
+        return Semantic<std::unordered_multimap<K, V>>([generator = *(this->generator), offset](function::BiConsumer<std::unordered_multimap<K, V>, function::Timestamp> accept, function::BiPredicate<std::unordered_multimap<K, V>, function::Timestamp> interrupt) -> void {
+            generator([&accept, &offset](std::unordered_multimap<K, V> container, function::Timestamp index) -> void { accept(container, index + offset); }, [&interrupt, &offset](std::unordered_multimap<K, V> container, function::Timestamp index) -> bool { return interrupt(container, index + offset); });
+        },
+                                                       this->concurrent);
+    }
+
+    auto translate(const function::BiFunction<std::unordered_multimap<K, V>, function::Timestamp, function::Timestamp> &translator) const -> Semantic<std::unordered_multimap<K, V>>
+    {
+        return Semantic<std::unordered_multimap<K, V>>([generator = *(this->generator), translator](function::BiConsumer<std::unordered_multimap<K, V>, function::Timestamp> accept, function::BiPredicate<std::unordered_multimap<K, V>, function::Timestamp> interrupt) -> void {
+            generator([&accept, &translator](std::unordered_multimap<K, V> container, function::Timestamp index) -> void { accept(container, translator(container, index)); }, [&interrupt, &translator](std::unordered_multimap<K, V> container, function::Timestamp index) -> bool { return interrupt(container, translator(container, index)); });
+        },
+                                                       this->concurrent);
+    }
+
+    auto redirect(const function::BiFunction<std::unordered_multimap<K, V>, function::Timestamp, std::unordered_multimap<K, V>> &redirector) const -> Semantic<std::unordered_multimap<K, V>>
+    {
+        return Semantic<std::unordered_multimap<K, V>>([generator = *(this->generator), redirector](function::BiConsumer<std::unordered_multimap<K, V>, function::Timestamp> accept, function::BiPredicate<std::unordered_multimap<K, V>, function::Timestamp> interrupt) -> void {
+            generator([&accept, &redirector](std::unordered_multimap<K, V> container, function::Timestamp index) -> void { accept(redirector(container, index), index); }, [&interrupt, &redirector](std::unordered_multimap<K, V> container, function::Timestamp index) -> bool { return interrupt(redirector(container, index), index); });
+        },
+                                                       this->concurrent);
+    }
+
+    auto sub(const function::Module &start, const function::Module &end) const -> Semantic<std::unordered_multimap<K, V>>
+    {
+        return Semantic<std::unordered_multimap<K, V>>([generator = *(this->generator), start, end](function::BiConsumer<std::unordered_multimap<K, V>, function::Timestamp> accept, function::BiPredicate<std::unordered_multimap<K, V>, function::Timestamp> interrupt) -> void {
+            function::Module count = 0;
+            generator([&accept, &count, &start, &end](std::unordered_multimap<K, V> container, function::Timestamp index) -> void {
+                if (count >= start && count < end)
+                {
+                    accept(container, count);
+                }
+                count++; }, [&interrupt, &count, &end](std::unordered_multimap<K, V> container, function::Timestamp index) -> bool { return interrupt(container, count) || count >= end; });
+        },
+                                                       this->concurrent);
+    }
+
+    template <typename Container>
+    auto concatenate(Container &&container) const -> Semantic<std::unordered_multimap<K, V>>
+    {
+        if constexpr (std::is_same_v<std::decay_t<Container>, Semantic<std::unordered_multimap<K, V>>>)
+        {
+            return Semantic<std::unordered_multimap<K, V>>([generator = *(this->generator), other = std::forward<Container>(container)](function::BiConsumer<std::unordered_multimap<K, V>, function::Timestamp> accept, function::BiPredicate<std::unordered_multimap<K, V>, function::Timestamp> interrupt) -> void {
+                function::Timestamp count = 0LL;
+                bool stop = false;
+                generator([&accept, &count](std::unordered_multimap<K, V> container, function::Timestamp index) -> void {
+                    accept(container, count);
+                    count++; }, [&stop](std::unordered_multimap<K, V> container, function::Timestamp index) -> bool { return stop; });
+                other.source()([&accept, &count](std::unordered_multimap<K, V> container, function::Timestamp index) -> void {
+                    accept(container, count);
+                    count++; }, [&interrupt, &stop, &count](std::unordered_multimap<K, V> container, function::Timestamp index) -> bool {
+                    if (interrupt(container, count))
+                    {
+                        stop = true;
+                        return true;
+                    }
+                    return false; });
+            },
+                                                           this->concurrent);
+        }
+        else if constexpr (std::is_same_v<std::decay_t<Container>, std::unordered_multimap<K, V>>)
+        {
+            return Semantic<std::unordered_multimap<K, V>>([generator = *(this->generator), elements = std::forward<Container>(container)](function::BiConsumer<std::unordered_multimap<K, V>, function::Timestamp> accept, function::BiPredicate<std::unordered_multimap<K, V>, function::Timestamp> interrupt) -> void {
+                function::Timestamp count = 0LL;
+                generator([&accept, &count](std::unordered_multimap<K, V> container, function::Timestamp index) -> void {
+                    accept(container, count);
+                    count++; }, [&interrupt, &count](std::unordered_multimap<K, V> container, function::Timestamp index) -> bool { return interrupt(container, count); });
+                if (!interrupt(elements, count))
+                {
+                    accept(elements, count);
+                }
+            },
+                                                           this->concurrent);
+        }
+        else
+        {
+            return Semantic<std::unordered_multimap<K, V>>([generator = *(this->generator), elements = std::forward<Container>(container)](function::BiConsumer<std::unordered_multimap<K, V>, function::Timestamp> accept, function::BiPredicate<std::unordered_multimap<K, V>, function::Timestamp> interrupt) -> void {
+                function::Timestamp count = 0LL;
+                generator([&accept, &count](std::unordered_multimap<K, V> container, function::Timestamp index) -> void {
+                    accept(container, count);
+                    count++; }, [&interrupt, &count](std::unordered_multimap<K, V> container, function::Timestamp index) -> bool { return interrupt(container, count); });
+                for (const auto &element : elements)
+                {
+                    if (interrupt(element, count))
+                    {
+                        break;
+                    }
+                    accept(element, count);
+                    count++;
+                }
+            },
+                                                           this->concurrent);
+        }
+    }
+
+    auto toUnordered() const -> collectable::UnorderedCollectable<std::unordered_multimap<K, V>> { return collectable::UnorderedCollectable<std::unordered_multimap<K, V>>(this->source(), this->concurrent); }
+    auto toOrdered() const -> collectable::OrderedCollectable<std::unordered_multimap<K, V>> { return collectable::OrderedCollectable<std::unordered_multimap<K, V>>(this->source(), this->concurrent); }
+    auto toWindow() const -> collectable::WindowCollectable<std::unordered_multimap<K, V>> { return collectable::WindowCollectable<std::unordered_multimap<K, V>>(this->source(), this->concurrent); }
+    template <typename D>
+    auto toStatistics() const -> collectable::Statistics<std::unordered_multimap<K, V>, D> { return collectable::Statistics<std::unordered_multimap<K, V>, D>(this->source(), this->concurrent); }
+};
 } // namespace semantic
 
 template <typename E>

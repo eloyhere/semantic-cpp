@@ -493,16 +493,21 @@ auto useBlob(const std::string &text, function::Module start, const function::Mo
 
 auto useBlob(std::istream &stream) -> Semantic<std::string>
 {
-	return Semantic<std::string>([&stream](function::BiConsumer<std::string, function::Timestamp> accept, function::BiPredicate<std::string, function::Timestamp> interrupt) -> void {
-		std::string line;
+	std::vector<std::string> lines;
+	std::string line;
+	while (std::getline(stream, line))
+	{
+		lines.push_back(line);
+	}
+	return Semantic<std::string>([lines = std::move(lines)](function::BiConsumer<std::string, function::Timestamp> accept, function::BiPredicate<std::string, function::Timestamp> interrupt) -> void {
 		function::Timestamp index = 0LL;
-		while (std::getline(stream, line))
+		for (const auto &l : lines)
 		{
-			if (interrupt(line, index))
+			if (interrupt(l, index))
 			{
 				break;
 			}
-			accept(line, index);
+			accept(l, index);
 			index++;
 		}
 	},
@@ -511,16 +516,21 @@ auto useBlob(std::istream &stream) -> Semantic<std::string>
 
 auto useBlob(std::istream &stream, const char &delimiter) -> Semantic<std::string>
 {
-	return Semantic<std::string>([&stream, delimiter](function::BiConsumer<std::string, function::Timestamp> accept, function::BiPredicate<std::string, function::Timestamp> interrupt) -> void {
-		std::string line;
+	std::vector<std::string> lines;
+	std::string line;
+	while (std::getline(stream, line, delimiter))
+	{
+		lines.push_back(line);
+	}
+	return Semantic<std::string>([lines = std::move(lines)](function::BiConsumer<std::string, function::Timestamp> accept, function::BiPredicate<std::string, function::Timestamp> interrupt) -> void {
 		function::Timestamp index = 0LL;
-		while (std::getline(stream, line, delimiter))
+		for (const auto &l : lines)
 		{
-			if (interrupt(line, index))
+			if (interrupt(l, index))
 			{
 				break;
 			}
-			accept(line, index);
+			accept(l, index);
 			index++;
 		}
 	},
@@ -557,8 +567,16 @@ auto useText(const std::string &text, const char &delimiter) -> Semantic<charseq
 
 auto useText(std::istream &stream) -> Semantic<charsequence::Charsequence>
 {
-	return Semantic<charsequence::Charsequence>([&stream](function::BiConsumer<charsequence::Charsequence, function::Timestamp> accept, function::BiPredicate<charsequence::Charsequence, function::Timestamp> interrupt) -> void {
-		charsequence::Charsequence sequence(stream, std::numeric_limits<std::size_t>::max(), charsequence::charset::utf8);
+	std::string content;
+	std::string chunk;
+	constexpr std::size_t bufferSize = 4096;
+	chunk.resize(bufferSize);
+	while (stream.read(&chunk[0], bufferSize) || stream.gcount() > 0)
+	{
+		content.append(chunk, 0, stream.gcount());
+	}
+	charsequence::Charsequence sequence(content, charsequence::charset::utf8, charsequence::charset::utf8);
+	return Semantic<charsequence::Charsequence>([sequence](function::BiConsumer<charsequence::Charsequence, function::Timestamp> accept, function::BiPredicate<charsequence::Charsequence, function::Timestamp> interrupt) -> void {
 		if (!interrupt(sequence, 0LL))
 		{
 			accept(sequence, 0LL);
@@ -569,10 +587,18 @@ auto useText(std::istream &stream) -> Semantic<charsequence::Charsequence>
 
 auto useText(std::istream &stream, const char &delimiter) -> Semantic<charsequence::Charsequence>
 {
-	return Semantic<charsequence::Charsequence>([&stream, delimiter](function::BiConsumer<charsequence::Charsequence, function::Timestamp> accept, function::BiPredicate<charsequence::Charsequence, function::Timestamp> interrupt) -> void {
-		charsequence::Charsequence delim(std::string(1, delimiter));
-		charsequence::Charsequence sequence(stream, std::numeric_limits<std::size_t>::max(), charsequence::charset::utf8);
-		auto parts = sequence.split(delim);
+	std::string content;
+	std::string chunk;
+	constexpr std::size_t bufferSize = 4096;
+	chunk.resize(bufferSize);
+	while (stream.read(&chunk[0], bufferSize) || stream.gcount() > 0)
+	{
+		content.append(chunk, 0, stream.gcount());
+	}
+	charsequence::Charsequence delim(std::string(1, delimiter));
+	charsequence::Charsequence sequence(content, charsequence::charset::utf8, charsequence::charset::utf8);
+	auto parts = sequence.split(delim);
+	return Semantic<charsequence::Charsequence>([parts = std::move(parts)](function::BiConsumer<charsequence::Charsequence, function::Timestamp> accept, function::BiPredicate<charsequence::Charsequence, function::Timestamp> interrupt) -> void {
 		for (function::Module i = 0; i < parts.size(); i++)
 		{
 			if (interrupt(parts[i], i))
@@ -628,9 +654,17 @@ auto useSequence(const charsequence::Charsequence &sequence, function::Module st
 
 auto useSequence(std::istream &stream, charsequence::charset encoding = charsequence::charset::utf8) -> Semantic<charsequence::Point>
 {
-	return Semantic<charsequence::Point>([&stream, encoding](function::BiConsumer<charsequence::Point, function::Timestamp> accept, function::BiPredicate<charsequence::Point, function::Timestamp> interrupt) -> void {
-		charsequence::Charsequence sequence(stream, std::numeric_limits<std::size_t>::max(), encoding);
-		std::vector<charsequence::Point> points = sequence.getPoints();
+	std::string content;
+	std::string chunk;
+	constexpr std::size_t bufferSize = 4096;
+	chunk.resize(bufferSize);
+	while (stream.read(&chunk[0], bufferSize) || stream.gcount() > 0)
+	{
+		content.append(chunk, 0, stream.gcount());
+	}
+	charsequence::Charsequence sequence(content, encoding, encoding);
+	std::vector<charsequence::Point> points = sequence.getPoints();
+	return Semantic<charsequence::Point>([points = std::move(points)](function::BiConsumer<charsequence::Point, function::Timestamp> accept, function::BiPredicate<charsequence::Point, function::Timestamp> interrupt) -> void {
 		function::Timestamp index = 0LL;
 		for (const charsequence::Point &point : points)
 		{
@@ -693,8 +727,16 @@ auto useCharsequence(const charsequence::Charsequence &sequence, const charseque
 
 auto useCharsequence(std::istream &stream, charsequence::charset encoding = charsequence::charset::utf8) -> Semantic<charsequence::Charsequence>
 {
-	return Semantic<charsequence::Charsequence>([&stream, encoding](function::BiConsumer<charsequence::Charsequence, function::Timestamp> accept, function::BiPredicate<charsequence::Charsequence, function::Timestamp> interrupt) -> void {
-		charsequence::Charsequence sequence(stream, std::numeric_limits<std::size_t>::max(), encoding);
+	std::string content;
+	std::string chunk;
+	constexpr std::size_t bufferSize = 4096;
+	chunk.resize(bufferSize);
+	while (stream.read(&chunk[0], bufferSize) || stream.gcount() > 0)
+	{
+		content.append(chunk, 0, stream.gcount());
+	}
+	charsequence::Charsequence sequence(content, encoding, encoding);
+	return Semantic<charsequence::Charsequence>([sequence](function::BiConsumer<charsequence::Charsequence, function::Timestamp> accept, function::BiPredicate<charsequence::Charsequence, function::Timestamp> interrupt) -> void {
 		if (!interrupt(sequence, 0LL))
 		{
 			accept(sequence, 0LL);
@@ -705,9 +747,17 @@ auto useCharsequence(std::istream &stream, charsequence::charset encoding = char
 
 auto useCharsequence(std::istream &stream, const charsequence::Charsequence &delimiter, charsequence::charset encoding = charsequence::charset::utf8) -> Semantic<charsequence::Charsequence>
 {
-	return Semantic<charsequence::Charsequence>([&stream, delimiter, encoding](function::BiConsumer<charsequence::Charsequence, function::Timestamp> accept, function::BiPredicate<charsequence::Charsequence, function::Timestamp> interrupt) -> void {
-		charsequence::Charsequence sequence(stream, std::numeric_limits<std::size_t>::max(), encoding);
-		auto parts = sequence.split(delimiter);
+	std::string content;
+	std::string chunk;
+	constexpr std::size_t bufferSize = 4096;
+	chunk.resize(bufferSize);
+	while (stream.read(&chunk[0], bufferSize) || stream.gcount() > 0)
+	{
+		content.append(chunk, 0, stream.gcount());
+	}
+	charsequence::Charsequence sequence(content, encoding, encoding);
+	auto parts = sequence.split(delimiter);
+	return Semantic<charsequence::Charsequence>([parts = std::move(parts)](function::BiConsumer<charsequence::Charsequence, function::Timestamp> accept, function::BiPredicate<charsequence::Charsequence, function::Timestamp> interrupt) -> void {
 		for (function::Module i = 0; i < parts.size(); i++)
 		{
 			if (interrupt(parts[i], i))

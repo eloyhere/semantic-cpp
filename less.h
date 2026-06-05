@@ -27,6 +27,7 @@
 
 namespace std
 {
+#if __cplusplus == 201703L
 template <typename T>
 bool operator<(const std::complex<T> &left, const std::complex<T> &right)
 {
@@ -324,5 +325,5 @@ struct less<std::error_condition>
         return &left.category() < &right.category();
     }
 };
-
+#endif
 } // namespace std

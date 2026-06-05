@@ -1180,6 +1180,38 @@ class Semantic
             this->concurrent);
     }
 
+    template <typename T = E, typename = std::void_t<decltype(std::begin(std::declval<T>()))>>
+    auto flat() const -> Semantic<std::decay_t<decltype(*std::begin(std::declval<T>()))>>
+    {
+        using InnerType = std::decay_t<decltype(*std::begin(std::declval<T>()))>;
+        return Semantic<InnerType>(
+            [generator = *(this->generator)](function::BiConsumer<InnerType, function::Timestamp> accept, function::BiPredicate<InnerType, function::Timestamp> interrupt) -> void {
+                function::Timestamp count = 0LL;
+                bool stop = false;
+                generator(
+                    [&accept, &count, &stop, &interrupt](E container, function::Timestamp index) -> void {
+                        for (const auto &element : container)
+                        {
+                            if (stop)
+                            {
+                                break;
+                            }
+                            if (interrupt(element, count))
+                            {
+                                stop = true;
+                                break;
+                            }
+                            accept(element, count);
+                            count++;
+                        }
+                    },
+                    [&stop](E, function::Timestamp) -> bool {
+                        return stop;
+                    });
+            },
+            this->concurrent);
+    }
+
     template <typename Flatten>
     auto flat(Flatten &&flatten) const
     {

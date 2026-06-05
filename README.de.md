@@ -1,104 +1,110 @@
-# 🚀 Semantic-Cpp: Ein zukunftsorientiertes C++-Intelligentes Stream-Verarbeitungsframework
+# 🚀 Semantic-Cpp: Ein zukunftsorientiertes intelligentes Stream-Processing-Framework für C++
 
-Semantic-Cpp ist eine komplett neu gestaltete, moderne C++-Stream-Verarbeitungsbibliothek, die auf einer **"Multi-Header, keine externen Abhängigkeiten"** modularen Architektur aufbaut. Jede Header-Datei hat klare Verantwortlichkeiten, ist unabhängig testbar und gemeinsam bilden sie ein vollständiges Stream-Verarbeitungs-Ökosystem. Diese Bibliothek integriert kreativ das Wesen mehrerer Programmierparadigmen:
+Semantic-Cpp ist eine moderne C++-Stream-Processing-Bibliothek, die von Grund auf neu entwickelt wurde und eine **"mehrere Header, null externe Abhängigkeiten"**-modulare Architektur aufweist. Jede Header-Datei hat eine klare, eindeutige Verantwortung und ist unabhängig testbar und bildet gemeinsam ein vollständiges Stream-Processing-Ökosystem. Diese Bibliothek kombiniert innovativ das Wesen mehrerer Programmierparadigmen:
 
-*   **Eleganz und Flüssigkeit der Java Stream API:** Verkettete Aufrufe, deklarative Programmierung, macht Code elegant wie Poesie ✨
-*   **Faulheit und Flexibilität von JavaScript Generatoren:** Faule Auswertung, bedarfsgerechte Erzeugung, speicherfreundlich 🌱
-*   **Effizienz und Ordnung von Datenbank-Indizes:** Intelligente Sortierung, indexgetrieben, ein leistungsstarkes Werkzeug für Zeitreihendatenverarbeitung ⏱️
-*   **Batch-Verarbeitungsphilosophie von Container-als-Element:** Vektoren, Listen, Maps... Jeder Container kann ein First-Class-Citizen im Stream sein, frei fließend 📦
+*   **Die Eleganz und Flüssigkeit der Java Stream API**: Verkettete Aufrufe, deklarative Programmierung, die Code so elegant wie Poesie macht ✨
+*   **Die Faulheit und Flexibilität von JavaScript Generatoren**: Lazy Evaluation, bedarfsgesteuerte Erzeugung, speicherfreundlich 🌱
+*   **Die Effizienz und Ordnung von Datenbankindizierung**: Intelligente Sortierung, indexgesteuert, ein leistungsstarkes Werkzeug für die Verarbeitung von Zeitreihendaten ⏱️
+*   **Die Batch-Verarbeitungsphilosophie von 'Container-als-Element'**: Vektoren, Listen, Maps... Jeder Container kann ein Erstklassen-Bürger im Stream sein und frei fließen 📦
 
-Sind Sie es leid, manuell `for`-Schleifen zu schreiben, um einen `vector` zu durchlaufen, ein `if` zu verschachteln, um zu filtern, und dann manuell in einen anderen Container zu `push_back`? 😩
-Haben Sie spät in der Nacht einen Off-by-One-Indexfehler debuggt, nur weil Sie das "drittletzte" Element beim Rückwärtsiterieren wollten? 😵💫
-Sehnen Sie sich danach, wie eine Datenbank zu operieren – präzise Positionierung per Index, Analyse mit gleitenden Fenstern, Abschluss der gesamten Reise von Daten zu Statistiken mit einem einzigen Aufruf? 🤔
+Haben Sie es satt, `for`-Schleifen zu schreiben, um einen `vector` zu durchlaufen, ein `if` zur Filterung zu verschachteln und manuell `push_back` auf einen anderen Container aufzurufen? 😩
+Haben Sie schon einmal spät in der Nacht einen Off-by-One-Index-Fehler debuggt, nur weil Sie das "dritte Element vom Ende" bei der Rückwärtsiteration wollten? 😵💫
+Sehnen Sie sich danach, Daten wie eine Datenbank zu manipulieren – punktgenaues Finden per Index, Analyse mit gleitenden Fenstern, den gesamten Weg von den Daten zur Statistik mit einem einzigen Aufruf zu absolvieren? 🤔
 
-Semantic-Cpp wurde für diesen Zweck geboren. 🔧
-Es abstrahiert die Datenverarbeitung als Operationen an **"Elementen"** und ihren **"logischen Positionen (Indizes)"** – ähnlich wie "Zeilen" und "Primärschlüssel" in einer Datenbank. Sie können Indizes frei umordnen, verschieben und umkehren, ohne die Daten selbst zu berühren; Sie können auch jeden Container (`vector`, `map`, `array`...) als ein unteilbares Ganzes behandeln, das durch den Stream fließt, und es jederzeit auf Elementebene "auspacken". Diese Fähigkeit, die Granularität zu wechseln, ist etwas, was traditionelle Streaming-Frameworks nicht bieten. 🎯
+**Semantic-Cpp wurde genau dafür geschaffen. 🔧**
+
+Es abstrahiert die Datenverarbeitung als Operationen auf "Elementen" und ihren "logischen Positionen (Indizes)" – ähnlich wie "Zeilen" und "Primärschlüssel" in einer Datenbank. Sie können Indizes frei umordnen, verschieben und umkehren, ohne die Daten selbst zu berühren; Sie können auch jeden Container (`vector`, `map`, `array`...) als unteilbares Ganzes innerhalb des Streams übergeben und ihn jederzeit wieder auf Elementebene "auspacken". Diese Fähigkeit, frei zwischen zwei Granularitäten zu wechseln, fehlt in traditionellen Stream-Frameworks. 🎯
 
 ---
 
-## 🏗️ Projektarchitektur: Acht-Schichten-Moduldesign
+## 🏗️ Projektarchitektur: Siebenschichtiges modulares Design
 
-Semantic-Cpp besteht aus **acht Kern-Header-Dateien**, schrittweise aufgebaut, wobei jede Datei eine einzige, klar definierte Verantwortung hat und unabhängig testbar ist. Fünf Namespaces haben jeweils ihre eigene Rolle und arbeiten zusammen, um eine vollständige Pipeline von der Datenquelle zum Endergebnis zu bilden:
+Semantic-Cpp besteht aus sieben Kern-Header-Dateien, die schichtweise aufgebaut sind. Jede Datei hat eine einzige Verantwortung und ist unabhängig testbar. Fünf Namensräume, jeder mit seiner eigenen Zuständigkeit, arbeiten zusammen, um eine vollständige Pipeline von der Datenquelle zum Endergebnis zu bilden:
 
 ```
 ┌─────────────────────────────────────────────────┐
-│               🔧 semantics.h                     │
-│   Namespace: semantic                           │
-│   Stream-Fabrik: numerische Bereiche, Container, Text, Unicode │
+│               🌊 semantics.h                     │
+│   Namensraum: semantic                           │
+│   Stream-Erzeugungs-Fabriken: numerische Bereiche,│
+│   Container, Text, Unicode                       │
 ├─────────────────────────────────────────────────┤
-│                 📦 semantic.h                    │
-│   Namespace: semantic / collectable             │
-│   Stream-Zwischenoperationen, Collectable-System, 10 Container-Spezialisierungen │
+│                 📦 semantic.h                   │
+│   Namensraum: semantic / collectable            │
+│   Stream-Zwischenoperationen, Collectable-      │
+│   System, Container-Entpackungsunterstützung    │
 ├─────────────────────────────────────────────────┤
-│                📊 collectors.h                   │
-│   Namespace: collector                          │
-│   Collector-Fabrik: Matching, Finden, Aggregation, Statistik, DFT/FFT usw. │
+│                ⚙️ collector.h                   │
+│   Namensraum: collector                          │
+│   Collector-Framework + Fabriken: Matching,     │
+│   Finden, Aggregation, Statistik, DFT/FFT      │
 ├─────────────────────────────────────────────────┤
-│                ⚙️ collector.h                    │
-│   Namespace: collector                          │
-│   Collector-Framework: Fünf-Phasen-Modell, Nebenläufigkeits- und Parallelitätsunterstützung │
+│                🔤 charsequence.h               │
+│   Namensraum: charsequence                      │
+│   Unicode-Zeichenfolgen, Multi-Encoding-        │
+│   Konvertierung, Builder, Buffer                │
 ├─────────────────────────────────────────────────┤
-│                🔤 charsequence.h                 │
-│   Namespace: charsequence                       │
-│   Unicode-Zeichensequenzen, Multi-Codierungsumwandlung, Builder, Buffer │
+│                🧵 pool.h                        │
+│   Namensraum: pool                              │
+│   Globaler Thread-Pool: Aufgabenabgabe,         │
+│   Notabschaltung, Ausnahmepropagation          │
 ├─────────────────────────────────────────────────┤
-│                🧵 pool.h                         │
-│   Namespace: pool                               │
-│   Globaler Thread-Pool: Aufgabenübermittlung, Notabschaltung, Ausnahmepropagation │
+│                📄 function.h                    │
+│   Namensraum: function                          │
+│   Typdefinitionen: Aliase für Generator,        │
+│   Supplier, Consumer, usw.                     │
 ├─────────────────────────────────────────────────┤
-│                📄 function.h                     │
-│   Namespace: function                           │
-│   Typdefinitionen: Generator, Supplier, Consumer und andere Aliase │
-├─────────────────────────────────────────────────┤
-│               🔐 hash.h / less.h                 │
-│   Namespace: std (Erweiterung)                  │
-│   Standardbibliotheks-Container-Hash- und Vergleichs-Spezialisierungen, unterstützt beliebige Verschachtelung │
+│               🔐 hash.h / less.h               │
+│   Namensraum: std (Erweiterungen)               │
+│   Standardbibliotheks-Container-Hash & Vergleich│
+│   Spezialisierungen, Unterstützung beliebiger  │
+│   Verschachtelung                               │
 └─────────────────────────────────────────────────┘
 ```
 
-### 🧩 Abhängigkeiten
+### 🧩 Abhängigkeitsgraph
+Die Abhängigkeitskette ist klar und logisch, wie ein sorgfältig entworfener Schaltplan: Der Strom fließt von den grundlegenden Typdefinitionen nach oben, wobei jede Schicht nur von den darunterliegenden Schichten abhängt. Letztendlich laufen alle Pfade in `semantic.h` und `semantics.h` zusammen und bilden die vollständige Stream-Processing-Fähigkeit.
 
 ```
-function.h          ← Keine Abhängigkeiten, Typfundament
+function.h          ← Keine Abhängigkeiten, die Typgrundlage
 pool.h              ← Hängt von function.h ab
-charsequence.h      ← Unabhängiges Modul, Unicode-Behandlung
+charsequence.h      ← Unabhängiges Modul, Unicode-Verarbeitung
 collector.h         ← Hängt von function.h, pool.h ab
-collectors.h        ← Hängt von collector.h, charsequence.h ab
-hash.h / less.h     ← Unabhängige Module, Standardbibliothekserweiterungen
-semantic.h          ← Hängt von allen oben genannten ab
+hash.h / less.h     ← Unabhängige Module, Standardbibliotheks-Erweiterungen
+semantic.h          ← Hängt von allen oben Genannten ab
 semantics.h         ← Hängt von semantic.h ab
 ```
 
 ---
 
-## 🌍 Namespace-Übersicht
+## 🌍 Namensraum-Überblick
 
-Semantic-Cpp entwirft sorgfältig fünf Namespaces, jeder wie eine unabhängige "Abteilung", die ihre eigenen Aufgaben erfüllt und eng zusammenarbeitet:
+Semantic-Cpp entwirft sorgfältig fünf Namensräume, jeder wie eine unabhängige "Abteilung" mit klaren Zuständigkeiten, die jedoch eng zusammenarbeiten:
 
-| Namespace     | Datei              | Verantwortung                     | Kerntypen/-funktionen                                                                 |
-|---------------|-------------------|------------------------------------|--------------------------------------------------------------------------------------|
-| `function`    | function.h        | Typsystemfundament             | Timestamp, Module, Generator<T>, Supplier<R>, Consumer<T>, Predicate<T>, etc.       |
-| `pool`        | pool.h            | Nebenläufige Ausführungs-Engine        | pool::pool (globaler Thread-Pool), submit(), emergencyShutdown()                       |
-| `charsequence`| charsequence.h    | Unicode-String-Behandlung            | charset, Meta, Point, Charsequence, Builder, Buffer, etc.                           |
-| `collector`   | collector.h + collectors.h | Terminale Sammlungsausführung | Collector<E,A,R>, Identity<A>, Accumulator<A,E>, etc.                               |
-| `collectable` | semantic.h        | Materialisierter Datencontainer        | Collectable<E>, OrderedCollectable<E>, UnorderedCollectable<E>, etc.                |
-| `semantic`    | semantic.h + semantics.h | Stream-Konstruktion und Zwischenoperationen | Semantic<E>, useRange(), useFrom(), etc.                                             |
+| Namensraum    | Header-Datei       | Zuständigkeit                                 | Kern-Typen/Funktionen                                                       |
+| :------------ | :----------------- | :------------------------------------------- | :------------------------------------------------------------------------- |
+| function      | function.h         | Typsystem-Grundlage                          | `Timestamp`, `Module`, `Generator<T>`, `Supplier<R>`, `Consumer<T>`, `Predicate<T>` usw. |
+| pool          | pool.h             | Nebenläufige Ausführungs-Engine              | `pool::pool` (globaler Thread-Pool), `submit()`, `emergencyShutdown()`     |
+| charsequence  | charsequence.h     | Unicode-String-Verarbeitung                  | `charset`, `Meta`, `Point`, `Charsequence`, `Builder`, `Buffer` usw.       |
+| collector     | collector.h        | Terminale Sammeloperationen                  | `Collector<E,A,R>`, `Identity<A>`, `Accumulator<A,E>` usw.                 |
+| collectable   | semantic.h         | Materialisierte Datencontainer               | `Collectable<E>`, `OrderedCollectable<E>`, `UnorderedCollectable<E>` usw.  |
+| semantic      | semantic.h<br>semantics.h | Stream-Erzeugung & Zwischenoperationen | `Semantic<E>`, `useRange()`, `useFrom()` usw.                              |
 
-### 🔁 Namespace-Kollaborationsfluss
+### 🔁 Namensraum-Kollaborationsfluss
+Der Datenfluss zwischen Namensräumen ist wie eine Fließbandfertigung in einer Fabrik – Rohmaterial tritt von `semantic` ein, durchläuft schrittweise die Verarbeitung und wird schließlich von `collector` verpackt und versandt. Jeder Schritt hat eine klare Verantwortungsgrenze:
 
 ```cpp
-semantic::useRange(0, 100)          // ← semantic Namespace: Stream erstellen
-    .map(int x { ... })         // ← semantic Namespace: Zwischentransformation
-    .filter(int x { ... })      // ← semantic Namespace: Zwischenfilterung
-    .toUnordered()                  // ← In collectable Namespace konvertieren
-    .toVector();                    // ← Collector aus collector Namespace aufrufen
+semantic::useRange(0, 100)          // ← semantic Namensraum: Stream erzeugen
+    .map(int x { return x * 2; })   // ← semantic Namensraum: Zwischentransformation
+    .filter(int x { return x > 50; }) // ← semantic Namensraum: Zwischenfilter
+    .toUnordered()                  // ← In collectable Namensraum konvertieren
+    .toVector();                    // ← Collector aus collector Namensraum aufrufen
 ```
 
 ---
 
-## 📦 Schicht 1: function.h — Typfundament
+## 📦 Schicht 1: function.h — Typgrundlage
 
-`function.h` definiert das Typsystem für das gesamte Framework, das gemeinsame Fundament für alle Module. 🔑
+`function.h` definiert das Typsystem für das gesamte Framework, die gemeinsame Grundlage aller Module. 🔑
 
 ```cpp
 namespace function {
@@ -107,636 +113,375 @@ namespace function {
     
     template <typename T>
     using Generator = std::function<void(
-        std::function<void(T, Timestamp)>,      // accept – ein Element empfangen
-        std::function<bool(T, Timestamp)>       // interrupt – sollen wir stoppen?
+        std::function<void(T, Timestamp)>,      // accept — ein Element empfangen
+        std::function<bool(T, Timestamp)>       // interrupt — sollen wir anhalten?
     )>;
 }
 ```
 
-`Generator` ist die Kernabstraktion des gesamten Streamingsystems. 🌀 Es gibt keine Daten zurück; stattdessen akzeptiert es zwei Callbacks – `accept` ("Ich bin bereit, bitte empfange dieses Element") und `interrupt` ("Müssen wir stoppen?"). Dieser Inversion-of-Control-Entwurf bedeutet, dass der Datenproduzent keine Ahnung hat, wer der Verbraucher ist; er muss nur Daten zum geeigneten Zeitpunkt "pushen". Dies ist die Essenz der faulen Auswertung: Daten "fließen" erst wirklich, wenn `accept` aufgerufen wird; davor ist alles nur eine Beschreibung.
+`Generator` ist die Kernabstraktion des gesamten Stream-Systems. 🌀 Es gibt keine Daten zurück; stattdessen akzeptiert es zwei Callbacks – `accept` ("Ich bin bereit, bitte akzeptiere dieses Element") und `interrupt` ("sollen wir anhalten?"). Dieses Inversion-of-Control-Design bedeutet, dass der Datenproduzent nichts über den Consumer weiß; er "schiebt" Daten einfach zum geeigneten Zeitpunkt. Das ist die Essenz von Lazy Evaluation: Daten "fließen" erst wirklich, wenn `accept` aufgerufen wird; davor ist alles nur eine Beschreibung.
 
-| Typalias       | Vollständige Definition                                    | Zweck                             |
-|------------------|----------------------------------------------------|-------------------------------------|
-| Timestamp        | long long                                          | Logische Position eines Elements im Stream |
-| Module           | unsigned long long                                 | Anzahl, Kapazität, Nebenläufigkeitsgrad |
-| Runnable         | std::function<void()>                              | Parameterlose, void-zurückgebende Aufgabe |
-| Supplier<R>      | std::function<R()>                                 | Lieferant, erzeugt aus dem Nichts      |
-| Function<T,R>    | std::function<R(T)>                                | Einparameterfunktion           |
-| BiFunction<T,U,R>| std::function<R(T,U)>                              | Zweiparameterfunktion              |
-| TriFunction<T,U,V,R>| std::function<R(T,U,V)>                        | Dreiparameterfunktion            |
-| Unary<T>         | std::function<T(T)>                                | Unäre Operation                     |
-| Binary<T>        | std::function<T(T,T)>                              | Binäre Operation                    |
-| Consumer<T>      | std::function<void(T)>                             | Verbraucher                            |
-| BiConsumer<T,U>  | std::function<void(T,U)>                           | Zweiparameterverbraucher              |
-| TriConsumer<T,U,V>| std::function<void(T,U,V)>                         | Dreiparameterverbraucher            |
-| Predicate<T>     | std::function<bool(T)>                             | Prädikatsbeurteilung                 |
-| BiPredicate<T,U> | std::function<bool(T,U)>                           | Zweiparameterprädikat             |
-| TriPredicate<T,U,V>| std::function<bool(T,U,V)>                     | Dreiparameterprädikat           |
-| Comparator<T>    | std::function<int(const T&,const T&)>              | Komparator, gibt negativ/null/positiv zurück |
-| Generator<T>     | BiConsumer<BiConsumer<T,Timestamp>, BiPredicate<T,Timestamp>> | Kernabstraktion des Stream-Generators |
-
----
-
-## 🧵 Schicht 2: pool.h — Nebenläufigkeitsfundament
-
-`pool.h` stellt den globalen Thread-Pool `pool::pool` bereit, die Nebenläufigkeits-Engine für das gesamte Framework. 🚀 Es verwendet ein deklaratives Parallelitätsdesign:
-
-| Merkmal            | Beschreibung                                                                         |
-|--------------------|-------------------------------------------------------------------------------------|
-| Deklarativer Parallelismus | `.parallel(4)` deklariert nur "Ich möchte 4 Threads verwenden", startet nicht sofort |
-| Notabschaltung   | Eingebaute `emergencyShutdown()` und `std::set_terminate`-Handler                    |
-| Ausnahmepropagation | `submit()` gibt `std::future` zurück, Ausnahmen sicher zum Hauptthread propagierend |
-| Mitglied                       | Typ                | Beschreibung                             |
-|------------------------------|---------------------|-----------------------------------------|
-| `pool::pool`                 | Globale Thread-Pool-Instanz | Programmweiser Singleton-Thread-Pool, automatisch initialisiert |
-| `pool::pool.submit<A>(task)` | Methode              | Übermittelt eine Aufgabe, gibt `std::future<A>` zurück |
-| `pool::pool.emergencyShutdown()` | Methode       | Notabschaltung aller Threads       |
+| Typ-Alias         | Vollständige Definition                              | Zweck                                 |
+| :---------------- | :--------------------------------------------------- | :------------------------------------ |
+| Timestamp         | long long                                            | Logische Position eines Elements im Stream |
+| Module            | unsigned long long                                   | Zählen, Kapazität, Nebenläufigkeitsgrad |
+| Runnable          | std::function<void()>                                | Parameterlose, void-rückgebende Aufgabe |
+| Supplier<R>       | std::function<R()>                                   | Lieferant, erzeugt aus dem Nichts     |
+| Function<T,R>     | std::function<R(T)>                                  | Einzelargument-Funktion               |
+| BiFunction<T,U,R> | std::function<R(T,U)>                                | Zwei-Argument-Funktion                |
+| TriFunction<T,U,V,R> | std::function<R(T,U,V)>                           | Drei-Argument-Funktion                |
+| Unary<T>          | std::function<T(T)>                                  | Unäre Operation                       |
+| Binary<T>         | std::function<T(T,T)>                                | Binäre Operation                      |
+| Consumer<T>       | std::function<void(T)>                               | Consumer (Verbraucher)                |
+| BiConsumer<T,U>   | std::function<void(T,U)>                             | Zwei-Argument-Consumer                |
+| TriConsumer<T,U,V>| std::function<void(T,U,V)>                           | Drei-Argument-Consumer                |
+| Predicate<T>      | std::function<bool(T)>                               | Prädikat-Beurteilung                  |
+| BiPredicate<T,U>  | std::function<bool(T,U)>                             | Zwei-Argument-Prädikat                |
+| TriPredicate<T,U,V>| std::function<bool(T,U,V)>                          | Drei-Argument-Prädikat                |
+| Comparator<T>     | std::function<int(const T&,const T&)>                | Komparator, gibt negativ/null/positiv zurück |
+| Generator<T>      | BiConsumer<BiConsumer<T,Timestamp>,<br>BiPredicate<T,Timestamp>> | Kernabstraktion für Stream-Erzeugung |
 
 ---
 
-## 🔤 Schicht 3: charsequence.h — Unicode-Zeichensequenzen
+## 🧵 Schicht 2: pool.h — Nebenläufigkeitsgrundlage
 
-`charsequence.h` ist ein vollständiges Unicode-Verarbeitungsmodul, das Funktionen zum Erstellen, Konvertieren und Manipulieren von Zeichensequenzen bereitstellt. 🌍 Es unterstützt mehrere Codierungen wie UTF-8, UTF-16 (LE/BE), UTF-32 (LE/BE), ASCII und Latin1, erkennt und behandelt Ersatzpaare korrekt und gibt das standardmäßige U+FFFD-Ersatzzeichen für ungültige Codepoints zurück.
+`pool.h` stellt den globalen Thread-Pool `pool::pool` bereit, die Nebenläufigkeits-Engine für das gesamte Framework. 🚀 Es verwendet ein **deklaratives Parallelismus**-Design – wenn Sie `.parallel(4)` schreiben, startet es nicht sofort vier Threads zur Verarbeitung. Diese Codezeile ist lediglich eine "Deklaration": Sie teilt dem Framework mit, "dass ich 4 Threads zur parallelen Verarbeitung verwenden möchte". Die tatsächliche parallele Ausführung erfolgt, wenn eine terminale Operation aufgerufen wird – also wenn Sie Sammelmethoden wie `toVector()`, `findFirst()`, `count()` usw. aufrufen.
 
-| Typ/Funktion     | Beschreibung                                                                 |
-|-------------------|-----------------------------------------------------------------------------|
-| charset           | Aufzählung: ascii, utf8, utf16, utf16be, utf16le, utf32, utf32be, utf32le, latin1 |
-| Meta              | Metadaten-Wrapper, speichert vorzeichenlose Ganzzahlwerte                          |
-| Point             | Unicode-Codepoint, unterstützt Ersatzpaarerfassung (`isSurrogate()`) und Gültigkeitsüberprüfung (`isValidCodePoint()`) |
-| Charsequence      | Unveränderliche Zeichensequenz: split, replace, indexOf, lastIndexOf, sub, trim, toUpperCase, toLowerCase, reverse, startsWith, endsWith, contains, compare, getBytes, getPoints, getMetas, getCharacters, repeat, concat, count, join |
-| Builder           | Veränderlicher Byte-Builder: prepend, insert, append (unterstützt bool, short, int, long, long long, float, double, long double und entsprechende vorzeichenlose Typen, char, unsigned char, Point, Charsequence, string_view) |
-| Buffer            | Thread-sicherer Ringpuffer: write, read, peek, prepend, append, clear, shrinkToFit, data, size, capacity, atomic (gesperrte Batch-Operationen) |
-| PointIterator     | Bidirektionaler Iterator, durchläuft Unicode-Codepoints                      |
-| sequenceLength()  | Bestimmt die Sequenzlänge für Mehrbyte-Codierungen wie UTF-8 basierend auf dem ersten Byte |
-| encode()          | Codiert einen einzelnen Codepoint in eine Byte-Sequenz der angegebenen Codierung |
-| decode()          | Decodiert den nächsten Codepoint aus einer Byte-Sequenz, bewegt den Zeiger automatisch vorwärts |
-| convert()         | Codierungsumwandlung (unterstützt string, vector<unsigned char>, deque<unsigned char> Ausgabe) |
+| Merkmal             | Beschreibung                                                               |
+| :------------------ | :------------------------------------------------------------------------- |
+| Deklarativer Parallelismus | `.parallel(4)` deklariert nur "ich möchte 4 Threads verwenden", startet nicht sofort |
+| Notabschaltung      | Eingebaute `emergencyShutdown()` und `std::set_terminate`-Handler         |
+| Ausnahmepropagation | `submit()` gibt `std::future` zurück, Ausnahmen werden sicher an den Hauptthread weitergegeben |
 
 ---
 
-## ⚙️ Schicht 4: collector.h — Collector-Framework
+## 🔤 Schicht 3: charsequence.h — Unicode-Zeichenfolgen
 
-`collector.h` implementiert das Collector-Muster, die Kern-Engine für terminale Operationen. 🔧
+`charsequence.h` ist ein vollständiges Unicode-Verarbeitungsmodul, das Funktionalität zum Erstellen, Konvertieren und Bearbeiten von Zeichenfolgen bereitstellt. 🌍 Es unterstützt verschiedene Kodierungen wie UTF-8, UTF-16 (LE/BE), UTF-32 (LE/BE), ASCII und Latin1. Es erkennt und verarbeitet Ersatzpaare korrekt und gibt für ungültige Codepoints das standardmäßige U+FFFD-Ersatzzeichen zurück.
 
-### 🧩 Fünf-Phasen-Modell
+| Typ/Funktion    | Beschreibung                                                               |
+| :-------------- | :------------------------------------------------------------------------- |
+| charset         | Enum: ascii, utf8, utf16, utf16be, utf16le, utf32, utf32be, utf32le, latin1 |
+| Meta            | Metadaten-Wrapper, speichert vorzeichenlose Ganzzahlwerte                  |
+| Point           | Unicode-Codepoint, unterstützt Ersatzpaarerkennung und Gültigkeitsprüfungen |
+| Charsequence    | Unveränderliche Zeichenfolge: split, replace, indexOf, lastIndexOf, sub, trim, toUpperCase, toLowerCase, reverse, startsWith, endsWith, contains, compare, getBytes, getPoints, getMetas, getCharacters, repeat, concat, count, join |
+| Builder         | Veränderlicher Byte-Builder: prepend, insert, append (unterstützt Grundtypen, Point, Charsequence, string_view) |
+| Buffer          | Thread-sicherer Ringpuffer: write, read, peek, prepend, append, clear, shrinkToFit, data, size, capacity, atomic |
+| PointIterator   | Bidirektionaler Iterator zum Durchlaufen von Unicode-Codepoints            |
+| encode()        | Kodiert einen einzelnen Codepoint in eine Bytefolge der angegebenen Kodierung |
+| decode()        | Dekodiert den nächsten Codepoint aus einer Bytefolge, schiebt Zeiger automatisch vor |
+| convert()       | Kodierungskonvertierung (unterstützt string, vector, deque als Ausgabe)    |
 
+---
+
+## ⚙️ Schicht 4: collector.h — Collector-Framework & Fabriken
+
+`collector.h` ist das Kern-Collector-Modul von Semantic-Cpp und vereint das Collector-Framework mit Fabrikfunktionen.
+
+### 🧩 Fünf-Stufen-Modell
 ```
 Identity → Accumulator → Combiner → Finisher
               ↑
            Interrupt (optionaler Kurzschluss)
 ```
 
-Diese fünf Phasen sind wie eine präzise Montagelinie: zuerst den Anfangszustand vorbereiten (Identity), dann Elemente einzeln empfangen und Zwischenergebnisse aktualisieren (Accumulator), danach Teilergebnisse jedes Threads in parallelen Szenarien zusammenführen (Combiner) und schließlich das Zwischenergebnis in die vom Benutzer gewünschte Endform umwandeln (Finisher). Interrupt fungiert wie ein aufmerksamer Aufseher, bereit, den gesamten Prozess jederzeit zu stoppen, wenn Bedingungen erfüllt sind. 🚨
+| Typ-Alias       | Vollständige Definition                        | Rolle                           |
+| :-------------- | :--------------------------------------------- | :------------------------------ |
+| Identity<A>     | function::Supplier<A>                          | Liefert Startwert               |
+| Accumulator<A,E>| function::TriFunction<A, E, Timestamp, A>      | Akkumuliert Elemente            |
+| Combiner<A>     | function::BiFunction<A, A, A>                  | Kombiniert parallele Ergebnisse |
+| Finisher<A,R>   | function::Function<A, R>                       | Finale Transformation           |
+| Interrupt<E,A>  | function::TriPredicate<E, Timestamp, A>        | Kurzschluss-Beurteilung         |
 
-| Typalias       | Vollständige Definition                                 | Rolle                         |
-|------------------|-------------------------------------------------|------------------------------|
-| Identity<A>      | function::Supplier<A>                           | Liefert Anfangswert       |
-| Accumulator<A,E> | function::TriFunction<A, E, Timestamp, A>       | Akkumuliert Elemente         |
-| Combiner<A>      | function::BiFunction<A, A, A>                   | Führt parallele Ergebnisse zusammen      |
-| Finisher<A,R>    | function::Function<A, R>                        | Endgültige Transformation         |
-| Interrupt<E,A>   | function::TriPredicate<E, Timestamp, A>         | Kurzschlussbeurteilung      |
+### Collector-Fabrikfunktionen
 
-### 🔧 Framework-Funktionen
-
-| Funktion                                                               | Beschreibung                         |
-|------------------------------------------------------------------------|-------------------------------------|
-| `useFull(identity, accumulator, combiner, finisher)`                   | Erstellt einen vollständigen Collector (ohne Kurzschluss) |
-| `useShortable(identity, interrupt, accumulator, combiner, finisher)`   | Erstellt einen kurzschließbaren Collector |
-
-### 🧱 `Collector<E,A,R>` Klasse
-
-| Methode                                 | Beschreibung                               |
-|----------------------------------------|-------------------------------------------|
-| `collect(generator, concurrent)`       | Sammelt von einem Generator, unterstützt Parallelismus |
-| `collect(container, concurrent)`       | Sammelt von einem Standardcontainer, unterstützt Parallelismus |
-| `collect(initializer_list, concurrent)`| Sammelt von einer Initialisierungsliste         |
-| `collect(array, concurrent)`           | Sammelt von einem std::array               |
-| `collect(deque, concurrent)`           | Sammelt von einem std::deque              |
-| `collect(forward_list, concurrent)`    | Sammelt von einem std::forward_list       |
-| `collect(stack, concurrent)`           | Sammelt von einem std::stack             |
-| `collect(queue, concurrent)`           | Sammelt von einem std::queue            |
-
-### 🔀 Nebenläufigkeitsunterstützung
-
-`Collector::collect()` behandelt automatisch: Datenpartitionierung (Verteilung auf Threads via Index-Modulo), Ergebniszusammenführung (Zusammenführen von Teilergebnissen via Combiner), Ausnahmepropagation (via `std::exception_ptr` und `std::atomic<bool>`). 🔀
-
----
-
-## 📊 Schicht 5: collectors.h — Collector-Fabrik
-
-`collectors.h` stellt einen reichen Satz vordefinierter Collector-Fabrikfunktionen bereit. Dies ist nicht einfach "ein paar Hilfsfunktionen" – es ist ein vollständiges Arsenal von Datenverarbeitungswerkzeugen, das das gesamte Spektrum vom grundlegenden Matching bis zur Frequenzbereichsanalyse abdeckt. 🔥
-
-### ✅ Matching-Operationen
-
-Möchten Sie wissen, ob alle Elemente im Stream eine Bedingung erfüllen? Oder ob es irgendeinen "Rebellen" gibt? Diese drei geben sofort die Antwort und unterstützen alle Kurzschlussauswertung – Stoppen der Traversierung, sobald die Antwort feststeht. ⚡
-
-| Methode                  | Beschreibung                                | Rückgabetyp |
-|-------------------------|--------------------------------------------|-------------|
-| `useAllMatch(predicate)` | Alle Elemente erfüllen die Bedingung (universeller Quantor) | `bool` |
-| `useAnyMatch(predicate)` | Irgendein Element erfüllt die Bedingung (existenzieller Quantor) | `bool` |
-| `useNoneMatch(predicate)`| Kein Element erfüllt die Bedingung         | `bool` |
-
-### 🔍 Suchoperationen
-
-Finden Sie das gewünschte "es" aus dem weiten Datenmeer. Negative Indizes sind Semantic-Cpps einzigartiges Merkmal – `findAt(-1)` erhält direkt das letzte Element. 🎯
-
-| Methode               | Beschreibung                                   | Rückgabetyp         |
-|----------------------|-----------------------------------------------|---------------------|
-| `useFindFirst()`     | Findet das erste Element                       | `std::optional<E>`  |
-| `useFindLast()`      | Findet das letzte Element                        | `std::optional<E>`  |
-| `useFindAny()`       | Findet irgendein Element zufällig                    | `std::optional<E>`  |
-| `useFindAt(index)`   | Präzise Positionierung: unterstützt positive und negative Indizes | `std::optional<E>` |
-| `useFindMaximum()`   | Findet den Maximalwert (unterstützt benutzerdefinierten Komparator) | `std::optional<E>` |
-| `useFindMinimum()`   | Findet den Minimalwert (unterstützt benutzerdefinierten Komparator) | `std::optional<E>` |
-
-### 🔢 Aggregationsoperationen
-
-Lassen Sie die Daten sprechen, fassen Sie alles mit Zahlen zusammen. Jede Aggregationsmethode unterstützt einen optionalen Mapper-Parameter – Wendet zuerst eine Transformation auf jedes Element an, bevor aggregiert wird. 📈
-
-| Methode               | Beschreibung                     | Rückgabetyp         |
-|----------------------|---------------------------------|---------------------|
-| `useCount()`         | Gesamtanzahl der Elemente        | `Module`            |
-| `useSummate<E,D>()`  | Summation                       | `D`                 |
-| `useAverage<E,D>()`  | Durchschnitt                         | `D`                 |
-| `useRange<E,D>()`    | Numerischer Bereich (max - min)       | `D`                 |
-| `useMinimum<E,D>()`  | Minimalwert                   | `std::optional<D>`  |
-| `useMaximum<E,D>()`  | Maximalwert                   | `std::optional<D>`  |
-
-### 📉 Statistische Operationen
-
-Von deskriptiver Statistik bis zur Frequenzbereichsanalyse, ein Schweizer Taschenmesser für Statistiker. Besonders erwähnenswert sind `useMode()` und `useFrequency()` – sie verwenden Index-Phasen-Codierungstechnologie, kodieren die Positionsinformation jedes Vorkommens eines Elements als Winkel in der komplexen Ebene und nutzen die Euler-Formel, um periodische Muster in den Daten zu erfassen. 🎼
-
-| Methode                          | Beschreibung                               | Rückgabetyp              |
-|---------------------------------|-------------------------------------------|--------------------------|
-| `useVariance<E,D>()`           | Populationsvarianz                       | `D`                      |
-| `useStandardDeviation<E,D>()`  | Populationsstandardabweichung             | `D`                      |
-| `useSkewness<E,D>()`           | Schiefe (Symmetrie der Verteilung)       | `D`                      |
-| `useKurtosis<E,D>()`           | Wölbung (Schwanzdicke der Verteilung) | `D`                      |
-| `useMedian<E,D>()`             | Median                                    | `std::optional<D>`       |
-| `useMode<E>()`                 | Modus (basierend auf Frequenzbereichsanalyse) | `std::optional<E>`       |
-| `usePercentile<E,D>(p)`        | p-tes Perzentil                           | `std::optional<D>`       |
-| `useFrequency<E>()`            | Frequenzbereichsmerkmale (Index-Phasen-Codierung) | `std::map<E, complex>` |
-| `useDistribution<E>()`         | Räumliche Verteilungsmerkmale (Positionscodierung) | `std::map<E, complex>` |
-
-### 🔀 Reduktionsoperationen
-
-Reduktion (Reduce) ist eines der mächtigsten Konzepte in der funktionalen Programmierung – es kann einen Stream in einen einzelnen Wert "falten". 🎁
-
-| Methode                          | Beschreibung                                 | Rückgabetyp         |
-|---------------------------------|---------------------------------------------|---------------------|
-| `useReduce(reducer)`            | Reduktion ohne Anfangswert (gibt nullopt zurück, wenn Stream leer ist) | `std::optional<E>` |
-| `useReduce(identity, reducer)`  | Reduktion mit Anfangswert                | `E`                 |
-| `useReduce(id, red, comb, fin)` | Vollständig benutzerdefiniert: benutzerdefinierte Akkumulation, Kombination, Abschluss | `R`    |
-
-### 🧺 Sammeln in Container-Operationen
-
-Daten, die ihr ganzes Leben durch den Stream gewandert sind, brauchen schließlich ein "Zuhause". Hier sind 20+ Standardbibliothekscontainer zur Auswahl: 🏡
-
-| Methode                           | Beschreibung                         | Rückgabetyp               |
-|----------------------------------|-------------------------------------|---------------------------|
-| `useToVector()`                  | Sammelt in vector, Reihenfolge beibehaltend | `std::vector<E>`         |
-| `useToList()`                    | Sammelt in list                 | `std::list<E>`           |
-| `useToDeque()`                   | Sammelt in deque                | `std::deque<E>`          |
-| `useToForwardList()`             | Sammelt in forward_list         | `std::forward_list<E>`   |
-| `useToArray<N>()`                | Sammelt in feste Größe array     | `std::array<E, N>`       |
-| `useToSet()`                     | Sammelt in set (dedupliziert, sortiert) | `std::set<E>`        |
-| `useToMultiset()`                | Sammelt in multiset             | `std::multiset<E>`       |
-| `useToUnorderedSet()`            | Sammelt in unordered_set        | `std::unordered_set<E>`  |
-| `useToUnorderedMultiset()`       | Sammelt in unordered_multiset   | `std::unordered_multiset<E>` |
-| `useToMap(keyExtractor)`         | Sammelt in map nach Schlüssel           | `std::map<K, E>`         |
-| `useToMap(keyExtractor, valueExtractor)` | Sammelt in map mit benutzerdefiniertem Schlüssel-Wert | `std::map<K, V>` |
-| `useToMultimap(keyExtractor)`    | Sammelt in multimap nach Schlüssel      | `std::multimap<K, E>`    |
-| `useToMultimap(keyExtractor, valueExtractor)` | Sammelt in multimap mit benutzerdefiniertem Schlüssel-Wert | `std::multimap<K, V>` |
-| `useToUnorderedMap(keyExtractor, valueExtractor)` | Sammelt in unordered_map | `std::unordered_map<K, V>` |
-| `useToUnorderedMultimap(keyExtractor)` | Sammelt in unordered_multimap nach Schlüssel | `std::unordered_multimap<K, E>` |
-| `useToUnorderedMultimap(keyExtractor, valueExtractor)` | Sammelt in unordered_multimap mit benutzerdefiniertem Schlüssel-Wert | `std::unordered_multimap<K, V>` |
-| `useToStack()`                   | Sammelt in stack                | `std::stack<E>`          |
-| `useToQueue()`                   | Sammelt in queue                | `std::queue<E>`          |
-| `useToPriorityQueue()`           | Sammelt in priority_queue       | `std::priority_queue<E>` |
-
-### 🧩 Gruppierungs- und Partitionierungsoperationen
-
-Das Äquivalent von SQLs `GROUP BY` in C++. Die Zweiparameter-Versionen von `groupBy` und `partitionBy` ermöglichen es, gleichzeitig sowohl einen Schlüsselextraktor als auch einen Wertextraktor anzugeben – zum Beispiel Mitarbeiter nach Abteilung gruppieren, aber nur Mitarbeiternamen anstelle des gesamten Objekts nehmen. 👥
-
-| Methode                                     | Beschreibung                       | Rückgabetyp                          |
-|--------------------------------------------|-----------------------------------|---------------------------------------|
-| `useGroup(keyExtractor)`                   | Gruppiert nach Schlüssel, behält vollständige Elemente bei | `std::unordered_map<K, vector<E>>` |
-| `useGroupBy(keyExtractor, valueExtractor)` | Gruppiert nach Schlüssel, benutzerdefinierte Wertextraktion | `std::unordered_map<K, vector<V>>` |
-| `usePartition(size)`                       | Partitioniert nach fester Größe         | `std::vector<vector<E>>`             |
-| `usePartitionBy(keyExtractor)`             | Partitioniert nach Indexschlüssel, behält vollständige Elemente bei | `std::vector<vector<E>>` |
-| `usePartitionBy(keyExtractor, valueExtractor)` | Partitioniert nach Indexschlüssel, benutzerdefinierte Wertextraktion | `std::vector<vector<V>>` |
-
-```cpp
-// Nach Abteilung gruppieren, nur Namen behalten
-auto deptNames = people.toUnordered().groupBy(
-    Person p { return p.department; },   // Schlüssel: Abteilung
-    Person p { return p.name; }          // Wert: Name
-);
-// Gibt zurück: unordered_map<string, vector<string>>
-```
-
-### 📃 String-Ausgabeoperationen
-
-Die `useJoin()`, `useOut()`, `useError()`-Serie lässt Ihre Daten in einem menschenlesbaren Format darstellen: 📃
-
-| Methode                               | Beschreibung                 | Rückgabetyp               |
-|--------------------------------------|-----------------------------|---------------------------|
-| `useJoin()`                          | Standardformat-Verbindung: `[elem1,elem2,...]` | `Charsequence`     |
-| `useJoin(delimiter)`                 | Benutzerdefiniertes Trennzeichen           | `Charsequence`            |
-| `useJoin(prefix, delimiter, suffix)` | Vollständig benutzerdefiniertes Format       | `Charsequence`            |
-| `useOut()`                           | Gibt an stdout aus         | `Charsequence`            |
-| `useOut(delimiter)`                  | Gibt an stdout mit Trennzeichen aus | `Charsequence`        |
-| `useOut(prefix, delimiter, suffix)`  | Vollständig benutzerdefinierte Ausgabe an stdout | `Charsequence`        |
-| `useError()`                         | Gibt an stderr aus         | `Charsequence`            |
-| `useError(delimiter)`                | Gibt an stderr mit Trennzeichen aus | `Charsequence`        |
-| `useError(prefix, delimiter, suffix)`| Vollständig benutzerdefinierte Ausgabe an stderr | `Charsequence`        |
-
-### 📊 Mathematische Werkzeuge
-
-| Methode                                     | Beschreibung                         | Rückgabetyp                    |
-|--------------------------------------------|-------------------------------------|--------------------------------|
-| `useDFT()`                                 | Diskrete Fourier-Transformation         | `vector<complex<double>>`      |
-| `useIDFT()`                                | Inverse Diskrete Fourier-Transformation | `vector<complex<double>>`      |
-| `useFFT()`                                 | Schnelle Fourier-Transformation (Cooley-Tukey) | `vector<complex<double>>`  |
-| `useIFFT()`                                | Inverse Schnelle Fourier-Transformation     | `vector<complex<double>>`      |
-| `useGradient(gradFunc, lr, iter, th)`      | Gradientenabstieg (analytischer Gradient) | `vector<double>`         |
-| `useGradient(costFunc, lr, iter, th, h)`   | Gradientenabstieg (numerischer Gradient) | `vector<double>`         |
-
----
-
-## 📦 Schicht 6: semantic.h — Stream-Zwischenoperationen und Sammelsystem
-
----
-
-### 🧩 Kerndesign: Drei-Phasen-Pipeline — `Semantic` → `Collectable` → `Collector`
-
-Viele Streaming-Frameworks vermischen "Zwischenoperationen" und "terminale Operationen" im selben Typ, was unklar macht, wann Daten tatsächlich verarbeitet werden. Semantic-Cpp übernimmt ein grundlegend anderes Drei-Phasen-Trennungsdesign, bei dem jede Phase eine klare Aufgabe und eine deutliche Grenze hat:
-
-```
-┌──────────────────────────────────────────────────────────┐
-│                 🌱 Phase 1: Konstruktion & Transformation │
-│               Semantic<E>  (Semantischer Stream)             │
-│                 Namespace: semantic                       │
-│                                                          │
-│  · Faule Konstruktion: useRange, useFrom, useGenerate... │
-│  · Zwischentransformationen: map, filter, takeWhile, distinct... |
-│  · Indexoperationen: reverse, translate, redirect...    │
-│  · Parallele Deklaration: parallel(n)                     │
-│                                                          │
-│  An diesem Punkt liegen die Daten immer noch "im" Pipeline, bewegungslos, nichts ist passiert. │
-│  Wie wenn Sie einen detaillierten Reiseplan geschrieben haben, aber noch nicht von zu Hause weggegangen sind. │
-└──────────────────┬───────────────────────────────────────┘
-                   │  toUnordered() / toOrdered() /
-                   │  toWindow() / toStatistics() / sort()
-                   ▼
-┌──────────────────────────────────────────────────────────┐
-│                📦 Phase 2: Materialisierung & Sammlung  │
-│           Collectable<E>  (Sammelbares Objekt)           │
-│             Namespace: collectable                       │
-│                                                          │
-│  · Löst Datenfluss aus: Der Generator wird jetzt tatsächlich aufgerufen │
-│  · Wählt Datenstruktur: geordnete map / ungeordnete unordered_map │
-│  · Materialisiert alle Elemente im Speicher                │
-│                                                          │
-│  Die Daten "erwachen" endlich! Sie strömen aus der Pipeline, organisiert in geeignete Container. │
-│  Wie wenn Sie endlich aufgebrochen sind, Gepäck gepackt, bereit zu gehen. │
-└──────────────────┬───────────────────────────────────────┘
-                   │  toVector() / findFirst() / count() /
-                   │  summate() / average() / join() / ...
-                   ▼
-┌──────────────────────────────────────────────────────────┐
-│                ⚙️ Phase 3: Terminalberechnung           │
-│              Collector<E,A,R>                            │
-│               Namespace: collector                       │
-│                                                          │
-│  · Fünf-Phasen-Ausführung: Identity → Accumulate → Combine → Finish │
-│  · Parallelitätsunterstützung: Mehrfädige partitionierte Akkumulation, automatisches Zusammenführen │
-│  · Gibt Endergebnis zurück: vector, optional, double, bool... │
-│                                                          │
-│  Das Endergebnis ist da! Wie wenn Sie Ihr Ziel erreicht und das perfekte Foto gemacht haben. │
-└──────────────────────────────────────────────────────────┘
-```
-
-**Schlüsselregel:** Sie müssen zuerst `Semantic<E>` via `toUnordered()`, `toOrdered()`, `toWindow()`, `toStatistics()` oder `sort()` in `Collectable<E>` konvertieren, bevor Sie terminale Methoden wie `toVector()`, `findFirst()`, `count()` usw. aufrufen können. Diese Methoden sind nicht auf `Semantic` – sie gehören zu `Collectable`. Dies ist kein Versehen, sondern eine bewusste Designentscheidung. ✅
-
----
-
-### 🧭 Fünf Materialisierungspfade, fünf verschiedene Schicksale
-
-Wenn Sie am Scheideweg von `Semantic<E>` stehen, gibt es fünf Richtungen zur Wahl. Jede bestimmt, wie die Daten organisiert, abgefragt und verwendet werden. Die Unterschiede zwischen ihnen zu verstehen, ist der Schlüssel zur Beherrschung von Semantic-Cpp. 🧠
-
-| Konvertierungsmethode  | Zieltyp            | Unterliegende Datenstruktur  | Leistungsmerkmale | Typische terminale Methoden       |
-|--------------------|------------------------|----------------------------|----------------------------|--------------------------------|
-| `toUnordered()`    | UnorderedCollectable<E>| unordered_map<Timestamp,E> | Durchschnittl. O(1)-Suche, höchster Durchsatz | toVector, findFirst, count, group... |
-| `toOrdered()`      | OrderedCollectable<E>  | map<Timestamp,E>           | O(log n)-Suche, nach Index sortiert | toVector, findAt, join, toMap... |
-| `sort()`           | OrderedCollectable<E>  | map<Timestamp,E>           | Nach Wert sortiert materialisiert | Gleich wie oben (aber Index durch Wertreihenfolge überschrieben) |
-| `toWindow()`       | WindowCollectable<E>   | Erbt geordnete Sammlung| Unterstützt slide / tumble    | slide, tumble und alle Elternmethoden |
-| `toStatistics<D>()`| Statistics<E,D>        | Erbt geordnete Sammlung| 30+ eingebaute statistische Methoden | summate, average, median, fft... |
-
-### 🔄 Detaillierter Vergleich der fünf Pfade
-
-| Vergleichsdimension | toUnordered()         | toOrdered()           | sort()                | toWindow()            | toStatistics<D>()    |
-|----------------------|-----------------------|-----------------------|-----------------------|-----------------------|----------------------|
-| Bewahrt Indexreihenfolge? | Nein (ungeordnet)      | Ja (nach ursprünglichem Index) | Nein (nach Wert neu sortiert) | Ja (erbt geordnet) | Ja (erbt geordnet) |
-| Suchleistung   | Schnellste O(1)         | Schneller O(log n)       | Schneller O(log n)       | Schneller O(log n)       | Schneller O(log n)      |
-| Speicherverbrauch         | Niedriger                 | Niedriger                 | Niedriger                 | Niedriger                 | Hängt von statistischer Methode ab |
-| Kann Kette fortsetzen?  | Ja (terminale Methoden) | Ja (terminale Methoden) | Ja (terminale Methoden) | Ja (slide/tumble gibt Semantic zurück) | Ja (terminale Methoden) |
-| Anwendungsfall             | Schnelle Aggregation, wo Reihenfolge keine Rolle spielt | Zeitreihen, Erzeugungsreihenfolge bewahren | Nach Wert sortieren, Rangfolge, Paginierung | Gleitende Fensteranalyse | Mathematische statistische Modellierung |
-
-`sort()` ist der einzige Zwischenoperation, der `toXxx()` überspringt und direkt zu `Collectable` geht. Nach dem Aufruf werden alle vorherigen Indexoperationen (reverse, translate, redirect) überschrieben, und Elemente erhalten natürliche sequenzielle Indizes basierend auf ihren sortierten Werten neu zugewiesen. 🔀
-
-**Welchen Pfad wählen? Fragen Sie sich:** 🤔
-
-* Kümmere ich mich um die Reihenfolge? Wenn ja, verwenden Sie `toOrdered()`; wenn nein, verwenden Sie `toUnordered()`.
-* Brauche ich Fensteranalyse? `toWindow()` dann `slide()` oder `tumble()`.
-* Brauche ich Statistik? `toStatistics<double>()` für eine All-in-One-Lösung.
-* Will ich nur Sortierung? `sort()` in einem Schritt.
-
----
-
-### 📋 collectable Namespace — Alle terminalen Methoden
-
-#### ✅ Matching-Operationen
-
-| Methode               | Rückgabetyp | Beschreibung                 |
-|----------------------|-------------|-----------------------------|
-| `anyMatch(predicate)`  | bool        | Irgendein Element erfüllt Bedingung |
-| `allMatch(predicate)`  | bool        | Alle Elemente erfüllen Bedingung |
-| `noneMatch(predicate)` | bool        | Kein Element erfüllt Bedingung |
+#### ✅ Vergleichsoperationen
+| Methode                     | Beschreibung              | Rückgabetyp |
+| :------------------------- | :------------------------ | :---------- |
+| `useAllMatch(predicate)`   | Alle Elemente erfüllen Bedingung | `bool`      |
+| `useAnyMatch(predicate)`   | Ein Element erfüllt Bedingung | `bool`      |
+| `useNoneMatch(predicate)`  | Kein Element erfüllt Bedingung | `bool`      |
 
 #### 🔍 Suchoperationen
-
-| Methode                     | Rückgabetyp         | Beschreibung                     |
-|----------------------------|---------------------|---------------------------------|
-| `findFirst()`              | std::optional<E>    | Findet das erste Element         |
-| `findLast()`               | std::optional<E>    | Findet das letzte Element          |
-| `findAny()`                | std::optional<E>    | Findet irgendein Element zufällig      |
-| `findAt(index)`            | std::optional<E>    | Findet Element an spezifiziertem Index (unterstützt negativ) |
-| `findMaximum()`            | std::optional<E>    | Findet den Maximalwert         |
-| `findMaximum(comparator)`  | std::optional<E>    | Findet Maximum mit benutzerdefiniertem Komparator |
-| `findMinimum()`            | std::optional<E>    | Findet den Minimalwert         |
-| `findMinimum(comparator)`  | std::optional<E>    | Findet Minimum mit benutzerdefiniertem Komparator |
+| Methode             | Beschreibung                    | Rückgabetyp       |
+| :----------------- | :------------------------------ | :---------------- |
+| `useFindFirst()`   | Finde das erste Element         | `std::optional<E>` |
+| `useFindLast()`    | Finde das letzte Element        | `std::optional<E>` |
+| `useFindAny()`     | Finde ein (beliebiges) Element  | `std::optional<E>` |
+| `useFindAt(index)` | Finde an spezifischem Index (unterstützt negativ) | `std::optional<E>` |
+| `useFindMaximum()` | Finde maximales Element         | `std::optional<E>` |
+| `useFindMinimum()` | Finde minimales Element         | `std::optional<E>` |
 
 #### 🔢 Aggregationsoperationen
+| Methode            | Beschreibung  | Rückgabetyp |
+| :---------------- | :----------- | :---------- |
+| `useCount()`      | Gesamtzahl der Elemente | `Module` |
+| `useSummate<E,D>()`| Summation    | `D`         |
+| `useAverage<E,D>()`| Durchschnitt | `D`         |
+| `useRange<E,D>()` | Zahlenbereich (max - min) | `D` |
 
-| Methode      | Rückgabetyp        | Beschreibung         |
-|-------------|-------------------|---------------------|
-| `count()`   | function::Module  | Zählt Gesamtelemente |
-| `empty()`   | bool              | Ob Stream leer ist |
+#### 📉 Statistische Operationen
+| Methode                        | Beschreibung                | Rückgabetyp         |
+| :---------------------------- | :------------------------- | :------------------ |
+| `useVariance<E,D>()`          | Populationsvarianz          | `D`                 |
+| `useStandardDeviation<E,D>()` | Populationsstandardabweichung | `D`              |
+| `useSkewness<E,D>()`          | Schiefe                    | `D`                 |
+| `useKurtosis<E,D>()`          | Kurtosis (Wölbung)         | `D`                 |
+| `useMedian<E,D>()`            | Median                     | `std::optional<D>`  |
+| `useMode<E>()`                | Modus (Häufigkeitsanalyse) | `std::optional<E>`  |
+| `usePercentile<E,D>(p)`       | p-tes Perzentil           | `std::optional<D>`  |
+| `useFrequency<E>()`           | Frequenzbereichsmerkmale   | `std::map<E, complex>` |
+| `useDistribution<E>()`        | Räumliche Verteilungsmerkmale | `std::map<E, complex>` |
 
 #### 🔀 Reduktionsoperationen
+| Methode                          | Beschreibung          | Rückgabetyp       |
+| :------------------------------ | :------------------- | :---------------- |
+| `useReduce(reducer)`            | Reduktion ohne Identität | `std::optional<E>` |
+| `useReduce(identity, reducer)` | Reduktion mit Identität | `E`              |
+| `useReduce(id, red, comb, fin)`| Vollständig benutzerdefinierte Reduktion | `R` |
 
-| Methode                      | Rückgabetyp         | Beschreibung             |
-|-----------------------------|---------------------|-------------------------|
-| `reduce(accumulator)`       | std::optional<E>    | Reduktion ohne Anfangswert |
-| `reduce(identity, accumulator)` | E           | Reduktion mit Anfangswert |
-| `reduce(identity, acc, combiner)` | R | Vollständig benutzerdefinierte Reduktion |
+#### 🧺 Sammlung in Container
+| Methode                                                              | Rückgabetyp |
+| :------------------------------------------------------------------ | :---------- |
+| `useToVector()`                                                     | `std::vector<E>` |
+| `useToList()`                                                       | `std::list<E>` |
+| `useToDeque()`                                                      | `std::deque<E>` |
+| `useToForwardList()`                                                | `std::forward_list<E>` |
+| `useToArray<N>()`                                                   | `std::array<E, N>` |
+| `useToSet()`                                                        | `std::set<E>` |
+| `useToMultiset()`                                                   | `std::multiset<E>` |
+| `useToUnorderedSet()`                                               | `std::unordered_set<E>` |
+| `useToUnorderedMultiset()`                                          | `std::unordered_multiset<E>` |
+| `useToMap(keyExtractor)`                                            | `std::map<K, E>` |
+| `useToMap(keyExtractor, valueExtractor)`                            | `std::map<K, V>` |
+| `useToMultimap(keyExtractor)`                                       | `std::multimap<K, E>` |
+| `useToMultimap(keyExtractor, valueExtractor)`                       | `std::multimap<K, V>` |
+| `useToUnorderedMap(keyExtractor, valueExtractor)`                   | `std::unordered_map<K, V>` |
+| `useToUnorderedMultimap(keyExtractor)`                              | `std::unordered_multimap<K, E>` |
+| `useToUnorderedMultimap(keyExtractor, valueExtractor)`              | `std::unordered_multimap<K, V>` |
+| `useToStack()`                                                      | `std::stack<E>` |
+| `useToQueue()`                                                      | `std::queue<E>` |
+| `useToPriorityQueue()`                                              | `std::priority_queue<E>` |
 
-#### 🧺 Sammeln in Sequenzcontainer
+#### 🧩 Gruppierungs- & Partitionierungsoperationen
+| Methode                                          | Rückgabetyp |
+| :---------------------------------------------- | :---------- |
+| `useGroup(keyExtractor)`                        | `std::unordered_map<K, vector<E>>` |
+| `useGroupBy(keyExtractor, valueExtractor)`     | `std::unordered_map<K, vector<V>>` |
+| `usePartition(size)`                            | `std::vector<vector<E>>` |
+| `usePartitionBy(keyExtractor)`                  | `std::vector<vector<E>>` |
+| `usePartitionBy(keyExtractor, valueExtractor)`  | `std::vector<vector<V>>` |
 
-| Methode             | Rückgabetyp               | Beschreibung                 |
-|--------------------|---------------------------|-----------------------------|
-| `toVector()`       | std::vector<E>            | Sammelt in vector, Reihenfolge beibehaltend |
-| `toList()`         | std::list<E>              | Sammelt in list          |
-| `toDeque()`        | std::deque<E>             | Sammelt in deque         |
-| `toForwardList()`  | std::forward_list<E>      | Sammelt in forward_list  |
-| `toArray<N>()`     | std::array<E, N>          | Sammelt in feste Größe array |
+#### 📄 String-Ausgabe
+| Methode                               | Rückgabetyp |
+| :----------------------------------- | :---------- |
+| `useJoin()` / `useOut()` / `useError()` und deren Überladungen | `charsequence::Charsequence` |
 
-#### 🔐 Sammeln in assoziative Container
-
-| Methode                                     | Rückgabetyp                        | Beschreibung                 |
-|--------------------------------------------|------------------------------------|-----------------------------|
-| `toSet()`                                  | std::set<E>                        | Sammelt in set (dedupliziert, sortiert) |
-| `toMultiset()`                             | std::multiset<E>                   | Sammelt in multiset      |
-| `toUnorderedSet()`                         | std::unordered_set<E>              | Sammelt in unordered_set |
-| `toUnorderedMultiset()`                    | std::unordered_multiset<E>         | Sammelt in unordered_multiset |
-| `toMap(keyExtractor)`                      | std::map<K, E>                     | Sammelt in map nach Schlüssel    |
-| `toMap(keyExtractor, valueExtractor)`      | std::map<K, V>                     | Sammelt in map mit benutzerdefiniertem Schlüssel-Wert |
-| `toMultimap(keyExtractor)`                 | std::multimap<K, E>                | Sammelt in multimap nach Schlüssel |
-| `toMultimap(keyExtractor, valueExtractor)` | std::multimap<K, V>                | Sammelt in multimap mit benutzerdefiniertem Schlüssel-Wert |
-| `toUnorderedMap(keyExtractor, valueExtractor)` | std::unordered_map<K, V> | Sammelt in unordered_map |
-| `toUnorderedMultimap(keyExtractor)`        | std::unordered_multimap<K, E>      | Sammelt in unordered_multimap nach Schlüssel |
-| `toUnorderedMultimap(keyExtractor, valueExtractor)` | std::unordered_multimap<K, V> | Sammelt in unordered_multimap mit benutzerdefiniertem Schlüssel-Wert |
-
-#### 🧮 Sammeln in Adapter-Container
-
-| Methode                | Rückgabetyp                  | Beschreibung         |
-|-----------------------|-----------------------------|---------------------|
-| `toStack()`           | std::stack<E>               | Sammelt in stack |
-| `toQueue()`           | std::queue<E>               | Sammelt in queue |
-| `toPriorityQueue()`   | std::priority_queue<E>      | Sammelt in priority_queue |
-
-#### 👥 Gruppierung und Partitionierung
-
-| Methode                                     | Rückgabetyp                          | Beschreibung                 |
-|--------------------------------------------|--------------------------------------|-----------------------------|
-| `group(keyExtractor)`                      | std::unordered_map<K, std::vector<E>> | Gruppiert nach Schlüssel, behält vollständige Elemente bei |
-| `groupBy(keyExtractor, valueExtractor)`    | std::unordered_map<K, std::vector<V>> | Gruppiert nach Schlüssel, benutzerdefinierte Wertextraktion |
-| `partition(size)`                          | std::vector<std::vector<E>>         | Partitioniert nach fester Größe   |
-| `partitionBy(keyExtractor)`                | std::vector<std::vector<E>>         | Partitioniert nach Indexschlüssel, behält vollständige Elemente bei |
-| `partitionBy(keyExtractor, valueExtractor)` | std::vector<std::vector<V>>       | Partitioniert nach Indexschlüssel, benutzerdefinierte Wertextraktion |
-
-#### 📃 String-Ausgabeoperationen
-
-| Methode                               | Rückgabetyp               | Beschreibung                 |
-|--------------------------------------|---------------------------|-----------------------------|
-| `join()`                             | charsequence::Charsequence | Standardformat-Verbindung: `[elem1,elem2,...]` |
-| `join(delimiter)`                    | charsequence::Charsequence | Benutzerdefiniertes Trennzeichen           |
-| `join(prefix, delimiter, suffix)`    | charsequence::Charsequence | Vollständig benutzerdefiniertes Format       |
-| `out()`                              | charsequence::Charsequence | Gibt an stdout aus         |
-| `out(delimiter)`                     | charsequence::Charsequence | Gibt an stdout mit Trennzeichen aus |
-| `out(prefix, delimiter, suffix)`     | charsequence::Charsequence | Vollständig benutzerdefinierte Ausgabe an stdout |
-| `error()`                            | charsequence::Charsequence | Gibt an stderr aus         |
-| `error(delimiter)`                   | charsequence::Charsequence | Gibt an stderr mit Trennzeichen aus |
-| `error(prefix, delimiter, suffix)`   | charsequence::Charsequence | Vollständig benutzerdefinierte Ausgabe an stderr |
-
-#### 🔧 Benutzerdefinierte Sammlung und Traversierung
-
-| Methode                                 | Rückgabetyp | Beschreibung                 |
-|----------------------------------------|-------------|-----------------------------|
-| `collect(identity, acc, comb, fin)`    | R           | Benutzerdefinierte Vier-Phasen-Sammlung |
-| `collect(identity, interrupt, acc, comb, fin)` | R | Benutzerdefinierte unterbrechbare Sammlung |
-| `forEach(consumer)`                    | void        | Führt Seiteneffekt für jedes Element aus |
+#### 📊 Mathematische Werkzeuge
+| Methode            | Rückgabetyp |
+| :---------------- | :---------- |
+| `useDFT()`        | `vector<complex<double>>` |
+| `useIDFT()`       | `vector<complex<double>>` |
+| `useFFT()`        | `vector<complex<double>>` |
+| `useIFFT()`       | `vector<complex<double>>` |
+| `useGradient()`   | `vector<double>` |
 
 ---
 
-### 📈 `Statistics<E,D>` — Statistische Methoden
+## 📦 Schicht 5: semantic.h — Stream-Zwischenoperationen & Sammelsystem
 
-| Methode                     | Rückgabetyp              | Beschreibung                               |
-|----------------------------|--------------------------|-------------------------------------------|
-| `summate()`                | D                        | Summation                                 |
-| `average()`                | D                        | Durchschnitt                                   |
-| `minimum()`                | std::optional<D>         | Minimalwert                             |
-| `maximum()`                | std::optional<D>         | Maximalwert                             |
-| `range()`                  | D                        | Bereich (max - min)                         |
-| `variance()`               | D                        | Populationsvarianz                       |
-| `standardDeviation()`      | D                        | Populationsstandardabweichung             |
-| `median()`                 | std::optional<D>         | Median                                    |
-| `mode()`                   | std::optional<E>         | Modus (basierend auf Frequenzbereichsanalyse) |
-| `percentile(p)`            | std::optional<D>         | p-tes Perzentil                           |
-| `firstQuartile()`          | std::optional<D>         | Erstes Quartil (Q1)                       |
-| `thirdQuartile()`          | std::optional<D>         | Drittes Quartil (Q3)                       |
-| `interquartileRange()`     | std::optional<D>         | Interquartilsabstand (IQR = Q3 - Q1)      |
-| `skewness()`               | D                        | Schiefe                                  |
-| `kurtosis()`               | D                        | Wölbung                                  |
-| `frequency()`              | std::map<E, std::complex<double>> | Frequenzbereichsmerkmale (Index-Phasen-Codierung) |
-| `distribute()`             | std::map<E, std::complex<double>> | Räumliche Verteilungsmerkmale (Positionscodierung) |
-| `dft()`                    | std::vector<std::complex<double>> | Diskrete Fourier-Transformation             |
-| `idft()`                   | std::vector<std::complex<double>> | Inverse Diskrete Fourier-Transformation   |
-| `fft()`                    | std::vector<std::complex<double>> | Schnelle Fourier-Transformation                 |
-| `ifft()`                   | std::vector<std::complex<double>> | Inverse Schnelle Fourier-Transformation       |
-| `gradient(gradFunc, lr, iter, th)` | std::vector<double> | Gradientenabstieg (analytischer Gradient)   |
-| `gradient(costFunc, lr, iter, th, h)` | std::vector<double> | Gradientenabstieg (numerischer Gradient) |
-
-Alle oben genannten Methoden unterstützen auch eine optionale Mapper-Parameterversion (z.B. `average(mapper)`), die Elemente zuerst transformiert, bevor Statistik durchgeführt wird.
-
----
-
-### 🧰 Neue Container-Spezialisierungen: Container als Elemente
-
-Dies ist eine der einzigartigsten Eigenschaften von Semantic-Cpp. In traditionellen Streaming-Frameworks ist jedes Element im Stream typischerweise ein Skalarwert – ein int, ein string. Aber in der realen Welt existieren Daten oft in Batches:
-
-* Ein Batch von Sensorablesungen = `std::vector<double>`
-* Ein Satz von Benutzeraufträgen = `std::list<Order>`
-* Eine Schlüssel-Wert-Konfiguration = `std::map<string, string>`
-* Eine feste Größe Matrixzeile = `std::array<float, 4>`
-
-Semantic-Cpp stellt `Semantic`-Template-Spezialisierungen für **10 Standardbibliothekscontainer** bereit:
-
-| Spezialisierter Typ                     | Beschreibung          | Unterstützte Operationen               |
-|--------------------------------------|----------------------|------------------------------------|
-| `Semantic<std::vector<E>>`           | Vector-Container-Stream | Alle Zwischen- + alle terminalen Operationen |
-| `Semantic<std::list<E>>`             | List-Container-Stream   | Gleich wie oben                     |
-| `Semantic<std::deque<E>>`            | Deque-Container-Stream  | Gleich wie oben                     |
-| `Semantic<std::set<E>>`              | Geordneter Set-Container-Stream | Gleich wie oben              |
-| `Semantic<std::unordered_set<E>>`    | Ungeordneter Set-Container-Stream | Gleich wie oben           |
-| `Semantic<std::map<K,V>>`            | Geordneter Map-Container-Stream | Gleich wie oben              |
-| `Semantic<std::unordered_map<K,V>>`  | Ungeordneter Map-Container-Stream | Gleich wie oben           |
-| `Semantic<std::queue<E>>`            | Queue-Container-Stream   | Gleich wie oben                     |
-| `Semantic<std::stack<E>>`            | Stack-Container-Stream   | Gleich wie oben                     |
-| `Semantic<std::array<E,N>>`          | Fester Array-Container-Stream | Gleich wie oben                |
-
-Alle Container-Spezialisierungen unterstützen vollständig: `map`, `filter`, `takeWhile`, `dropWhile`, `distinct`, `sort`, `limit`, `skip`, `reverse`, `translate`, `redirect`, `sub`, `concatenate`, `peek`, `flatMap`, `flat`, `parallel` und alle terminalen Konversionsmethoden. 🔧
-
-```cpp
-// Container-Stream-Beispiel: Mehrere Vektoren in einen Element-Stream abflachen
-auto flattened = semantic::useOf({
-    std::vector<int>{1, 2},
-    std::vector<int>{3, 4, 5}
-}).flatMap(std::vector<int> v {
-    return semantic::useFrom(v).map(int x { return x * 10; });
-}).toOrdered().toVector();
-// Ausgabe: 10 20 30 40 50
+### 🧩 Kerndesign: Drei-Stufen-Pipeline
+```
+Semantic<E> (Konstruktion & Transformation)
+    ↓ toUnordered() / toOrdered() / sort() / toWindow() / toStatistics()
+Collectable<E> (Materialisierung & Sammlung)
+    ↓ toVector() / findFirst() / count() / summate() / ...
+Endergebnis
 ```
 
+**Wichtige Regel**: Ein `Semantic<E>` muss zuerst über `toUnordered()`, `toOrdered()`, `toWindow()`, `toStatistics()` oder `sort()` in ein `Collectable<E>` konvertiert werden, bevor terminale Methoden aufgerufen werden können.
+
+### 🧭 Fünf Materialisierungspfade
+| Konvertierungsmethode   | Zieltyp               | Zugrundeliegende Datenstruktur | Leistungsmerkmal         |
+| :--------------------- | :------------------- | :---------------------------- | :----------------------- |
+| `toUnordered()`        | `UnorderedCollectable` | `unordered_map`              | Durchschnittlich O(1) Nachschlag |
+| `toOrdered()`          | `OrderedCollectable`  | `map`                        | O(log n) Nachschlag      |
+| `sort()`               | `OrderedCollectable`  | `map` (wertesortiert)        | O(log n) Nachschlag      |
+| `toWindow()`           | `WindowCollectable`   | Erbt geordnete Sammlung       | Unterstützt slide/tumble |
+| `toStatistics<D>()`    | `Statistics<E,D>`     | Erbt geordnete Sammlung       | 30+ statistische Methoden |
+
+### 📋 Collectable<E> — Alle terminalen Methoden (alphabetisch geordnet)
+| Methode                                              | Rückgabetyp                 | Beschreibung                                     |
+| :-------------------------------------------------- | :------------------------- | :---------------------------------------------- |
+| `allMatch(predicate)`                               | `bool`                     | Alle Elemente erfüllen Bedingung                |
+| `anyMatch(predicate)`                               | `bool`                     | Ein Element erfüllt Bedingung                   |
+| `average<D>()`                                      | `D`                        | Durchschnitt                                    |
+| `average<D>(mapper)`                                | `D`                        | Durchschnitt nach Mapping                        |
+| `collect(identity, acc, comb, fin)`                | `R`                        | Benutzerdefinierte Vier-Stufen-Sammlung         |
+| `collect(identity, interrupt, acc, comb, fin)`      | `R`                        | Benutzerdefinierte unterbrechbare Sammlung      |
+| `count()`                                           | `Module`                   | Gesamtzahl der Elemente                         |
+| `empty()`                                           | `bool`                     | Ist der Stream leer?                            |
+| `error()`                                           | `void`                     | Ausgabe nach stderr (unterstützt delimiter/prefix/suffix/converter) |
+| `findAny()`                                         | `std::optional<E>`         | Finde ein (beliebiges) Element                  |
+| `findAt(index)`                                     | `std::optional<E>`         | Finde Element an spezifischem Index (unterstützt negativ) |
+| `findFirst()`                                       | `std::optional<E>`         | Finde das erste Element                         |
+| `findLast()`                                        | `std::optional<E>`         | Finde das letzte Element                        |
+| `findMaximum()`                                     | `std::optional<E>`         | Finde das maximale Element                      |
+| `findMaximum(comparator)`                           | `std::optional<E>`         | Finde Maximum mit benutzerdefiniertem Komparator |
+| `findMinimum()`                                     | `std::optional<E>`         | Finde das minimale Element                      |
+| `findMinimum(comparator)`                           | `std::optional<E>`         | Finde Minimum mit benutzerdefiniertem Komparator |
+| `forEach(consumer)`                                 | `void`                     | Führe Seiteneffekt für jedes Element aus        |
+| `group(keyExtractor)`                               | `unordered_map<K, vector<E>>` | Gruppiere nach Schlüssel                     |
+| `groupBy(keyExtractor, valueExtractor)`            | `unordered_map<K, vector<V>>` | Gruppiere nach Schlüssel und extrahiere Wert  |
+| `join()`                                            | `Charsequence`              | Verbinde mit Standardformat                     |
+| `join(delimiter)`                                   | `Charsequence`              | Verbinde mit benutzerdefiniertem Trennzeichen   |
+| `join(prefix, delimiter, suffix)`                  | `Charsequence`              | Verbinde mit vollständig benutzerdefiniertem Format |
+| `noneMatch(predicate)`                              | `bool`                     | Kein Element erfüllt Bedingung                  |
+| `out()`                                             | `Charsequence`              | Ausgabe nach stdout (unterstützt delimiter/prefix/suffix/converter) |
+| `partition(size)`                                   | `vector<vector<E>>`         | Partitioniere nach fester Größe                 |
+| `partitionBy(keyExtractor)`                         | `vector<vector<E>>`         | Partitioniere nach Indexschlüssel               |
+| `partitionBy(keyExtractor, valueExtractor)`         | `vector<vector<V>>`         | Partitioniere nach Indexschlüssel und extrahiere Wert |
+| `range<D>()`                                        | `D`                        | Zahlenbereich (max - min)                       |
+| `range<D>(mapper)`                                  | `D`                        | Zahlenbereich nach Mapping                      |
+| `reduce(accumulator)`                               | `std::optional<E>`         | Reduktion ohne Identität                        |
+| `reduce(identity, accumulator)`                     | `E`                        | Reduktion mit Identität                         |
+| `reduce(identity, acc, comb)`                       | `R`                        | Vollständig benutzerdefinierte Reduktion        |
+| `summate<D>()`                                      | `D`                        | Summation                                       |
+| `summate<D>(mapper)`                                | `D`                        | Summation nach Mapping                          |
+| `toArray<N>()`                                      | `std::array<E, N>`         | Sammle in Array fester Größe                    |
+| `toDeque()`                                         | `std::deque<E>`            | Sammle in deque                                 |
+| `toForwardList()`                                   | `std::forward_list<E>`     | Sammle in forward_list                          |
+| `toList()`                                          | `std::list<E>`             | Sammle in list                                  |
+| `toMap(keyExtractor)`                               | `std::map<K, E>`           | Sammle in map nach Schlüssel                    |
+| `toMap(keyExtractor, valueExtractor)`               | `std::map<K, V>`           | Sammle in map mit benutzerdefiniertem Schlüssel & Wert |
+| `toMultimap(keyExtractor)`                          | `std::multimap<K, E>`      | Sammle in multimap nach Schlüssel               |
+| `toMultimap(keyExtractor, valueExtractor)`          | `std::multimap<K, V>`      | Sammle in multimap mit benutzerdefiniertem Schlüssel & Wert |
+| `toMultiset()`                                      | `std::multiset<E>`         | Sammle in multiset                              |
+| `toPriorityQueue()`                                 | `std::priority_queue<E>`   | Sammle in priority_queue                        |
+| `toQueue()`                                         | `std::queue<E>`            | Sammle in queue                                 |
+| `toSet()`                                           | `std::set<E>`              | Sammle in set (eindeutig & sortiert)            |
+| `toStack()`                                         | `std::stack<E>`            | Sammle in stack                                 |
+| `toUnorderedMap(keyExtractor, valueExtractor)`      | `std::unordered_map<K, V>` | Sammle in unordered_map                         |
+| `toUnorderedMultimap(keyExtractor)`                 | `std::unordered_multimap<K, E>`| Sammle in unordered_multimap nach Schlüssel |
+| `toUnorderedMultimap(keyExtractor, valueExtractor)` | `std::unordered_multimap<K, V>`| Sammle in unordered_multimap mit benutzerdefiniertem Schlüssel & Wert |
+| `toUnorderedMultiset()`                             | `std::unordered_multiset<E>`| Sammle in unordered_multiset                  |
+| `toUnorderedSet()`                                  | `std::unordered_set<E>`    | Sammle in unordered_set                         |
+| `toVector()`                                        | `std::vector<E>`           | Sammle in vector                                |
+
+### 📈 Statistics<E,D> — Statistische Methoden
+| Methode               | Rückgabetyp           | Beschreibung                     |
+| :------------------- | :------------------- | :------------------------------ |
+| `summate()`          | `D`                  | Summation                       |
+| `average()`          | `D`                  | Durchschnitt                    |
+| `minimum()`          | `std::optional<D>`  | Minimalwert                     |
+| `maximum()`          | `std::optional<D>`  | Maximalwert                     |
+| `range()`            | `D`                  | Bereich (max - min)             |
+| `variance()`         | `D`                  | Populationsvarianz              |
+| `standardDeviation()`| `D`                  | Populationsstandardabweichung    |
+| `median()`           | `std::optional<D>`  | Median                          |
+| `mode()`             | `std::optional<E>`  | Modus                           |
+| `percentile(p)`      | `std::optional<D>`  | p-tes Perzentil                 |
+| `firstQuartile()`    | `std::optional<D>`  | Erstes Quartil (Q1)             |
+| `thirdQuartile()`    | `std::optional<D>`  | Drittes Quartil (Q3)            |
+| `interquartileRange()`| `std::optional<D>` | Interquartilsabstand (IQR)      |
+| `skewness()`         | `D`                  | Schiefe                         |
+| `kurtosis()`         | `D`                  | Kurtosis (Wölbung)              |
+| `frequency()`        | `map<E, complex>`   | Frequenzbereichsmerkmale        |
+| `distribute()`       | `map<E, complex>`   | Räumliche Verteilungsmerkmale   |
+| `dft()`              | `vector<complex<double>>` | Diskrete Fourier-Transformation |
+| `idft()`             | `vector<complex<double>>` | Inverse Diskrete Fourier-Transformation |
+| `fft()`              | `vector<complex<double>>` | Schnelle Fourier-Transformation |
+| `ifft()`             | `vector<complex<double>>` | Inverse Schnelle Fourier-Transformation |
+| `gradient(...)`      | `vector<double>`    | Gradientenabstieg               |
+
+Alle oben genannten Methoden unterstützen auch eine optionale `mapper`-Parameterversion.
+
+### 🔧 Semantic<E> Zwischenoperationsmethoden
+| Kategorie      | Methode        | Beschreibung                                   |
+| :------------ | :------------ | :-------------------------------------------- |
+| Elementtransformation | map         | Eins-zu-eins-Mapping-Transformation           |
+|               | flatMap     | Eins-zu-viele-Mapping und Abflachung          |
+|               | flat        | Verschachtelte Streams abflachen (unterstützt Semantic und Container) |
+| Elementfilter | filter      | Bedingte Filterung                            |
+|               | takeWhile   | Nimm solange Bedingung erfüllt                |
+|               | dropWhile   | Verwerfe solange Bedingung erfüllt            |
+|               | distinct    | Duplikate entfernen (unterstützt benutzerdefinierten Komparator) |
+| Größenkontrolle | limit       | Anzahl der Elemente begrenzen                 |
+|               | skip        | Erste n Elemente überspringen                 |
+|               | sub         | Teilbereich extrahieren [start, end)          |
+| Indexoperationen | redirect    | Indizes neu zuordnen                          |
+|               | reverse     | Indizes umkehren                              |
+|               | translate   | Indizes verschieben                           |
+| Beobachtung   | peek        | Jedes Element beobachten (ändert Stream nicht) |
+| Parallele Deklaration | parallel(n) | Nebenläufigkeitsgrad deklarieren              |
+| Verkettung    | concatenate | Semantic/Elemente/Generatoren/Container verketten |
+| Terminale Konvertierung | toUnordered / toOrdered / toWindow / toStatistics / sort | In Collectable konvertieren |
+
 ---
 
-### 🔧 `Semantic<E>` Zwischenoperationsmethoden
-
-| Kategorie     | Methode       | Beschreibung                               |
-|--------------|--------------|-------------------------------------------|
-| Elementtransformation | `map`      | Eins-zu-eins-Mapping-Transformation         |
-|              | `flatMap`  | Eins-zu-viele-Mapping und Abflachung (R vom Rückgabetyp abgeleitet) |
-|              | `flat`     | Abflacht verschachtelte Streams (Elementtyp unverändert) |
-| Elementfilterung | `filter`   | Bedingte Filterung                     |
-|              | `takeWhile`| Nimmt, solange Bedingung wahr ist, stoppt sofort, wenn falsch |
-|              | `dropWhile`| Wirft weg, solange Bedingung wahr ist, bis erstes falsch |
-|              | `distinct` | Deduplizierung (unterstützt benutzerdefinierten Komparator) |
-| Mengenkontrolle | `limit`    | Begrenzt Anzahl der Elemente                 |
-|              | `skip`     | Überspringt erste n Elemente                    |
-|              | `sub`      | Nimmt Teilbereich [start, end)              |
-| Indexoperationen | `redirect` | Ordnet Indizes neu zu                           |
-|              | `reverse`  | Kehrt Indizes um (verwendet negative Indizes)  |
-|              | `translate`| Verschiebt Indizes (fester Wert oder dynamische Funktion) |
-| Beobachtung  | `peek`     | Beobachtet jedes Element (modifiziert Stream nicht) |
-| Parallele Deklaration | `parallel(n)` | Deklariert Parallelitätsgrad        |
-| Verkettung | `concatenate` | Verkettet einen anderen Semantic-Stream oder Standardcontainer |
-| Terminalkonversion | `toUnordered` | Konvertiert zu ungeordnetem Collector   |
-|              | `toOrdered`  | Konvertiert zu geordnetem Collector     |
-|              | `toWindow`   | Konvertiert zu Fenster-Collector      |
-|              | `toStatistics<D>` | Konvertiert zu statistischem Collector |
-
----
-
-## 🔧 Schicht 7: semantics.h — Stream-Fabrikfunktionen
-
-`semantics.h` stellt alle Stream-Fabrikfunktionen bereit. Wenn `semantic.h` das "Gehirn" des Streams ist (verantwortlich für Transformation und Planung), dann ist `semantics.h` das "Herz" – jede Datenreise beginnt hier. ❤️
+## 🔧 Schicht 6: semantics.h — Stream-Erzeugungs-Fabriken
 
 ### 🔢 Numerische Bereichserzeugung
+| Methode                        | Beschreibung                     |
+| :---------------------------- | :------------------------------ |
+| `useRange(start, end)`       | Erzeuge Bereich [start, end)    |
+| `useRange(start, end, step)` | Bereich mit Schrittweite (unterstützt negativ) |
+| `useRangeClosed(start, end)` | Erzeuge geschlossenen Bereich [start, end] |
+| `useRangeClosed(start, end, step)` | Geschlossener Bereich mit Schrittweite |
 
-| Methode                          | Beschreibung                         |
-|---------------------------------|-------------------------------------|
-| `useRange(start, end)`          | Erzeugt numerischen Stream im Bereich [start, end) |
-| `useRange(start, end, step)`    | Bereichserzeugung mit Schritt, unterstützt negativen Schritt |
-| `useRangeClosed(start, end)`    | Erzeugt numerischen Stream im geschlossenen Bereich [start, end] |
-| `useRangeClosed(start, end, step)` | Geschlossene Bereichserzeugung mit Schritt, unterstützt negativen Schritt |
+### ♾️ Unendliche Stromerzeugung
+| Methode                      | Beschreibung                         |
+| :-------------------------- | :--------------------------------- |
+| `useInfinite(seed, generator)`| Unendliche Iteration ab Startwert  |
+| `useGenerate(supplier)`     | Unendliche Aufrufe des Lieferanten |
+| `useGenerate(supplier, limit)`| Begrenzte Anzahl Aufrufe des Lieferanten |
+| `useIterate(seed, generator)` | Unendliche Iteration ab Startwert  |
+| `useIterate(seed, generator, limit)` | Begrenzte Anzahl Iterationen  |
+| `useRandom()`               | Unendlicher Strom von Zufallszahlen |
+| `useRandom(min, max)`       | Zufallszahlenstrom im angegebenen Bereich |
+| `useRandom(min, max, count)`| Zufallszahlenstrom mit angegebenem Bereich und Anzahl |
 
-### ♾️ Unendliche Stream-Erzeugung
+### 📦 Container- & Elementerzeugung
+| Methode                  | Beschreibung                     |
+| :---------------------- | :----------------------------- |
+| `useEmpty()`            | Leeren Stream erzeugen         |
+| `useOf(element)`        | Stream aus einem einzelnen Element erzeugen |
+| `useOf(e1, e2)`         | Stream aus zwei Elementen erzeugen |
+| `useOf(e1, e2, e3)`     | Stream aus drei Elementen erzeugen |
+| `useOf({...})`          | Stream aus Initialisierungsliste erzeugen |
+| `useFrom(container)`    | Stream aus Standardcontainer erzeugen |
+| `useFrom({...})`        | Stream aus Initialisierungsliste erzeugen |
+| `useRepeat(element, count)` | Element n-mal wiederholen     |
 
-| Methode                          | Beschreibung                     |
-|---------------------------------|---------------------------------|
-| `useInfinite(seed, generator)`  | Unendliche Iteration von Startwert |
-| `useGenerate(supplier)`         | Unendliche Aufrufe an Lieferant      |
-| `useGenerate(supplier, limit)`  | Begrenzte Anzahl Aufrufe an Lieferant |
-| `useIterate(seed, generator)`   | Unendliche Iteration von Startwert    |
-| `useIterate(seed, generator, limit)` | Begrenzte Iteration von Startwert |
-| `useRandom()`                   | Unendlicher zufälliger Integer-Stream  |
-| `useRandom(min, max)`           | Unendlicher Zufallszahlenstream in spezifiziertem Bereich (erkennt automatisch Integer/Float) |
-| `useRandom(min, max, count)`    | Zufallszahlenstream mit spezifiziertem Bereich und Anzahl |
-
-### 📦 Container- und Elementkonstruktion
-
-| Methode                | Beschreibung                             |
-|-----------------------|-----------------------------------------|
-| `useEmpty()`          | Erzeugt einen leeren Stream                 |
-| `useOf(element)`      | Erzeugt einen Stream von einem einzelnen Element  |
-| `useOf(e1, e2)`       | Erzeugt einen Stream von zwei Elementen      |
-| `useOf(e1, e2, e3)`   | Erzeugt einen Stream von drei Elementen    |
-| `useOf({...})`        | Erzeugt einen Stream von einer Initialisierungsliste |
-| `useFrom(container)`  | Erzeugt einen Stream von einem beliebigen Standardcontainer (unterstützt Move-Semantik) |
-| `useFrom({...})`      | Erzeugt einen Stream von einer Initialisierungsliste |
-| `useRepeat(element, count)` | Wiederholt das spezifizierte Element n-mal |
-
-### 📄 Textverarbeitung
-
-| Methode                    | Beschreibung                         |
-|---------------------------|-------------------------------------|
-| `useBlob(text)`           | Teilt String in char-Stream Byte für Byte |
-| `useBlob(text, start, end)` | Teilt spezifizierten Bereich eines Strings Byte für Byte |
-| `useBlob(istream)`        | Liest von Eingabestream Zeile für Zeile     |
-| `useBlob(istream, delimiter)` | Liest von Eingabestream nach Trennzeichen |
-| `useText(text)`           | Behandelt String als ganzen Textstream (Charsequence) |
-| `useText(text, delimiter)` | Teilt Text nach Trennzeichen           |
-| `useText(istream)`        | Liest gesamten Inhalt von Eingabestream |
-| `useText(istream, delimiter)` | Liest von Eingabestream nach Trennzeichen |
-
-### 🌍 Unicode-Verarbeitung
-
-| Methode                          | Beschreibung                                   |
-|---------------------------------|-----------------------------------------------|
-| `useSequence(charsequence)`     | Erzeugt Codepoint-Stream von Zeichensequenz |
-| `useSequence(charsequence, start, end)` | Erzeugt Codepoint-Stream von spezifiziertem Bereich der Zeichensequenz |
-| `useSequence(text, encoding)`   | Erzeugt Codepoint-Stream von Text mit spezifizierter Codierung |
-| `useSequence(istream, encoding)` | Erzeugt Codepoint-Stream von Eingabestream mit spezifizierter Codierung |
-| `useCharsequence(charsequence)` | Behandelt Zeichensequenz als ganzen Stream     |
-| `useCharsequence(charsequence, delimiter)` | Teilt Zeichensequenz nach Trennzeichen |
-| `useCharsequence(istream, encoding)` | Liest gesamte Zeichensequenz von Eingabestream |
-| `useCharsequence(istream, delimiter, encoding)` | Liest Zeichensequenz von Eingabestream nach Trennzeichen |
+### 📄 Text- & Unicode-Verarbeitung
+| Methode                      | Beschreibung                         |
+| :-------------------------- | :--------------------------------- |
+| `useBlob(text)`             | Teile String Byte für Byte in char-Stream auf |
+| `useBlob(text, start, end)` | Teile spezifischen Bereich Byte für Byte auf |
+| `useBlob(istream)`          | Lese zeilenweise von Eingabestream |
+| `useBlob(istream, delimiter)` | Lese nach Trennzeichen von Eingabestream |
+| `useText(text)`             | Gesamter Textstream (Charsequence)   |
+| `useText(text, delimiter)`  | Teile Text nach Trennzeichen        |
+| `useText(istream)`          | Lese gesamten Inhalt von Eingabestream |
+| `useSequence(charsequence)` | Erzeuge Codepoint-Stream aus Zeichenfolge |
+| `useSequence(text, encoding)` | Erzeuge Codepoint-Stream aus Text mit angegebener Kodierung |
+| `useCharsequence(charsequence)` | Zeichenfolge als gesamter Stream |
+| `useCharsequence(charsequence, delimiter)` | Teile Zeichenfolge nach Trennzeichen |
 
 ---
 
-## 🔐 Schicht 8: hash.h / less.h — Die universelle Sprache der Container-Welt
+## 🔐 Schicht 7: hash.h / less.h — Die universelle Sprache der Container-Welt
 
-Wenn Sie `distinct()` auf `Semantic<std::vector<E>>` aufrufen, benötigt es intern `std::unordered_set<std::vector<E>>`. Die Standardbibliothek stellt keine Hash-Spezialisierungen für `std::vector` bereit – dies ist eine "Leerstelle", die vom C++-Standardkomitee hinterlassen wurde. Semantic-Cpps `hash.h` und `less.h` schließen diese Lücke vollständig: Bereitstellung vollständiger Hash- und Vergleichsunterstützung für alle Standardbibliothekscontainer (einschließlich verschachtelter Container), Paare, Tupel, Optionals, Varianten, Chrono-Zeittypen, komplexe Zahlen usw. Container beliebiger Tiefe und beliebiger Kombinationen können nun Schlüssel in unordered_sets oder Elemente in sets sein. 🌉
+Bietet vollständige Hash- und Vergleichsunterstützung für alle Standardbibliotheks-Container (einschließlich verschachtelter Container), `pair`, `tuple`, `optional`, `variant`, `chrono`-Zeittypen, `complex`-Zahlen und mehr. Container, die in beliebiger Tiefe und Kombination verschachtelt sind, können nun als Schlüssel in `unordered_set` oder Elemente in `set` verwendet werden. 🌉
 
 ---
 
-## 🚀 Leistungsoptimierungsempfehlungen
+## 🚀 Leistungsoptimierungstipps
 
-1.  **Wählen Sie den richtigen Container:** Verwenden Sie `toUnordered()`, wenn die Reihenfolge keine Rolle spielt, `toOrdered()` oder `sort()`, wenn Sortierung benötigt wird.
-2.  **Nutzen Sie Parallelität gut:** Verwenden Sie `parallel()` für große Datensätze oder zeitaufwändige Verarbeitungslogik, vermeiden Sie blockierende E/A.
-3.  **Optimieren Sie die Operationsreihenfolge:** `filter` früh, `sort` weise.
-4.  **Nutzen Sie faule Auswertung:** Zwischenoperationen führen nicht sofort aus; `takeWhile` und `limit` können frühzeitig beenden.
+1.  **Wählen Sie den richtigen Container**: Verwenden Sie `toUnordered()`, wenn die Reihenfolge keine Rolle spielt, `toOrdered()` oder `sort()`, wenn Sortierung benötigt wird.
+2.  **Nutzung von Parallelismus**: Verwenden Sie `parallel()` für große Datensätze.
+3.  **Optimieren Sie die Operationsreihenfolge**: Filtern Sie früh, sortieren Sie weise.
+4.  **Nutzen Sie Lazy Evaluation**: `takeWhile` und `limit` können frühzeitig beenden.
 
 ---
 

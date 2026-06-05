@@ -318,6 +318,8 @@ class Collectable
         return collectorValue.collect(this->source(), this->concurrent);
     }
 
+    auto semantic() const -> semantic::Semantic<E>;
+
     virtual auto source() const -> function::Generator<E> = 0;
 
     template <typename D>
@@ -1639,21 +1641,12 @@ auto collectable::WindowCollectable<E>::slide(const function::Module &size, cons
     },
                                                      this->concurrent);
 }
-#pragma once
-#include "function.h"
-#include "semantic.h"
-#include "charsequence.h"
-#include <string>
-#include <vector>
-#include <algorithm>
-#include <istream>
-#include <sstream>
-#include <fstream>
-#include <random>
-#include <limits>
-#include <cmath>
-#include <unordered_set>
-#include <type_traits>
+
+template <typename E>
+auto collectable::Collectable<E>::semantic() const -> semantic::Semantic<E>
+{
+    return semantic::Semantic<E>(this->source(), this->concurrent);
+}
 
 namespace semantic
 {
@@ -1671,7 +1664,8 @@ auto useRange(const D &start, const D &end) -> Semantic<D>
             accept(value, index);
             index++;
         }
-    });
+    },
+                       1ULL);
 }
 
 template <typename D>
@@ -1707,7 +1701,8 @@ auto useRange(const D &start, const D &end, const D &step) -> Semantic<D>
                 index++;
             }
         }
-    });
+    },
+                       1ULL);
 }
 
 template <typename D>
@@ -1724,7 +1719,8 @@ auto useRangeClosed(const D &start, const D &end) -> Semantic<D>
             accept(value, index);
             index++;
         }
-    });
+    },
+                       1ULL);
 }
 
 template <typename D>
@@ -1760,7 +1756,8 @@ auto useRangeClosed(const D &start, const D &end, const D &step) -> Semantic<D>
                 index++;
             }
         }
-    });
+    },
+                       1ULL);
 }
 
 template <typename D, typename UnaryFunc,
@@ -1781,7 +1778,8 @@ auto useInfinite(const D &seed, UnaryFunc &&generator) -> Semantic<D>
             current = generator(current);
             index++;
         }
-    });
+    },
+                       1ULL);
 }
 
 template <typename SupplierFunc,
@@ -1802,7 +1800,8 @@ auto useGenerate(SupplierFunc &&supplier) -> Semantic<D>
             accept(value, index);
             index++;
         }
-    });
+    },
+                       1ULL);
 }
 
 template <typename SupplierFunc,
@@ -1823,7 +1822,8 @@ auto useGenerate(SupplierFunc &&supplier, const function::Module &limit) -> Sema
             accept(value, index);
             index++;
         }
-    });
+    },
+                       1ULL);
 }
 
 template <typename D, typename UnaryFunc,
@@ -1844,7 +1844,8 @@ auto useIterate(const D &seed, UnaryFunc &&generator) -> Semantic<D>
             current = generator(current);
             index++;
         }
-    });
+    },
+                       1ULL);
 }
 
 template <typename D, typename UnaryFunc,
@@ -1865,7 +1866,8 @@ auto useIterate(const D &seed, UnaryFunc &&generator, const function::Module &li
             current = generator(current);
             index++;
         }
-    });
+    },
+                       1ULL);
 }
 
 template <typename D>
@@ -1886,7 +1888,8 @@ auto useRandom() -> Semantic<D>
             accept(value, index);
             index++;
         }
-    });
+    },
+                       1ULL);
 }
 
 template <typename D>
@@ -1925,7 +1928,8 @@ auto useRandom(const D &min, const D &max) -> Semantic<D>
                 index++;
             }
         }
-    });
+    },
+                       1ULL);
 }
 
 template <typename D>
@@ -1964,7 +1968,8 @@ auto useRandom(const D &min, const D &max, const function::Module &count) -> Sem
                 index++;
             }
         }
-    });
+    },
+                       1ULL);
 }
 
 template <typename D>
@@ -2000,7 +2005,7 @@ auto useOf(E element1, E element2) -> Semantic<E>
             accept(element2, 1LL);
         }
     },
-                       2LL);
+                       1LL);
 }
 
 template <typename E>
@@ -2020,7 +2025,7 @@ auto useOf(E element1, E element2, E element3) -> Semantic<E>
             accept(element3, 2LL);
         }
     },
-                       3LL);
+                       1LL);
 }
 
 template <typename Container>

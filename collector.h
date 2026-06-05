@@ -42,6 +42,12 @@ using Combiner = function::BiFunction<A, A, A>;
 template <typename A, typename R>
 using Finisher = function::Function<A, R>;
 
+inline pool::ThreadPool &globalPool()
+{
+    static pool::ThreadPool instance;
+    return instance;
+}
+
 template <typename E, typename A, typename R>
 class Collector
 {
@@ -52,22 +58,125 @@ class Collector
     std::unique_ptr<Combiner<A>> combiner;
     std::unique_ptr<Finisher<A, R>> finisher;
 
+    template <typename Container>
+    auto group(const Container &container, const function::Module &concurrent) const -> std::vector<std::future<A>>
+    {
+        std::atomic<bool> hasError{false};
+        std::vector<std::future<A>> futures;
+        futures.reserve(concurrent);
+
+        for (function::Module thread = 0; thread < concurrent; ++thread)
+        {
+            futures.emplace_back(globalPool().submit<A>([this, &container, thread, concurrent, &hasError]() -> A {
+                A identityValue = (*identity)();
+                function::Module index = 0;
+                for (const E &element : container)
+                {
+                    if (hasError.load())
+                    {
+                        break;
+                    }
+                    if ((*interrupt)(element, index, identityValue))
+                    {
+                        break;
+                    }
+                    if (index % concurrent == thread)
+                    {
+                        identityValue = (*accumulator)(identityValue, element, index);
+                    }
+                    ++index;
+                }
+                return identityValue;
+            }));
+        }
+
+        return futures;
+    }
+
+    auto group(const function::Generator<E> &generator, const function::Module &concurrent) const -> std::vector<std::future<A>>
+    {
+        std::atomic<bool> hasError{false};
+        std::vector<std::future<A>> futures;
+        futures.reserve(concurrent);
+
+        for (function::Module thread = 0; thread < concurrent; ++thread)
+        {
+            futures.emplace_back(globalPool().submit<A>([this, thread, &generator, concurrent, &hasError]() -> A {
+                A identityValue = (*identity)();
+                generator(
+                    [thread, &identityValue, concurrent, &hasError, this](E element, function::Timestamp index) -> void {
+                        if (!hasError.load() && index % concurrent == thread)
+                        {
+                            identityValue = (*accumulator)(identityValue, element, index);
+                        }
+                    },
+                    [&identityValue, &hasError, this](E element, function::Timestamp index) -> bool {
+                        return hasError.load() || (*interrupt)(element, index, identityValue);
+                    });
+                return identityValue;
+            }));
+        }
+
+        return futures;
+    }
+
+    auto concatenate(std::vector<std::future<A>> &futures) const -> A
+    {
+        std::exception_ptr firstException;
+        std::mutex exceptionMutex;
+        std::atomic<bool> hasError{false};
+
+        A result = (*identity)();
+        for (auto &future : futures)
+        {
+            try
+            {
+                result = (*combiner)(std::move(result), future.get());
+            }
+            catch (...)
+            {
+                hasError.store(true);
+                std::lock_guard<std::mutex> lock(exceptionMutex);
+                if (!firstException)
+                {
+                    firstException = std::current_exception();
+                }
+            }
+        }
+
+        if (firstException)
+        {
+            std::rethrow_exception(firstException);
+        }
+
+        return result;
+    }
+
   public:
-    Collector(const Identity<A> &identity, const Interrupt<E, A> &interrupt, const Accumulator<A, E> &accumulator, const Combiner<A> &combiner, const Finisher<A, R> &finisher) : identity(std::make_unique<Identity<A>>(identity)), interrupt(std::make_unique<Interrupt<E, A>>(interrupt)), accumulator(std::make_unique<Accumulator<A, E>>(accumulator)), combiner(std::make_unique<Combiner<A>>(combiner)), finisher(std::make_unique<Finisher<A, R>>(finisher)) {}
+    Collector(const Identity<A> &identity, const Interrupt<E, A> &interrupt, const Accumulator<A, E> &accumulator, const Combiner<A> &combiner, const Finisher<A, R> &finisher)
+        : identity(std::make_unique<Identity<A>>(identity)), interrupt(std::make_unique<Interrupt<E, A>>(interrupt)), accumulator(std::make_unique<Accumulator<A, E>>(accumulator)), combiner(std::make_unique<Combiner<A>>(combiner)), finisher(std::make_unique<Finisher<A, R>>(finisher))
+    {
+    }
 
-    Collector(Identity<A> &&identity, Interrupt<E, A> &&interrupt, Accumulator<A, E> &&accumulator, Combiner<A> &&combiner, Finisher<A, R> &&finisher) : identity(std::make_unique<Identity<A>>(std::move(identity))), interrupt(std::make_unique<Interrupt<E, A>>(std::move(interrupt))), accumulator(std::make_unique<Accumulator<A, E>>(std::move(accumulator))), combiner(std::make_unique<Combiner<A>>(std::move(combiner))), finisher(std::make_unique<Finisher<A, R>>(std::move(finisher))) {}
+    Collector(Identity<A> &&identity, Interrupt<E, A> &&interrupt, Accumulator<A, E> &&accumulator, Combiner<A> &&combiner, Finisher<A, R> &&finisher)
+        : identity(std::make_unique<Identity<A>>(std::move(identity))), interrupt(std::make_unique<Interrupt<E, A>>(std::move(interrupt))), accumulator(std::make_unique<Accumulator<A, E>>(std::move(accumulator))), combiner(std::make_unique<Combiner<A>>(std::move(combiner))), finisher(std::make_unique<Finisher<A, R>>(std::move(finisher)))
+    {
+    }
 
-    Collector(Collector<E, A, R> &&other) noexcept : identity(std::move(other.identity)), interrupt(std::move(other.interrupt)), accumulator(std::move(other.accumulator)), combiner(std::move(other.combiner)), finisher(std::move(other.finisher)) {}
+    Collector(Collector<E, A, R> &&other) noexcept
+        : identity(std::move(other.identity)), interrupt(std::move(other.interrupt)), accumulator(std::move(other.accumulator)), combiner(std::move(other.combiner)), finisher(std::move(other.finisher))
+    {
+    }
 
     Collector<E, A, R> &operator=(Collector<E, A, R> &&other) noexcept
     {
         if (this != &other)
         {
-            this->identity = std::move(other.identity);
-            this->interrupt = std::move(other.interrupt);
-            this->accumulator = std::move(other.accumulator);
-            this->combiner = std::move(other.combiner);
-            this->finisher = std::move(other.finisher);
+            identity = std::move(other.identity);
+            interrupt = std::move(other.interrupt);
+            accumulator = std::move(other.accumulator);
+            combiner = std::move(other.combiner);
+            finisher = std::move(other.finisher);
         }
         return *this;
     }
@@ -78,56 +187,20 @@ class Collector
     {
         if (concurrent < 2)
         {
-            A identityValue = (*(this->identity))();
-            generator([&identityValue, this](E element, function::Timestamp index) -> void { identityValue = (*(this->accumulator))(identityValue, element, index); }, [&identityValue, this](E element, function::Timestamp index) -> bool { return (*(this->interrupt))(element, index, identityValue); });
-            return (*(this->finisher))(identityValue);
+            A identityValue = (*identity)();
+            generator(
+                [&identityValue, this](E element, function::Timestamp index) -> void {
+                    identityValue = (*accumulator)(identityValue, element, index);
+                },
+                [&identityValue, this](E element, function::Timestamp index) -> bool {
+                    return (*interrupt)(element, index, identityValue);
+                });
+            return (*finisher)(identityValue);
         }
-        std::atomic<bool> hasError{false};
-        std::exception_ptr firstException;
-        std::mutex exceptionMutex;
-        std::vector<std::future<A>> futures;
-        futures.reserve(concurrent);
-        for (function::Module thread = 0; thread < concurrent; thread++)
-        {
-            futures.emplace_back(pool::pool.submit<A>([this, thread, &generator, concurrent, &hasError]() -> A {
-                A identityValue = (*(this->identity))();
-                generator([thread, &identityValue, concurrent, &hasError, this](E element, function::Timestamp index) -> void {
-                        if (!hasError.load() && index % concurrent == thread) {
-                            identityValue = (*(this->accumulator))(identityValue, element, index);
-                        } }, [&identityValue, &hasError, this](E element, function::Timestamp index) -> bool { return hasError.load() || (*(this->interrupt))(element, index, identityValue); });
-                return identityValue;
-            }));
-        }
-        try
-        {
-            A identityValue = (*(this->identity))();
-            for (std::future<A> &future : futures)
-            {
-                try
-                {
-                    identityValue = (*(this->combiner))(identityValue, future.get());
-                }
-                catch (...)
-                {
-                    hasError.store(true);
-                    std::lock_guard<std::mutex> lock(exceptionMutex);
-                    if (!firstException)
-                    {
-                        firstException = std::current_exception();
-                    }
-                }
-            }
-            if (firstException)
-            {
-                std::rethrow_exception(firstException);
-            }
-            return (*(this->finisher))(identityValue);
-        }
-        catch (...)
-        {
-            hasError.store(true);
-            throw;
-        }
+
+        auto futures = group(generator, concurrent);
+        A result = concatenate(futures);
+        return (*finisher)(result);
     }
 
     template <typename Container>
@@ -135,156 +208,46 @@ class Collector
     {
         if (concurrent < 2)
         {
-            A identityValue = (*(this->identity))();
+            A identityValue = (*identity)();
             function::Timestamp index = 0;
             for (const E &element : container)
             {
-                if ((*(this->interrupt))(element, index, identityValue))
+                if ((*interrupt)(element, index, identityValue))
                 {
                     break;
                 }
-                identityValue = (*(this->accumulator))(identityValue, element, index);
-                index++;
+                identityValue = (*accumulator)(identityValue, element, index);
+                ++index;
             }
-            return (*(this->finisher))(identityValue);
+            return (*finisher)(identityValue);
         }
-        std::atomic<bool> hasError{false};
-        std::exception_ptr firstException;
-        std::mutex exceptionMutex;
-        std::vector<std::future<A>> futures;
-        futures.reserve(concurrent);
-        for (function::Module thread = 0; thread < concurrent; thread++)
-        {
-            futures.emplace_back(pool::pool.submit<A>([this, &container, thread, concurrent, &hasError]() -> A {
-                A identityValue = (*(this->identity))();
-                function::Module index = 0;
-                for (const E &element : container)
-                {
-                    if (hasError.load())
-                    {
-                        break;
-                    }
-                    if ((*(this->interrupt))(element, index, identityValue))
-                    {
-                        break;
-                    }
-                    if (index % concurrent == thread)
-                    {
-                        identityValue = (*(this->accumulator))(identityValue, element, index);
-                    }
-                    index++;
-                }
-                return identityValue;
-            }));
-        }
-        try
-        {
-            A identityValue = (*(this->identity))();
-            for (std::future<A> &future : futures)
-            {
-                try
-                {
-                    identityValue = (*(this->combiner))(identityValue, future.get());
-                }
-                catch (...)
-                {
-                    hasError.store(true);
-                    std::lock_guard<std::mutex> lock(exceptionMutex);
-                    if (!firstException)
-                    {
-                        firstException = std::current_exception();
-                    }
-                }
-            }
-            if (firstException)
-            {
-                std::rethrow_exception(firstException);
-            }
-            return (*(this->finisher))(identityValue);
-        }
-        catch (...)
-        {
-            hasError.store(true);
-            throw;
-        }
+
+        auto futures = group(container, concurrent);
+        A result = concatenate(futures);
+        return (*finisher)(result);
     }
 
     auto collect(const std::initializer_list<E> &container, const function::Module &concurrent) const -> R
     {
         if (concurrent < 2)
         {
-            A identityValue = (*(this->identity))();
+            A identityValue = (*identity)();
             function::Timestamp index = 0;
             for (const E &element : container)
             {
-                if ((*(this->interrupt))(element, index, identityValue))
+                if ((*interrupt)(element, index, identityValue))
                 {
                     break;
                 }
-                identityValue = (*(this->accumulator))(identityValue, element, index);
-                index++;
+                identityValue = (*accumulator)(identityValue, element, index);
+                ++index;
             }
-            return (*(this->finisher))(identityValue);
+            return (*finisher)(identityValue);
         }
-        std::atomic<bool> hasError{false};
-        std::exception_ptr firstException;
-        std::mutex exceptionMutex;
-        std::vector<std::future<A>> futures;
-        futures.reserve(concurrent);
-        for (function::Module thread = 0; thread < concurrent; thread++)
-        {
-            futures.emplace_back(pool::pool.submit<A>([this, &container, thread, concurrent, &hasError]() -> A {
-                A identityValue = (*(this->identity))();
-                function::Module index = 0;
-                for (const E &element : container)
-                {
-                    if (hasError.load())
-                    {
-                        break;
-                    }
-                    if ((*(this->interrupt))(element, index, identityValue))
-                    {
-                        break;
-                    }
-                    if (index % concurrent == thread)
-                    {
-                        identityValue = (*(this->accumulator))(identityValue, element, index);
-                    }
-                    index++;
-                }
-                return identityValue;
-            }));
-        }
-        try
-        {
-            A identityValue = (*(this->identity))();
-            for (std::future<A> &future : futures)
-            {
-                try
-                {
-                    identityValue = (*(this->combiner))(identityValue, future.get());
-                }
-                catch (...)
-                {
-                    hasError.store(true);
-                    std::lock_guard<std::mutex> lock(exceptionMutex);
-                    if (!firstException)
-                    {
-                        firstException = std::current_exception();
-                    }
-                }
-            }
-            if (firstException)
-            {
-                std::rethrow_exception(firstException);
-            }
-            return (*(this->finisher))(identityValue);
-        }
-        catch (...)
-        {
-            hasError.store(true);
-            throw;
-        }
+
+        auto futures = group(container, concurrent);
+        A result = concatenate(futures);
+        return (*finisher)(result);
     }
 
     template <typename T, std::size_t N>
@@ -292,167 +255,69 @@ class Collector
     {
         if (concurrent < 2)
         {
-            A identityValue = (*(this->identity))();
+            A identityValue = (*identity)();
             function::Timestamp index = 0;
             for (const auto &element : container)
             {
-                if ((*(this->interrupt))(element, index, identityValue))
+                if ((*interrupt)(element, index, identityValue))
                 {
                     break;
                 }
-                identityValue = (*(this->accumulator))(identityValue, element, index);
-                index++;
+                identityValue = (*accumulator)(identityValue, element, index);
+                ++index;
             }
-            return (*(this->finisher))(identityValue);
+            return (*finisher)(identityValue);
         }
-        std::atomic<bool> hasError{false};
-        std::exception_ptr firstException;
-        std::mutex exceptionMutex;
-        std::vector<std::future<A>> futures;
-        futures.reserve(concurrent);
-        for (function::Module thread = 0; thread < concurrent; thread++)
-        {
-            futures.emplace_back(pool::pool.submit<A>([this, &container, thread, concurrent, &hasError]() -> A {
-                A identityValue = (*(this->identity))();
-                function::Module index = 0;
-                for (const auto &element : container)
-                {
-                    if (hasError.load())
-                    {
-                        break;
-                    }
-                    if ((*(this->interrupt))(element, index, identityValue))
-                    {
-                        break;
-                    }
-                    if (index % concurrent == thread)
-                    {
-                        identityValue = (*(this->accumulator))(identityValue, element, index);
-                    }
-                    index++;
-                }
-                return identityValue;
-            }));
-        }
-        try
-        {
-            A identityValue = (*(this->identity))();
-            for (std::future<A> &future : futures)
-            {
-                try
-                {
-                    identityValue = (*(this->combiner))(identityValue, future.get());
-                }
-                catch (...)
-                {
-                    hasError.store(true);
-                    std::lock_guard<std::mutex> lock(exceptionMutex);
-                    if (!firstException)
-                    {
-                        firstException = std::current_exception();
-                    }
-                }
-            }
-            if (firstException)
-            {
-                std::rethrow_exception(firstException);
-            }
-            return (*(this->finisher))(identityValue);
-        }
-        catch (...)
-        {
-            hasError.store(true);
-            throw;
-        }
+
+        auto futures = group(container, concurrent);
+        A result = concatenate(futures);
+        return (*finisher)(result);
     }
 
     auto collect(const std::forward_list<E> &container, const function::Module &concurrent) const -> R
     {
-        std::vector<E> temp;
-        temp.reserve(std::distance(container.begin(), container.end()));
-        for (const E &element : container)
+        if (concurrent < 2)
         {
-            temp.push_back(element);
+            A identityValue = (*identity)();
+            function::Timestamp index = 0;
+            for (const E &element : container)
+            {
+                if ((*interrupt)(element, index, identityValue))
+                {
+                    break;
+                }
+                identityValue = (*accumulator)(identityValue, element, index);
+                ++index;
+            }
+            return (*finisher)(identityValue);
         }
-        return collect(temp, concurrent);
+
+        auto futures = group(container, concurrent);
+        A result = concatenate(futures);
+        return (*finisher)(result);
     }
 
     auto collect(const std::deque<E> &container, const function::Module &concurrent) const -> R
     {
         if (concurrent < 2)
         {
-            A identityValue = (*(this->identity))();
+            A identityValue = (*identity)();
             function::Timestamp index = 0;
             for (const E &element : container)
             {
-                if ((*(this->interrupt))(element, index, identityValue))
+                if ((*interrupt)(element, index, identityValue))
                 {
                     break;
                 }
-                identityValue = (*(this->accumulator))(identityValue, element, index);
-                index++;
+                identityValue = (*accumulator)(identityValue, element, index);
+                ++index;
             }
-            return (*(this->finisher))(identityValue);
+            return (*finisher)(identityValue);
         }
-        std::atomic<bool> hasError{false};
-        std::exception_ptr firstException;
-        std::mutex exceptionMutex;
-        std::vector<std::future<A>> futures;
-        futures.reserve(concurrent);
-        for (function::Module thread = 0; thread < concurrent; thread++)
-        {
-            futures.emplace_back(pool::pool.submit<A>([this, &container, thread, concurrent, &hasError]() -> A {
-                A identityValue = (*(this->identity))();
-                function::Module index = 0;
-                for (const E &element : container)
-                {
-                    if (hasError.load())
-                    {
-                        break;
-                    }
-                    if ((*(this->interrupt))(element, index, identityValue))
-                    {
-                        break;
-                    }
-                    if (index % concurrent == thread)
-                    {
-                        identityValue = (*(this->accumulator))(identityValue, element, index);
-                    }
-                    index++;
-                }
-                return identityValue;
-            }));
-        }
-        try
-        {
-            A identityValue = (*(this->identity))();
-            for (std::future<A> &future : futures)
-            {
-                try
-                {
-                    identityValue = (*(this->combiner))(identityValue, future.get());
-                }
-                catch (...)
-                {
-                    hasError.store(true);
-                    std::lock_guard<std::mutex> lock(exceptionMutex);
-                    if (!firstException)
-                    {
-                        firstException = std::current_exception();
-                    }
-                }
-            }
-            if (firstException)
-            {
-                std::rethrow_exception(firstException);
-            }
-            return (*(this->finisher))(identityValue);
-        }
-        catch (...)
-        {
-            hasError.store(true);
-            throw;
-        }
+
+        auto futures = group(container, concurrent);
+        A result = concatenate(futures);
+        return (*finisher)(result);
     }
 
     auto collect(std::stack<E> container, const function::Module &concurrent) const -> R
@@ -463,7 +328,26 @@ class Collector
             temp.push_back(container.top());
             container.pop();
         }
-        return collect(temp, concurrent);
+
+        if (concurrent < 2)
+        {
+            A identityValue = (*identity)();
+            function::Timestamp index = 0;
+            for (const E &element : temp)
+            {
+                if ((*interrupt)(element, index, identityValue))
+                {
+                    break;
+                }
+                identityValue = (*accumulator)(identityValue, element, index);
+                ++index;
+            }
+            return (*finisher)(identityValue);
+        }
+
+        auto futures = group(temp, concurrent);
+        A result = concatenate(futures);
+        return (*finisher)(result);
     }
 
     auto collect(std::queue<E> container, const function::Module &concurrent) const -> R
@@ -474,7 +358,26 @@ class Collector
             temp.push_back(container.front());
             container.pop();
         }
-        return collect(temp, concurrent);
+
+        if (concurrent < 2)
+        {
+            A identityValue = (*identity)();
+            function::Timestamp index = 0;
+            for (const E &element : temp)
+            {
+                if ((*interrupt)(element, index, identityValue))
+                {
+                    break;
+                }
+                identityValue = (*accumulator)(identityValue, element, index);
+                ++index;
+            }
+            return (*finisher)(identityValue);
+        }
+
+        auto futures = group(temp, concurrent);
+        A result = concatenate(futures);
+        return (*finisher)(result);
     }
 };
 

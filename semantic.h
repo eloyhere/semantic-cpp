@@ -49,16 +49,30 @@ class Collectable
     Collectable &operator=(Collectable &&) = default;
 
     template <typename Predicate>
+    auto allMatch(Predicate &&predicate) const -> bool
+    {
+        collector::Collector<E, bool, bool> collectorValue = collector::useAllMatch<E, Predicate>(std::forward<Predicate>(predicate));
+        return collectorValue.collect(this->source(), this->concurrent);
+    }
+
+    template <typename Predicate>
     auto anyMatch(Predicate &&predicate) const -> bool
     {
         collector::Collector<E, bool, bool> collectorValue = collector::useAnyMatch<E, Predicate>(std::forward<Predicate>(predicate));
         return collectorValue.collect(this->source(), this->concurrent);
     }
 
-    template <typename Predicate>
-    auto allMatch(Predicate &&predicate) const -> bool
+    template <typename D>
+    auto average() const -> D
     {
-        collector::Collector<E, bool, bool> collectorValue = collector::useAllMatch<E, Predicate>(std::forward<Predicate>(predicate));
+        collector::Collector<E, std::pair<D, function::Module>, D> collectorValue = collector::useAverage<E, D>();
+        return collectorValue.collect(this->source(), this->concurrent);
+    }
+
+    template <typename D>
+    auto average(const function::Function<E, D> &mapper) const -> D
+    {
+        collector::Collector<E, std::pair<D, function::Module>, D> collectorValue = collector::useAverage<E, D>(mapper);
         return collectorValue.collect(this->source(), this->concurrent);
     }
 
@@ -86,6 +100,31 @@ class Collectable
     {
         collector::Collector<E, function::Module, function::Module> collectorValue = collector::useCount<E>();
         return collectorValue.collect(this->source(), this->concurrent) == 0;
+    }
+
+    auto error() const -> void
+    {
+        collector::Collector<E, charsequence::Builder, charsequence::Charsequence> collectorValue = collector::useError<E>();
+        collectorValue.collect(this->source(), this->concurrent);
+    }
+
+    auto error(const charsequence::Charsequence &delimiter) const -> void
+    {
+        collector::Collector<E, charsequence::Builder, charsequence::Charsequence> collectorValue = collector::useError<E>(delimiter);
+        collectorValue.collect(this->source(), this->concurrent);
+    }
+
+    auto error(const charsequence::Charsequence &prefix, const charsequence::Charsequence &delimiter, const charsequence::Charsequence &suffix) const -> void
+    {
+        collector::Collector<E, charsequence::Builder, charsequence::Charsequence> collectorValue = collector::useError<E>(prefix, delimiter, suffix);
+        collectorValue.collect(this->source(), this->concurrent);
+    }
+
+    template <typename Converter>
+    auto error(const charsequence::Charsequence &prefix, Converter &&converter, const charsequence::Charsequence &suffix) const -> void
+    {
+        collector::Collector<E, charsequence::Builder, charsequence::Charsequence> collectorValue = collector::useError<E>(prefix, std::forward<Converter>(converter), suffix);
+        collectorValue.collect(this->source(), this->concurrent);
     }
 
     auto findAny() const -> std::optional<E>
@@ -159,6 +198,15 @@ class Collectable
         return collectorValue.collect(this->source(), this->concurrent);
     }
 
+    template <typename KeyExtractor, typename ValueExtractor>
+    auto groupBy(KeyExtractor &&keyExtractor, ValueExtractor &&valueExtractor) const -> std::unordered_map<decltype(std::declval<KeyExtractor>()(std::declval<E>())), std::vector<decltype(std::declval<ValueExtractor>()(std::declval<E>()))>>
+    {
+        using K = decltype(std::declval<KeyExtractor>()(std::declval<E>()));
+        using V = decltype(std::declval<ValueExtractor>()(std::declval<E>()));
+        collector::Collector<E, std::unordered_map<K, std::vector<V>>, std::unordered_map<K, std::vector<V>>> collectorValue = collector::useGroupBy<E, K, V, KeyExtractor, ValueExtractor>(std::forward<KeyExtractor>(keyExtractor), std::forward<ValueExtractor>(valueExtractor));
+        return collectorValue.collect(this->source(), this->concurrent);
+    }
+
     auto join() const -> charsequence::Charsequence
     {
         collector::Collector<E, charsequence::Builder, charsequence::Charsequence> collectorValue = collector::useJoin<E>();
@@ -181,6 +229,13 @@ class Collectable
     auto join(const charsequence::Charsequence &prefix, Converter &&converter, const charsequence::Charsequence &suffix) const -> charsequence::Charsequence
     {
         collector::Collector<E, charsequence::Builder, charsequence::Charsequence> collectorValue = collector::useJoin<E>(prefix, std::forward<Converter>(converter), suffix);
+        return collectorValue.collect(this->source(), this->concurrent);
+    }
+
+    template <typename Predicate>
+    auto noneMatch(Predicate &&predicate) const -> bool
+    {
+        collector::Collector<E, bool, bool> collectorValue = collector::useNoneMatch<E>(std::forward<Predicate>(predicate));
         return collectorValue.collect(this->source(), this->concurrent);
     }
 
@@ -209,38 +264,6 @@ class Collectable
         return collectorValue.collect(this->source(), this->concurrent);
     }
 
-    auto error() const -> void
-    {
-        collector::Collector<E, charsequence::Builder, charsequence::Charsequence> collectorValue = collector::useError<E>();
-        collectorValue.collect(this->source(), this->concurrent);
-    }
-
-    auto error(const charsequence::Charsequence &delimiter) const -> void
-    {
-        collector::Collector<E, charsequence::Builder, charsequence::Charsequence> collectorValue = collector::useError<E>(delimiter);
-        collectorValue.collect(this->source(), this->concurrent);
-    }
-
-    auto error(const charsequence::Charsequence &prefix, const charsequence::Charsequence &delimiter, const charsequence::Charsequence &suffix) const -> void
-    {
-        collector::Collector<E, charsequence::Builder, charsequence::Charsequence> collectorValue = collector::useError<E>(prefix, delimiter, suffix);
-        collectorValue.collect(this->source(), this->concurrent);
-    }
-
-    template <typename Converter>
-    auto error(const charsequence::Charsequence &prefix, Converter &&converter, const charsequence::Charsequence &suffix) const -> void
-    {
-        collector::Collector<E, charsequence::Builder, charsequence::Charsequence> collectorValue = collector::useError<E>(prefix, std::forward<Converter>(converter), suffix);
-        collectorValue.collect(this->source(), this->concurrent);
-    }
-
-    template <typename Predicate>
-    auto noneMatch(Predicate &&predicate) const -> bool
-    {
-        collector::Collector<E, bool, bool> collectorValue = collector::useNoneMatch<E>(std::forward<Predicate>(predicate));
-        return collectorValue.collect(this->source(), this->concurrent);
-    }
-
     auto partition(const function::Module &size) const -> std::vector<std::vector<E>>
     {
         collector::Collector<E, std::vector<std::vector<E>>, std::vector<std::vector<E>>> collectorValue = collector::usePartition<E>(size);
@@ -251,6 +274,28 @@ class Collectable
     auto partitionBy(KeyExtractor &&keyExtractor) const -> std::vector<std::vector<E>>
     {
         collector::Collector<E, std::map<function::Timestamp, std::vector<E>>, std::vector<std::vector<E>>> collectorValue = collector::usePartitionBy<E, KeyExtractor>(std::forward<KeyExtractor>(keyExtractor));
+        return collectorValue.collect(this->source(), this->concurrent);
+    }
+
+    template <typename KeyExtractor, typename ValueExtractor>
+    auto partitionBy(KeyExtractor &&keyExtractor, ValueExtractor &&valueExtractor) const -> std::vector<std::vector<decltype(std::declval<ValueExtractor>()(std::declval<E>()))>>
+    {
+        using V = decltype(std::declval<ValueExtractor>()(std::declval<E>()));
+        collector::Collector<E, std::map<function::Timestamp, std::vector<V>>, std::vector<std::vector<V>>> collectorValue = collector::usePartitionBy<E, V, KeyExtractor, ValueExtractor>(std::forward<KeyExtractor>(keyExtractor), std::forward<ValueExtractor>(valueExtractor));
+        return collectorValue.collect(this->source(), this->concurrent);
+    }
+
+    template <typename D>
+    auto range() const -> D
+    {
+        collector::Collector<E, std::pair<D, D>, D> collectorValue = collector::useRange<E, D>();
+        return collectorValue.collect(this->source(), this->concurrent);
+    }
+
+    template <typename D>
+    auto range(const function::Function<E, D> &mapper) const -> D
+    {
+        collector::Collector<E, std::pair<D, D>, D> collectorValue = collector::useRange<E, D>(mapper);
         return collectorValue.collect(this->source(), this->concurrent);
     }
 
@@ -274,6 +319,20 @@ class Collectable
     }
 
     virtual auto source() const -> function::Generator<E> = 0;
+
+    template <typename D>
+    auto summate() const -> D
+    {
+        collector::Collector<E, D, D> collectorValue = collector::useSummate<E, D>();
+        return collectorValue.collect(this->source(), this->concurrent);
+    }
+
+    template <typename D>
+    auto summate(const function::Function<E, D> &mapper) const -> D
+    {
+        collector::Collector<E, D, D> collectorValue = collector::useSummate<E, D>(mapper);
+        return collectorValue.collect(this->source(), this->concurrent);
+    }
 
     template <std::size_t N>
     auto toArray() const -> std::array<E, N>

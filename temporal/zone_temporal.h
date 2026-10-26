@@ -25,7 +25,7 @@ namespace temporal
 {
 
 // A local date-time together with the rules of a time zone. This is the
-// equivalent of java.LocalTime.ZonedDateTime and Temporal.ZonedDateTime, named after
+// equivalent of java.LocalGregoryTime.ZonedDateTime and Temporal.ZonedDateTime, named after
 // the two pieces it joins: the calendar date-time and the zone.
 //
 // A ZoneTemporal stores the *resolved* local date-time, its offset at that
@@ -40,9 +40,9 @@ namespace temporal
 class ZonedGregoryDateTime
 {
   public:
-    using date_time_type = LocalDateTime;
+    using date_time_type = LocalGregoryDateTime;
     using offset_date_time_type = OffsetGregoryDateTime;
-    using date_type = LocalDate;
+    using date_type = LocalGregoryDate;
 
     ZonedGregoryDateTime() = delete;
 
@@ -107,7 +107,7 @@ class ZonedGregoryDateTime
     const Offset &getOffset() const noexcept { return offsetDateTime.getOffset(); }
     const date_time_type &getDateTime() const noexcept { return offsetDateTime.getDateTime(); }
     const date_type &getDate() const noexcept { return offsetDateTime.getDate(); }
-    const LocalTime &getTime() const noexcept { return offsetDateTime.getTime(); }
+    const LocalGregoryTime &getTime() const noexcept { return offsetDateTime.getTime(); }
     const offset_date_time_type &getOffsetDateTime() const noexcept { return offsetDateTime; }
 
     gregory::Year getYear() const noexcept { return getDateTime().getYear(); }
@@ -173,7 +173,7 @@ class ZonedGregoryDateTime
     ZonedGregoryDateTime plus(Timestamp amount, Unit unit,
                               Disambiguation disambiguation = Disambiguation::Compatible) const
     {
-        // LocalTime-based units are exact: add them to the instant, then re-read the
+        // LocalGregoryTime-based units are exact: add them to the instant, then re-read the
         // zone rules. Date-based units move the local calendar date and resolve
         // the result, which is why a DST day is not always 24 hours.
         if (isTimeBased(unit))
@@ -280,8 +280,8 @@ class ZonedGregoryDateTime
         {
             return std::nullopt;
         }
-        const LocalTime LocalTime = LocalTime::ofNanoseconds(secondOfDay * NanosPerSecond + nanoseconds);
-        return ZonedGregoryDateTime(offset_date_time_type(date_time_type(*date, LocalTime), offset), zone);
+        const LocalGregoryTime LocalGregoryTime = LocalGregoryTime::ofNanoseconds(secondOfDay * NanosPerSecond + nanoseconds);
+        return ZonedGregoryDateTime(offset_date_time_type(date_time_type(*date, LocalGregoryTime), offset), zone);
     }
 
     static Timestamp toLocalSeconds(const date_time_type &dateTime) noexcept

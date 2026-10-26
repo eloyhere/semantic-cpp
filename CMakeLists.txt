@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 3.21)
+﻿cmake_minimum_required(VERSION 3.21)
 
 project(
     SemanticCpp
@@ -56,6 +56,7 @@ set(SEMANTIC_CPP_HEADERS
     temporal/zone.h
     temporal/zone_temporal.h
     temporal/instant.h
+    temporal/local_contract.h
     temporal/local_date.h
     temporal/local_date_time.h
     temporal/local_time.h

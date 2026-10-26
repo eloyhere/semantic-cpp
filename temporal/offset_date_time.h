@@ -33,8 +33,8 @@ namespace temporal
 class OffsetGregoryDateTime
 {
   public:
-    using date_time_type = LocalDateTime;
-    using date_type = LocalDate;
+    using date_time_type = LocalGregoryDateTime;
+    using date_type = LocalGregoryDate;
 
     OffsetGregoryDateTime() = delete;
 
@@ -50,7 +50,7 @@ class OffsetGregoryDateTime
 
     constexpr const date_time_type &getDateTime() const noexcept { return dateTime; }
     constexpr const date_type &getDate() const noexcept { return dateTime.getDate(); }
-    constexpr const LocalTime &getTime() const noexcept { return dateTime.getTime(); }
+    constexpr const LocalGregoryTime &getTime() const noexcept { return dateTime.getTime(); }
     constexpr const Offset &getOffset() const noexcept { return offset; }
 
     constexpr gregory::Year getYear() const noexcept { return dateTime.getYear(); }
@@ -92,7 +92,7 @@ class OffsetGregoryDateTime
     // Keep the represented instant and change only the offset: 08:00+08:00
     // becomes 00:00Z. This is the operation that must not be confused with
     // "reinterpret the same wall clock in another zone" (withOffsetSameLocal in
-    // java.LocalTime, which has no counterpart here yet).
+    // java.LocalGregoryTime, which has no counterpart here yet).
     constexpr OffsetGregoryDateTime withOffsetSameInstant(const Offset &offset) const
     {
         const Timestamp utcSeconds = getUtcSeconds();
@@ -105,7 +105,7 @@ class OffsetGregoryDateTime
         }
         return OffsetGregoryDateTime(
             date_time_type(date_type::fromDayNumber(DayNumber(static_cast<std::int32_t>(day))),
-                           LocalTime::ofNanoseconds(secondOfDay * NanosPerSecond + dateTime.getTime().getNanosecond())),
+                           LocalGregoryTime::ofNanoseconds(secondOfDay * NanosPerSecond + dateTime.getTime().getNanosecond())),
             offset);
     }
 
@@ -162,7 +162,7 @@ class OffsetGregoryDateTime
             throw std::out_of_range("temporal: offset date-time outside the supported range");
         }
         return OffsetGregoryDateTime(date_time_type(date_type::fromDayNumber(DayNumber(static_cast<std::int32_t>(day))),
-                                                    LocalTime::ofNanoseconds(secondOfDay * NanosPerSecond)),
+                                                    LocalGregoryTime::ofNanoseconds(secondOfDay * NanosPerSecond)),
                                      offset);
     }
 

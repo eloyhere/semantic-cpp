@@ -20,16 +20,32 @@ Instant::fromUnixSeconds(0).toEpoch();     // 1
 Instant::fromUnixSeconds(0).toProleptic(); // 1704153
 ```
 
-## 2. 本地类型
+## 2. 本地契约与实现
 
-- `LocalTime` 是独立的钟表时间类，不依赖历法；
-- `LocalDate` 是 Gregorian 本地日期（当前为 `BasicDate<gregory::Calendar>` 的别名）；
-- `LocalDateTime` 是 `LocalDate + LocalTime` 的具体类，定义在 `date_time.h`；
-- `OffsetGregoryDateTime` 在 `LocalDateTime` 上加固定 `Offset`；
-- `ZonedGregoryDateTime` 在 `OffsetGregoryDateTime` 上加 `Zone` 规则；
+`LocalDate`、`LocalTime`、`LocalDateTime` 是**编译期契约**，定义在 `local_contract.h`：
+
+- 不是抽象基类，没有继承和虚函数；
+- 通过 traits / `std::void_t` 检查具体类型是否提供所需表达式；
+- 具体实现保持普通值类型，可直接 `constexpr`、可拷贝。
+
+对应的 Gregorian 实现：
+
+- `LocalGregoryDate`：`BasicDate<gregory::Calendar>` 的别名；
+- `LocalGregoryTime`：独立的钟表时间类，不依赖历法；
+- `LocalGregoryDateTime`：`LocalGregoryDate + LocalGregoryTime`，定义在 `date_time.h`；
+- `OffsetGregoryDateTime`：`LocalGregoryDateTime + Offset`；
+- `ZonedGregoryDateTime`：`OffsetGregoryDateTime + Zone`；
 - `gregory::Date` / `gregory::DateTime` / `gregory::OffsetDateTime` / `gregory::ZoneTemporal` 是兼容别名。
 
-`LocalDateTime` 的 `Duration` 运算沿精确时间线跨天；`Period` 只改日历日期，保留墙上时间。
+契约检查示例：
+
+```cpp
+static_assert(LocalDate<LocalGregoryDate>::value);
+static_assert(LocalTime<LocalGregoryTime>::value);
+static_assert(LocalDateTime<LocalGregoryDateTime>::value);
+```
+
+`LocalGregoryDateTime` 的 `Duration` 运算沿精确时间线跨天；`Period` 只改日历日期，保留墙上时间。
 
 ## 3. 日历周期
 
@@ -59,9 +75,9 @@ Instant::fromUnixSeconds(0).toProleptic(); // 1704153
 
 ## 5. 测试
 
-- `tests/test_temporal.cpp`：41 个用例；
-- 全仓库：123 个测试通过；
-- CTest：56 项全部通过，包含每个 public header 的独立编译测试。
+- `tests/test_temporal.cpp`：42 个用例；
+- 全仓库：124 个测试通过；
+- CTest：57 项全部通过，包含每个 public header 的独立编译测试。
 
 ## 6. 尚未完成
 

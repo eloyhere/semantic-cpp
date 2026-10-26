@@ -975,9 +975,9 @@ TEST_CASE("temporal calendar cycles")
 }
 TEST_CASE("temporal local types")
 {
-    const temporal::LocalDate date = temporal::LocalDate::of(Year(2024), Month::January, 1);
-    const temporal::LocalTime time = temporal::LocalTime::of(1, 2, 3, 4);
-    const temporal::LocalDateTime dateTime(date, time);
+    const temporal::LocalGregoryDate date = temporal::LocalGregoryDate::of(Year(2024), Month::January, 1);
+    const temporal::LocalGregoryTime time = temporal::LocalGregoryTime::of(1, 2, 3, 4);
+    const temporal::LocalGregoryDateTime dateTime(date, time);
     CHECK_EQ(dateTime.getDate(), date);
     CHECK_EQ(dateTime.getTime(), time);
     CHECK_EQ(dateTime.getYear(), Year(2024));
@@ -1048,14 +1048,26 @@ TEST_CASE("temporal cycle parents")
 }
 TEST_CASE("temporal concrete type names")
 {
-    static_assert(std::is_same<temporal::LocalDateTime, temporal::gregory::DateTime>::value,
+    static_assert(std::is_same<temporal::LocalGregoryDateTime, temporal::gregory::DateTime>::value,
                   "gregory::DateTime is LocalDateTime");
     static_assert(std::is_same<temporal::OffsetGregoryDateTime, temporal::gregory::OffsetDateTime>::value,
                   "gregory::OffsetDateTime is OffsetGregoryDateTime");
     static_assert(std::is_same<temporal::ZonedGregoryDateTime, temporal::gregory::ZoneTemporal>::value,
                   "gregory::ZoneTemporal is ZonedGregoryDateTime");
-    static_assert(std::is_same<temporal::LocalDate, temporal::gregory::Date>::value, "gregory::Date is LocalDate");
+    static_assert(std::is_same<temporal::LocalGregoryDate, temporal::gregory::Date>::value, "gregory::Date is LocalDate");
 
-    const temporal::LocalDateTime value = temporal::LocalDateTime::of(Year(2024), Month::January, 1, 0, 0);
+    const temporal::LocalGregoryDateTime value = temporal::LocalGregoryDateTime::of(Year(2024), Month::January, 1, 0, 0);
     CHECK_EQ(value.getYear(), Year(2024));
+}
+TEST_CASE("temporal local contracts")
+{
+    static_assert(temporal::LocalDate<temporal::LocalGregoryDate>::value, "LocalGregoryDate satisfies LocalDate");
+    static_assert(temporal::LocalTime<temporal::LocalGregoryTime>::value, "LocalGregoryTime satisfies LocalTime");
+    static_assert(temporal::LocalDateTime<temporal::LocalGregoryDateTime>::value,
+                  "LocalGregoryDateTime satisfies LocalDateTime");
+    static_assert(!temporal::LocalDate<int>::value, "int is not a LocalDate");
+
+    CHECK(temporal::LocalDate<temporal::LocalGregoryDate>::value);
+    CHECK(temporal::LocalTime<temporal::LocalGregoryTime>::value);
+    CHECK(temporal::LocalDateTime<temporal::LocalGregoryDateTime>::value);
 }

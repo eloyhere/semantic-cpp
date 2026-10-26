@@ -6,5 +6,5 @@
 
 namespace temporal
 {
-using Time = LocalTime;
+using Time = LocalGregoryTime;
 } // namespace temporal

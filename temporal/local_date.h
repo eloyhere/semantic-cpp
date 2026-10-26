@@ -1,4 +1,4 @@
-﻿#pragma once
+#pragma once
 
 #include "temporal/types.h"
 
@@ -7,9 +7,8 @@
 namespace temporal
 {
 
-// The Gregorian local date. Only the Gregorian calendar is implemented so far;
-// when another calendar lands, this name becomes the concrete default and the
-// calendar-specific spelling stays explicit.
-using LocalDate = gregory::Date;
+// The Gregorian implementation of the LocalDate contract. The contract itself
+// lives in local_contract.h; this type stays a plain value type.
+using LocalGregoryDate = gregory::Date;
 
 } // namespace temporal

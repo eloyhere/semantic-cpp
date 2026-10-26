@@ -15,6 +15,7 @@
 #include "gregory/weekday.h"
 #include "gregory/year.h"
 #include "instant.h"
+#include "local_contract.h"
 #include "local_date.h"
 #include "local_date_time.h"
 #include "local_time.h"

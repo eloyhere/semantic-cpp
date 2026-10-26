@@ -16,52 +16,52 @@ namespace temporal
 {
 
 // A wall-clock time of day, without a date and without a time zone: the
-// equivalent of java.time.LocalTime, Temporal.PlainTime and Noda Time's
-// LocalTime. Storing nanoseconds within the day keeps it exact and lets LocalTime
+// equivalent of java.time.LocalGregoryTime, Temporal.PlainTime and Noda Time's
+// LocalGregoryTime. Storing nanoseconds within the day keeps it exact and lets LocalGregoryTime
 // share Duration arithmetic with Instant.
 //
-// A LocalTime is always in [00:00:00, 24:00:00); arithmetic wraps modulo one day,
-// which is what LocalTime.plus and PlainTime.add do. It is not an instant: a
+// A LocalGregoryTime is always in [00:00:00, 24:00:00); arithmetic wraps modulo one day,
+// which is what LocalGregoryTime.plus and PlainTime.add do. It is not an instant: a
 // A time alone cannot be compared across calendars or time zones, so conversions
 // to Instant are deliberately absent.
-class LocalTime
+class LocalGregoryTime
 {
   public:
-    constexpr LocalTime() noexcept : nanoseconds(0) {}
+    constexpr LocalGregoryTime() noexcept : nanoseconds(0) {}
 
-    static constexpr LocalTime midnight() noexcept { return LocalTime(0); }
+    static constexpr LocalGregoryTime midnight() noexcept { return LocalGregoryTime(0); }
 
-    static constexpr std::optional<LocalTime> tryOf(int hour, int minute, int second = 0, int nanosecond = 0) noexcept
+    static constexpr std::optional<LocalGregoryTime> tryOf(int hour, int minute, int second = 0, int nanosecond = 0) noexcept
     {
         if (hour < 0 || hour > 23 || minute < 0 || minute > 59 || second < 0 || second > 59 || nanosecond < 0 ||
             nanosecond > 999999999)
         {
             return std::nullopt;
         }
-        return LocalTime(static_cast<Timestamp>(hour) * 3600LL * NanosPerSecond +
+        return LocalGregoryTime(static_cast<Timestamp>(hour) * 3600LL * NanosPerSecond +
                          static_cast<Timestamp>(minute) * 60LL * NanosPerSecond +
                          static_cast<Timestamp>(second) * NanosPerSecond + nanosecond);
     }
 
-    static constexpr LocalTime of(int hour, int minute, int second = 0, int nanosecond = 0)
+    static constexpr LocalGregoryTime of(int hour, int minute, int second = 0, int nanosecond = 0)
     {
-        const std::optional<LocalTime> value = tryOf(hour, minute, second, nanosecond);
+        const std::optional<LocalGregoryTime> value = tryOf(hour, minute, second, nanosecond);
         if (!value)
         {
-            throw std::invalid_argument("temporal: invalid LocalTime of day");
+            throw std::invalid_argument("temporal: invalid LocalGregoryTime of day");
         }
         return *value;
     }
 
-    // Strict, like LocalTime.ofNanoOfDay: the value must already be inside one
+    // Strict, like LocalGregoryTime.ofNanoOfDay: the value must already be inside one
     // day. Arithmetic uses the private constructor instead.
-    static constexpr LocalTime ofNanoseconds(Timestamp nanosecondsOfDay)
+    static constexpr LocalGregoryTime ofNanoseconds(Timestamp nanosecondsOfDay)
     {
         if (nanosecondsOfDay < 0 || nanosecondsOfDay >= NanosPerDay)
         {
-            throw std::invalid_argument("temporal: LocalTime of day outside [0, 24h)");
+            throw std::invalid_argument("temporal: LocalGregoryTime of day outside [0, 24h)");
         }
-        return LocalTime(nanosecondsOfDay);
+        return LocalGregoryTime(nanosecondsOfDay);
     }
 
     constexpr Timestamp getNanoseconds() const noexcept { return nanoseconds; }
@@ -80,8 +80,8 @@ class LocalTime
 
     constexpr int getNanosecond() const noexcept { return static_cast<int>(nanoseconds % NanosPerSecond); }
 
-    // LocalTime-of-day arithmetic wraps: 23:00 + 2h is 01:00, not an error.
-    constexpr LocalTime plus(const Duration &duration) const
+    // LocalGregoryTime-of-day arithmetic wraps: 23:00 + 2h is 01:00, not an error.
+    constexpr LocalGregoryTime plus(const Duration &duration) const
     {
         Timestamp seconds = duration.getSeconds() % SecondsPerDay;
         Timestamp total = nanoseconds + seconds * NanosPerSecond + duration.getNanoseconds();
@@ -90,17 +90,17 @@ class LocalTime
         {
             total += NanosPerDay;
         }
-        return LocalTime(total);
+        return LocalGregoryTime(total);
     }
 
-    constexpr LocalTime minus(const Duration &duration) const { return plus(duration.negated()); }
+    constexpr LocalGregoryTime minus(const Duration &duration) const { return plus(duration.negated()); }
 
-    constexpr LocalTime operator+(const Duration &duration) const { return plus(duration); }
-    constexpr LocalTime operator-(const Duration &duration) const { return minus(duration); }
+    constexpr LocalGregoryTime operator+(const Duration &duration) const { return plus(duration); }
+    constexpr LocalGregoryTime operator-(const Duration &duration) const { return minus(duration); }
 
-    // Signed LocalTime line distance: 01:00.until(23:00) is +22h,
-    // 23:00.until(01:00) is -22h, matching LocalTime.until.
-    constexpr Duration until(const LocalTime &other) const
+    // Signed LocalGregoryTime line distance: 01:00.until(23:00) is +22h,
+    // 23:00.until(01:00) is -22h, matching LocalGregoryTime.until.
+    constexpr Duration until(const LocalGregoryTime &other) const
     {
         return Duration::ofNanoseconds(other.nanoseconds - nanoseconds);
     }
@@ -118,7 +118,7 @@ class LocalTime
         case Field::NanosecondOfSecond:
             return getNanosecond();
         default:
-            throw std::invalid_argument("temporal: field is not a LocalTime-of-day field");
+            throw std::invalid_argument("temporal: field is not a LocalGregoryTime-of-day field");
         }
     }
 
@@ -130,7 +130,7 @@ class LocalTime
 
     // HH:MM:SS with an optional fractional second (1..9 digits on input, trailing
     // zeros trimmed on output). Reduced precision HH:MM is accepted on input.
-    static constexpr std::optional<LocalTime> tryParse(std::string_view text) noexcept
+    static constexpr std::optional<LocalGregoryTime> tryParse(std::string_view text) noexcept
     {
         if (text.size() != 5 && text.size() != 8 && (text.size() < 10 || text.size() > 18))
         {
@@ -186,12 +186,12 @@ class LocalTime
         return tryOf(hour, minute, second, static_cast<int>(nanosecond));
     }
 
-    static constexpr LocalTime parse(std::string_view text)
+    static constexpr LocalGregoryTime parse(std::string_view text)
     {
-        const std::optional<LocalTime> value = tryParse(text);
+        const std::optional<LocalGregoryTime> value = tryParse(text);
         if (!value)
         {
-            throw std::invalid_argument("temporal: invalid LocalTime text");
+            throw std::invalid_argument("temporal: invalid LocalGregoryTime text");
         }
         return *value;
     }
@@ -224,15 +224,15 @@ class LocalTime
         return text;
     }
 
-    constexpr bool operator==(const LocalTime &other) const noexcept { return nanoseconds == other.nanoseconds; }
-    constexpr bool operator!=(const LocalTime &other) const noexcept { return nanoseconds != other.nanoseconds; }
-    constexpr bool operator<(const LocalTime &other) const noexcept { return nanoseconds < other.nanoseconds; }
-    constexpr bool operator<=(const LocalTime &other) const noexcept { return nanoseconds <= other.nanoseconds; }
-    constexpr bool operator>(const LocalTime &other) const noexcept { return nanoseconds > other.nanoseconds; }
-    constexpr bool operator>=(const LocalTime &other) const noexcept { return nanoseconds >= other.nanoseconds; }
+    constexpr bool operator==(const LocalGregoryTime &other) const noexcept { return nanoseconds == other.nanoseconds; }
+    constexpr bool operator!=(const LocalGregoryTime &other) const noexcept { return nanoseconds != other.nanoseconds; }
+    constexpr bool operator<(const LocalGregoryTime &other) const noexcept { return nanoseconds < other.nanoseconds; }
+    constexpr bool operator<=(const LocalGregoryTime &other) const noexcept { return nanoseconds <= other.nanoseconds; }
+    constexpr bool operator>(const LocalGregoryTime &other) const noexcept { return nanoseconds > other.nanoseconds; }
+    constexpr bool operator>=(const LocalGregoryTime &other) const noexcept { return nanoseconds >= other.nanoseconds; }
 
   private:
-    explicit constexpr LocalTime(Timestamp nanosecondsOfDay) noexcept : nanoseconds(nanosecondsOfDay) {}
+    explicit constexpr LocalGregoryTime(Timestamp nanosecondsOfDay) noexcept : nanoseconds(nanosecondsOfDay) {}
 
     static constexpr int digitValue(char value) noexcept { return value >= '0' && value <= '9' ? value - '0' : -1; }
 
@@ -264,9 +264,9 @@ class LocalTime
 
 namespace std
 {
-template <> struct hash<temporal::LocalTime>
+template <> struct hash<temporal::LocalGregoryTime>
 {
-    size_t operator()(const temporal::LocalTime &value) const noexcept
+    size_t operator()(const temporal::LocalGregoryTime &value) const noexcept
     {
         return hash<temporal::Timestamp>{}(value.getNanoseconds());
     }

@@ -1009,7 +1009,8 @@ TEST_CASE("temporal cycle lengths")
     CHECK_EQ(week.lengthOfDay(), 7);
     CHECK_EQ(week.lengthOfWeek(), 1);
 
-    const temporal::Month february(24289, 2, Instant::fromUnixSeconds(1706745600), Instant::fromUnixSeconds(1709251200));
+    const temporal::Month february(24289, 2, Instant::fromUnixSeconds(1706745600),
+                                   Instant::fromUnixSeconds(1709251200));
     CHECK_EQ(february.lengthOfDay(), 29);
     CHECK_EQ(february.lengthOfWeek(), 4);
 
@@ -1044,4 +1045,17 @@ TEST_CASE("temporal cycle parents")
     CHECK_EQ(detached.getEra(), nullptr);
     detached.setEra(&era);
     CHECK_EQ(detached.getEra(), &era);
+}
+TEST_CASE("temporal concrete type names")
+{
+    static_assert(std::is_same<temporal::LocalDateTime, temporal::gregory::DateTime>::value,
+                  "gregory::DateTime is LocalDateTime");
+    static_assert(std::is_same<temporal::OffsetGregoryDateTime, temporal::gregory::OffsetDateTime>::value,
+                  "gregory::OffsetDateTime is OffsetGregoryDateTime");
+    static_assert(std::is_same<temporal::ZonedGregoryDateTime, temporal::gregory::ZoneTemporal>::value,
+                  "gregory::ZoneTemporal is ZonedGregoryDateTime");
+    static_assert(std::is_same<temporal::LocalDate, temporal::gregory::Date>::value, "gregory::Date is LocalDate");
+
+    const temporal::LocalDateTime value = temporal::LocalDateTime::of(Year(2024), Month::January, 1, 0, 0);
+    CHECK_EQ(value.getYear(), Year(2024));
 }

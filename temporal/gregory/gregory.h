@@ -11,11 +11,8 @@
 #include <string_view>
 
 #include "../calendar.h"
-#include "../date_time.h"
-#include "../offset_date_time.h"
 #include "../overflow.h"
 #include "../period.h"
-#include "../zone_temporal.h"
 #include "era.h"
 #include "month.h"
 #include "weekday.h"
@@ -98,10 +95,10 @@ inline void appendTwoDigits(std::string &text, int value)
 // is the counter-example that produces invalid 2019-02-31 values.
 struct Calendar
 {
-    using year_type = Year;
-    using month_type = Month;
-    using weekday_type = Weekday;
-    using fields = temporal::DateFields<year_type, month_type>;
+    using Year = temporal::gregory::Year;
+    using Month = temporal::gregory::Month;
+    using Weekday = temporal::gregory::Weekday;
+    using fields = temporal::DateFields<Year, Month>;
 
     static constexpr const char *getName() noexcept { return "gregory"; }
 
@@ -380,8 +377,5 @@ struct Calendar
 };
 
 using Date = temporal::BasicDate<Calendar>;
-using DateTime = temporal::BasicDateTime<Calendar>;
-using OffsetDateTime = temporal::BasicOffsetDateTime<Calendar>;
-using ZoneTemporal = temporal::BasicZoneTemporal<Calendar>;
 
 } // namespace temporal::gregory

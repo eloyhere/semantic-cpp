@@ -224,8 +224,8 @@ template <> struct hash<temporal::Zone>
             hash<int>{}(zone.getInitialOffset().getSeconds()) + 0x9e3779b97f4a7c15ULL + (result << 6) + (result >> 2);
         for (const temporal::ZoneTransition &transition : zone.getTransitions())
         {
-            result ^=
-                hash<temporal::Timestamp>{}(transition.unixSeconds) + 0x9e3779b97f4a7c15ULL + (result << 6) + (result >> 2);
+            result ^= hash<temporal::Timestamp>{}(transition.unixSeconds) + 0x9e3779b97f4a7c15ULL + (result << 6) +
+                      (result >> 2);
             result ^=
                 hash<int>{}(transition.offset.getSeconds()) + 0x9e3779b97f4a7c15ULL + (result << 6) + (result >> 2);
         }

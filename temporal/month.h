@@ -32,13 +32,8 @@ class Month
 
     Month(Timestamp absoluteValue, Timestamp relativeValue, bool leapValue, std::vector<Week> weeksValue,
           const Instant &startValue, const Instant &endValue, const Year *yearValue = nullptr)
-        : absolute(absoluteValue),
-          relative(relativeValue),
-          leap(leapValue),
-          weeks(std::move(weeksValue)),
-          start(startValue),
-          end(endValue),
-          year(yearValue)
+        : absolute(absoluteValue), relative(relativeValue), leap(leapValue), weeks(std::move(weeksValue)),
+          start(startValue), end(endValue), year(yearValue)
     {
     }
 

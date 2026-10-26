@@ -11,13 +11,13 @@
 #include <string>
 
 #include "calendar.h"
-#include "date_time.h"
 #include "duration.h"
 #include "instant.h"
+#include "local_date_time.h"
+#include "local_time.h"
 #include "offset_date_time.h"
 #include "overflow.h"
 #include "period.h"
-#include "time.h"
 #include "unit.h"
 #include "zone.h"
 
@@ -25,7 +25,7 @@ namespace temporal
 {
 
 // A local date-time together with the rules of a time zone. This is the
-// equivalent of java.time.ZonedDateTime and Temporal.ZonedDateTime, named after
+// equivalent of java.LocalTime.ZonedDateTime and Temporal.ZonedDateTime, named after
 // the two pieces it joins: the calendar date-time and the zone.
 //
 // A ZoneTemporal stores the *resolved* local date-time, its offset at that
@@ -37,21 +37,17 @@ namespace temporal
 // overlap) are resolved at construction with Disambiguation; Compatible is the
 // java.time/Temporal default. The same rule applies after calendar arithmetic,
 // because adding a month can land on a missing or repeated local time.
-template <typename Calendar> class BasicZoneTemporal
+class ZonedGregoryDateTime
 {
   public:
-    using calendar_type = Calendar;
-    using date_time_type = BasicDateTime<Calendar>;
-    using offset_date_time_type = BasicOffsetDateTime<Calendar>;
-    using date_type = BasicDate<Calendar>;
-    using year_type = typename Calendar::year_type;
-    using month_type = typename Calendar::month_type;
-    using weekday_type = typename Calendar::weekday_type;
+    using date_time_type = LocalDateTime;
+    using offset_date_time_type = OffsetGregoryDateTime;
+    using date_type = LocalDate;
 
-    BasicZoneTemporal() = delete;
+    ZonedGregoryDateTime() = delete;
 
-    static std::optional<BasicZoneTemporal> tryOf(const date_time_type &dateTime, const Zone &zone,
-                                                  Disambiguation disambiguation = Disambiguation::Compatible)
+    static std::optional<ZonedGregoryDateTime> tryOf(const date_time_type &dateTime, const Zone &zone,
+                                                     Disambiguation disambiguation = Disambiguation::Compatible)
     {
         const Timestamp local = toLocalSeconds(dateTime);
         const ZoneLocalResult result = zone.getLocalResult(local);
@@ -81,10 +77,10 @@ template <typename Calendar> class BasicZoneTemporal
         return tryFromInstant(local - chosen.getSeconds(), dateTime.getTime().getNanosecond(), zone);
     }
 
-    static BasicZoneTemporal of(const date_time_type &dateTime, const Zone &zone,
-                                Disambiguation disambiguation = Disambiguation::Compatible)
+    static ZonedGregoryDateTime of(const date_time_type &dateTime, const Zone &zone,
+                                   Disambiguation disambiguation = Disambiguation::Compatible)
     {
-        const std::optional<BasicZoneTemporal> value = tryOf(dateTime, zone, disambiguation);
+        const std::optional<ZonedGregoryDateTime> value = tryOf(dateTime, zone, disambiguation);
         if (!value)
         {
             throw std::invalid_argument("temporal: local date-time cannot be resolved in the zone");
@@ -92,14 +88,14 @@ template <typename Calendar> class BasicZoneTemporal
         return *value;
     }
 
-    static std::optional<BasicZoneTemporal> tryAtUnixSeconds(Timestamp seconds, int nanoseconds, const Zone &zone)
+    static std::optional<ZonedGregoryDateTime> tryAtUnixSeconds(Timestamp seconds, int nanoseconds, const Zone &zone)
     {
         return tryFromInstant(seconds, nanoseconds, zone);
     }
 
-    static BasicZoneTemporal atUnixSeconds(Timestamp seconds, const Zone &zone)
+    static ZonedGregoryDateTime atUnixSeconds(Timestamp seconds, const Zone &zone)
     {
-        const std::optional<BasicZoneTemporal> value = tryFromInstant(seconds, 0, zone);
+        const std::optional<ZonedGregoryDateTime> value = tryFromInstant(seconds, 0, zone);
         if (!value)
         {
             throw std::out_of_range("temporal: instant outside the supported range");
@@ -111,13 +107,13 @@ template <typename Calendar> class BasicZoneTemporal
     const Offset &getOffset() const noexcept { return offsetDateTime.getOffset(); }
     const date_time_type &getDateTime() const noexcept { return offsetDateTime.getDateTime(); }
     const date_type &getDate() const noexcept { return offsetDateTime.getDate(); }
-    const Time &getTime() const noexcept { return offsetDateTime.getTime(); }
+    const LocalTime &getTime() const noexcept { return offsetDateTime.getTime(); }
     const offset_date_time_type &getOffsetDateTime() const noexcept { return offsetDateTime; }
 
-    year_type getYear() const noexcept { return getDateTime().getYear(); }
-    month_type getMonth() const noexcept { return getDateTime().getMonth(); }
+    gregory::Year getYear() const noexcept { return getDateTime().getYear(); }
+    gregory::Month getMonth() const noexcept { return getDateTime().getMonth(); }
     int getDay() const noexcept { return getDateTime().getDay(); }
-    weekday_type getWeekday() const noexcept { return getDateTime().getWeekday(); }
+    gregory::Weekday getWeekday() const noexcept { return getDateTime().getWeekday(); }
     int getHour() const noexcept { return getDateTime().getHour(); }
     int getMinute() const noexcept { return getDateTime().getMinute(); }
     int getSecond() const noexcept { return getDateTime().getSecond(); }
@@ -130,9 +126,9 @@ template <typename Calendar> class BasicZoneTemporal
 
     Instant toInstant() const { return Instant::fromUnixSeconds(toUnixSeconds(), getNanosecond()); }
 
-    static BasicZoneTemporal fromInstant(const Instant &instant, const Zone &zone)
+    static ZonedGregoryDateTime fromInstant(const Instant &instant, const Zone &zone)
     {
-        const std::optional<BasicZoneTemporal> value =
+        const std::optional<ZonedGregoryDateTime> value =
             tryFromInstant(instant.toUnixSeconds(), instant.getNanosecondsOfDay() % NanosPerSecond, zone);
         if (!value)
         {
@@ -141,17 +137,18 @@ template <typename Calendar> class BasicZoneTemporal
         return *value;
     }
 
-    Duration durationUntil(const BasicZoneTemporal &other) const
+    Duration durationUntil(const ZonedGregoryDateTime &other) const
     {
         return Duration(other.toUnixSeconds() - toUnixSeconds(), other.getNanosecond() - getNanosecond());
     }
 
-    Duration operator-(const BasicZoneTemporal &other) const { return other.durationUntil(*this); }
+    Duration operator-(const ZonedGregoryDateTime &other) const { return other.durationUntil(*this); }
 
-    BasicZoneTemporal plus(const Duration &duration) const
+    ZonedGregoryDateTime plus(const Duration &duration) const
     {
         const Duration total = Duration(toUnixSeconds(), getNanosecond()).plus(duration);
-        const std::optional<BasicZoneTemporal> value = tryFromInstant(total.getSeconds(), total.getNanoseconds(), zone);
+        const std::optional<ZonedGregoryDateTime> value =
+            tryFromInstant(total.getSeconds(), total.getNanoseconds(), zone);
         if (!value)
         {
             throw std::out_of_range("temporal: zone date-time outside the supported range");
@@ -159,24 +156,24 @@ template <typename Calendar> class BasicZoneTemporal
         return *value;
     }
 
-    BasicZoneTemporal minus(const Duration &duration) const { return plus(duration.negated()); }
+    ZonedGregoryDateTime minus(const Duration &duration) const { return plus(duration.negated()); }
 
-    BasicZoneTemporal plus(const Period &period, Overflow overflow = Overflow::Constrain,
-                           Disambiguation disambiguation = Disambiguation::Compatible) const
+    ZonedGregoryDateTime plus(const Period &period, Overflow overflow = Overflow::Constrain,
+                              Disambiguation disambiguation = Disambiguation::Compatible) const
     {
         return of(getDateTime().plus(period, overflow), zone, disambiguation);
     }
 
-    BasicZoneTemporal minus(const Period &period, Overflow overflow = Overflow::Constrain,
-                            Disambiguation disambiguation = Disambiguation::Compatible) const
+    ZonedGregoryDateTime minus(const Period &period, Overflow overflow = Overflow::Constrain,
+                               Disambiguation disambiguation = Disambiguation::Compatible) const
     {
         return of(getDateTime().minus(period, overflow), zone, disambiguation);
     }
 
-    BasicZoneTemporal plus(Timestamp amount, Unit unit,
-                           Disambiguation disambiguation = Disambiguation::Compatible) const
+    ZonedGregoryDateTime plus(Timestamp amount, Unit unit,
+                              Disambiguation disambiguation = Disambiguation::Compatible) const
     {
-        // Time-based units are exact: add them to the instant, then re-read the
+        // LocalTime-based units are exact: add them to the instant, then re-read the
         // zone rules. Date-based units move the local calendar date and resolve
         // the result, which is why a DST day is not always 24 hours.
         if (isTimeBased(unit))
@@ -186,8 +183,8 @@ template <typename Calendar> class BasicZoneTemporal
         return of(getDateTime().plus(amount, unit), zone, disambiguation);
     }
 
-    BasicZoneTemporal minus(Timestamp amount, Unit unit,
-                            Disambiguation disambiguation = Disambiguation::Compatible) const
+    ZonedGregoryDateTime minus(Timestamp amount, Unit unit,
+                               Disambiguation disambiguation = Disambiguation::Compatible) const
     {
         if (isTimeBased(unit))
         {
@@ -202,9 +199,9 @@ template <typename Calendar> class BasicZoneTemporal
 
     // Keep the represented instant and change the zone: 08:00+08:00[Asia/Shanghai]
     // becomes 00:00Z[UTC]. The local fields change, the instant does not.
-    BasicZoneTemporal withZoneSameInstant(const Zone &zone) const
+    ZonedGregoryDateTime withZoneSameInstant(const Zone &zone) const
     {
-        const std::optional<BasicZoneTemporal> value = tryFromInstant(toUnixSeconds(), getNanosecond(), zone);
+        const std::optional<ZonedGregoryDateTime> value = tryFromInstant(toUnixSeconds(), getNanosecond(), zone);
         if (!value)
         {
             throw std::out_of_range("temporal: zone date-time outside the supported range");
@@ -214,8 +211,8 @@ template <typename Calendar> class BasicZoneTemporal
 
     // Keep the wall-clock fields and reinterpret them in another zone. This can
     // hit a gap or an overlap, so the disambiguation policy is explicit.
-    BasicZoneTemporal withZoneSameLocal(const Zone &zone,
-                                        Disambiguation disambiguation = Disambiguation::Compatible) const
+    ZonedGregoryDateTime withZoneSameLocal(const Zone &zone,
+                                           Disambiguation disambiguation = Disambiguation::Compatible) const
     {
         return of(getDateTime(), zone, disambiguation);
     }
@@ -224,14 +221,14 @@ template <typename Calendar> class BasicZoneTemporal
     std::string to_string() const { return offsetDateTime.to_string() + "[" + zone.getIdentifier() + "]"; }
 
     // Ordering is by represented instant, like OffsetDateTime.
-    bool operator==(const BasicZoneTemporal &other) const noexcept
+    bool operator==(const ZonedGregoryDateTime &other) const noexcept
     {
         return toUnixSeconds() == other.toUnixSeconds() && getNanosecond() == other.getNanosecond();
     }
 
-    bool operator!=(const BasicZoneTemporal &other) const noexcept { return !(*this == other); }
+    bool operator!=(const ZonedGregoryDateTime &other) const noexcept { return !(*this == other); }
 
-    bool operator<(const BasicZoneTemporal &other) const noexcept
+    bool operator<(const ZonedGregoryDateTime &other) const noexcept
     {
         const Timestamp seconds = toUnixSeconds();
         const Timestamp otherSeconds = other.toUnixSeconds();
@@ -242,18 +239,18 @@ template <typename Calendar> class BasicZoneTemporal
         return getNanosecond() < other.getNanosecond();
     }
 
-    bool operator<=(const BasicZoneTemporal &other) const noexcept { return *this < other || *this == other; }
+    bool operator<=(const ZonedGregoryDateTime &other) const noexcept { return *this < other || *this == other; }
 
-    bool operator>(const BasicZoneTemporal &other) const noexcept { return other < *this; }
-    bool operator>=(const BasicZoneTemporal &other) const noexcept { return other <= *this; }
+    bool operator>(const ZonedGregoryDateTime &other) const noexcept { return other < *this; }
+    bool operator>=(const ZonedGregoryDateTime &other) const noexcept { return other <= *this; }
 
   private:
-    BasicZoneTemporal(const offset_date_time_type &offsetDateTime, const Zone &zone) noexcept
+    ZonedGregoryDateTime(const offset_date_time_type &offsetDateTime, const Zone &zone) noexcept
         : offsetDateTime(offsetDateTime), zone(zone)
     {
     }
 
-    static std::optional<BasicZoneTemporal> tryFromInstant(Timestamp seconds, int nanoseconds, const Zone &zone)
+    static std::optional<ZonedGregoryDateTime> tryFromInstant(Timestamp seconds, int nanoseconds, const Zone &zone)
     {
         if (nanoseconds < 0 || nanoseconds >= 1000000000)
         {
@@ -283,8 +280,8 @@ template <typename Calendar> class BasicZoneTemporal
         {
             return std::nullopt;
         }
-        const Time time = Time::ofNanoseconds(secondOfDay * NanosPerSecond + nanoseconds);
-        return BasicZoneTemporal(offset_date_time_type(date_time_type(*date, time), offset), zone);
+        const LocalTime LocalTime = LocalTime::ofNanoseconds(secondOfDay * NanosPerSecond + nanoseconds);
+        return ZonedGregoryDateTime(offset_date_time_type(date_time_type(*date, LocalTime), offset), zone);
     }
 
     static Timestamp toLocalSeconds(const date_time_type &dateTime) noexcept
@@ -306,18 +303,23 @@ template <typename Calendar> class BasicZoneTemporal
     Zone zone;
 };
 
-template <typename Calendar> std::ostream &operator<<(std::ostream &stream, const BasicZoneTemporal<Calendar> &value)
+inline std::ostream &operator<<(std::ostream &stream, const ZonedGregoryDateTime &value)
 {
     return stream << value.to_string();
 }
 
 } // namespace temporal
 
+namespace temporal::gregory
+{
+using ZoneTemporal = ZonedGregoryDateTime;
+}
+
 namespace std
 {
-template <typename Calendar> struct hash<temporal::BasicZoneTemporal<Calendar>>
+template <> struct hash<temporal::ZonedGregoryDateTime>
 {
-    size_t operator()(const temporal::BasicZoneTemporal<Calendar> &value) const noexcept
+    size_t operator()(const temporal::ZonedGregoryDateTime &value) const noexcept
     {
         const size_t secondHash = hash<temporal::Timestamp>{}(value.toUnixSeconds());
         const size_t nanosecondHash = hash<int>{}(value.getNanosecond());

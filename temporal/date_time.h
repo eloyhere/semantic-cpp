@@ -10,53 +10,49 @@
 #include <string>
 #include <string_view>
 
-#include "calendar.h"
 #include "duration.h"
+#include "local_date.h"
+#include "local_time.h"
 #include "overflow.h"
 #include "period.h"
-#include "time.h"
 
 namespace temporal
 {
 
-// A calendar date plus a wall-clock time, with no time zone and no offset: the
-// equivalent of java.time.LocalDateTime, Temporal.PlainDateTime and Noda Time's
-// LocalDateTime. It is deliberately a different type from Instant: the same
-// wall-clock reading can denote two different instants across a DST boundary,
-// so the two must never be interchangeable (the Python naive/aware and .NET
-// DateTime.Kind traps).
-//
-// Adding a Duration crosses days exactly; adding a Period changes the calendar
-// date and leaves the time alone.
-template <typename Calendar> class BasicDateTime
+// A Gregorian local date plus a wall-clock time, with no time zone and no
+// offset: the equivalent of java.time.LocalDateTime, Temporal.PlainDateTime and
+// Noda Time's LocalDateTime. It is deliberately a different type from Instant:
+// the same wall-clock reading can denote two different instants across a DST
+// boundary, so the two must never be interchangeable.
+class LocalDateTime
 {
   public:
-    using calendar_type = Calendar;
-    using date_type = BasicDate<Calendar>;
-    using year_type = typename Calendar::year_type;
-    using month_type = typename Calendar::month_type;
-    using weekday_type = typename Calendar::weekday_type;
+    using date_type = LocalDate;
+    using time_type = LocalTime;
 
-    BasicDateTime() = delete;
+    LocalDateTime() = delete;
 
-    constexpr BasicDateTime(const date_type &date, const Time &time) : date(date), time(time) {}
-
-    static constexpr std::optional<BasicDateTime> tryOf(year_type year, month_type month, int day, int hour, int minute,
-                                                        int second = 0, int nanosecond = 0) noexcept
+    constexpr LocalDateTime(const date_type &dateValue, const time_type &timeValue) noexcept
+        : date(dateValue), time(timeValue)
     {
-        const std::optional<date_type> date = date_type::tryOf(year, month, day);
-        const std::optional<Time> time = Time::tryOf(hour, minute, second, nanosecond);
-        if (!date || !time)
+    }
+
+    static constexpr std::optional<LocalDateTime> tryOf(gregory::Year year, gregory::Month month, int day, int hour,
+                                                        int minute, int second = 0, int nanosecond = 0) noexcept
+    {
+        const std::optional<date_type> dateValue = date_type::tryOf(year, month, day);
+        const std::optional<time_type> timeValue = time_type::tryOf(hour, minute, second, nanosecond);
+        if (!dateValue || !timeValue)
         {
             return std::nullopt;
         }
-        return BasicDateTime(*date, *time);
+        return LocalDateTime(*dateValue, *timeValue);
     }
 
-    static constexpr BasicDateTime of(year_type year, month_type month, int day, int hour, int minute, int second = 0,
-                                      int nanosecond = 0)
+    static constexpr LocalDateTime of(gregory::Year year, gregory::Month month, int day, int hour, int minute,
+                                      int second = 0, int nanosecond = 0)
     {
-        const std::optional<BasicDateTime> value = tryOf(year, month, day, hour, minute, second, nanosecond);
+        const std::optional<LocalDateTime> value = tryOf(year, month, day, hour, minute, second, nanosecond);
         if (!value)
         {
             throw std::invalid_argument("temporal: invalid date-time");
@@ -64,25 +60,25 @@ template <typename Calendar> class BasicDateTime
         return *value;
     }
 
-    static constexpr std::optional<BasicDateTime> tryParse(std::string_view text) noexcept
+    static constexpr std::optional<LocalDateTime> tryParse(std::string_view text) noexcept
     {
         const std::size_t dateLength = (!text.empty() && (text.front() == '-' || text.front() == '+')) ? 11 : 10;
         if (text.size() <= dateLength || text[dateLength] != 'T')
         {
             return std::nullopt;
         }
-        const std::optional<date_type> date = date_type::tryParse(text.substr(0, dateLength));
-        const std::optional<Time> time = Time::tryParse(text.substr(dateLength + 1));
-        if (!date || !time)
+        const std::optional<date_type> dateValue = date_type::tryParse(text.substr(0, dateLength));
+        const std::optional<time_type> timeValue = time_type::tryParse(text.substr(dateLength + 1));
+        if (!dateValue || !timeValue)
         {
             return std::nullopt;
         }
-        return BasicDateTime(*date, *time);
+        return LocalDateTime(*dateValue, *timeValue);
     }
 
-    static constexpr BasicDateTime parse(std::string_view text)
+    static constexpr LocalDateTime parse(std::string_view text)
     {
-        const std::optional<BasicDateTime> value = tryParse(text);
+        const std::optional<LocalDateTime> value = tryParse(text);
         if (!value)
         {
             throw std::invalid_argument("temporal: invalid date-time text");
@@ -91,13 +87,13 @@ template <typename Calendar> class BasicDateTime
     }
 
     constexpr const date_type &getDate() const noexcept { return date; }
-    constexpr const Time &getTime() const noexcept { return time; }
+    constexpr const time_type &getTime() const noexcept { return time; }
 
     constexpr DayNumber getDayNumber() const noexcept { return date.getDayNumber(); }
-    constexpr year_type getYear() const noexcept { return date.getYear(); }
-    constexpr month_type getMonth() const noexcept { return date.getMonth(); }
+    constexpr gregory::Year getYear() const noexcept { return date.getYear(); }
+    constexpr gregory::Month getMonth() const noexcept { return date.getMonth(); }
     constexpr int getDay() const noexcept { return date.getDay(); }
-    constexpr weekday_type getWeekday() const noexcept { return date.getWeekday(); }
+    constexpr gregory::Weekday getWeekday() const noexcept { return date.getWeekday(); }
     constexpr int getDayOfYear() const noexcept { return date.getDayOfYear(); }
     constexpr int getHour() const noexcept { return time.getHour(); }
     constexpr int getMinute() const noexcept { return time.getMinute(); }
@@ -120,7 +116,7 @@ template <typename Calendar> class BasicDateTime
 
     // A Duration moves along the exact time line: 23:30 + 2h is 01:30 the next
     // day. A Period moves the calendar date and keeps the time unchanged.
-    constexpr BasicDateTime plus(const Duration &duration) const
+    constexpr LocalDateTime plus(const Duration &duration) const
     {
         Timestamp dayShift = duration.getSeconds() / SecondsPerDay;
         Timestamp seconds = duration.getSeconds() % SecondsPerDay;
@@ -132,33 +128,33 @@ template <typename Calendar> class BasicDateTime
         Timestamp nanoseconds = time.getNanoseconds() + seconds * NanosPerSecond + duration.getNanoseconds();
         const Timestamp extraDays = nanoseconds / NanosPerDay;
         nanoseconds %= NanosPerDay;
-        return BasicDateTime(date + Days(dayShift + extraDays), Time(nanoseconds));
+        return LocalDateTime(date + Days(dayShift + extraDays), time_type::ofNanoseconds(nanoseconds));
     }
 
-    constexpr BasicDateTime minus(const Duration &duration) const { return plus(duration.negated()); }
+    constexpr LocalDateTime minus(const Duration &duration) const { return plus(duration.negated()); }
 
-    constexpr BasicDateTime plus(const Period &period, Overflow overflow = Overflow::Constrain) const
+    constexpr LocalDateTime plus(const Period &period, Overflow overflow = Overflow::Constrain) const
     {
-        return BasicDateTime(date.plus(period, overflow), time);
+        return LocalDateTime(date.plus(period, overflow), time);
     }
 
-    constexpr BasicDateTime minus(const Period &period, Overflow overflow = Overflow::Constrain) const
+    constexpr LocalDateTime minus(const Period &period, Overflow overflow = Overflow::Constrain) const
     {
         return plus(period.negated(), overflow);
     }
 
     // Unit-based convenience: months and years move the calendar date and keep
     // the wall-clock time; every exact unit moves along the time line.
-    constexpr BasicDateTime plus(Timestamp amount, Unit unit) const
+    constexpr LocalDateTime plus(Timestamp amount, Unit unit) const
     {
         if (unit == Unit::Months || unit == Unit::Years)
         {
-            return BasicDateTime(date.plus(amount, unit), time);
+            return LocalDateTime(date.plus(amount, unit), time);
         }
         return plus(Duration::of(amount, unit));
     }
 
-    constexpr BasicDateTime minus(Timestamp amount, Unit unit) const
+    constexpr LocalDateTime minus(Timestamp amount, Unit unit) const
     {
         if (amount == std::numeric_limits<Timestamp>::min())
         {
@@ -167,14 +163,14 @@ template <typename Calendar> class BasicDateTime
         return plus(-amount, unit);
     }
 
-    constexpr BasicDateTime operator+(const Duration &duration) const { return plus(duration); }
-    constexpr BasicDateTime operator-(const Duration &duration) const { return minus(duration); }
-    constexpr BasicDateTime operator+(const Period &period) const { return plus(period); }
-    constexpr BasicDateTime operator-(const Period &period) const { return minus(period); }
+    constexpr LocalDateTime operator+(const Duration &duration) const { return plus(duration); }
+    constexpr LocalDateTime operator-(const Duration &duration) const { return minus(duration); }
+    constexpr LocalDateTime operator+(const Period &period) const { return plus(period); }
+    constexpr LocalDateTime operator-(const Period &period) const { return minus(period); }
 
     // Exact signed distance along the time line. Calendar distances (months,
     // years) are a different question and belong to getDate().until().
-    constexpr Duration durationUntil(const BasicDateTime &other) const
+    constexpr Duration durationUntil(const LocalDateTime &other) const
     {
         const Timestamp days = (other.date - date).getCount();
         return Duration(days * SecondsPerDay, other.time.getNanoseconds() - time.getNanoseconds());
@@ -183,7 +179,7 @@ template <typename Calendar> class BasicDateTime
     // Whole units to other. Date-based units follow the calendar date and ignore
     // the wall-clock time (java.time's LocalDateTime.until does the same); time
     // units use the exact Duration and therefore never depend on DST.
-    constexpr Timestamp until(const BasicDateTime &other, Unit unit) const
+    constexpr Timestamp until(const LocalDateTime &other, Unit unit) const
     {
         if (isCalendarBased(unit) || unit == Unit::Days || unit == Unit::Weeks)
         {
@@ -199,14 +195,14 @@ template <typename Calendar> class BasicDateTime
 
     std::string to_string() const { return date.to_string() + "T" + time.to_string(); }
 
-    constexpr bool operator==(const BasicDateTime &other) const noexcept
+    constexpr bool operator==(const LocalDateTime &other) const noexcept
     {
         return date == other.date && time == other.time;
     }
 
-    constexpr bool operator!=(const BasicDateTime &other) const noexcept { return !(*this == other); }
+    constexpr bool operator!=(const LocalDateTime &other) const noexcept { return !(*this == other); }
 
-    constexpr bool operator<(const BasicDateTime &other) const noexcept
+    constexpr bool operator<(const LocalDateTime &other) const noexcept
     {
         if (date != other.date)
         {
@@ -215,31 +211,36 @@ template <typename Calendar> class BasicDateTime
         return time < other.time;
     }
 
-    constexpr bool operator<=(const BasicDateTime &other) const noexcept { return *this < other || *this == other; }
+    constexpr bool operator<=(const LocalDateTime &other) const noexcept { return *this < other || *this == other; }
 
-    constexpr bool operator>(const BasicDateTime &other) const noexcept { return other < *this; }
-    constexpr bool operator>=(const BasicDateTime &other) const noexcept { return other <= *this; }
+    constexpr bool operator>(const LocalDateTime &other) const noexcept { return other < *this; }
+    constexpr bool operator>=(const LocalDateTime &other) const noexcept { return other <= *this; }
 
   private:
     date_type date;
-    Time time;
+    time_type time;
 };
 
-template <typename Calendar> std::ostream &operator<<(std::ostream &stream, const BasicDateTime<Calendar> &value)
+inline std::ostream &operator<<(std::ostream &stream, const LocalDateTime &value)
 {
     return stream << value.to_string();
 }
 
 } // namespace temporal
 
+namespace temporal::gregory
+{
+using DateTime = LocalDateTime;
+}
+
 namespace std
 {
-template <typename Calendar> struct hash<temporal::BasicDateTime<Calendar>>
+template <> struct hash<temporal::LocalDateTime>
 {
-    size_t operator()(const temporal::BasicDateTime<Calendar> &value) const noexcept
+    size_t operator()(const temporal::LocalDateTime &value) const noexcept
     {
-        const size_t dateHash = hash<temporal::BasicDate<Calendar>>{}(value.getDate());
-        const size_t timeHash = hash<temporal::Time>{}(value.getTime());
+        const size_t dateHash = hash<temporal::LocalDate>{}(value.getDate());
+        const size_t timeHash = hash<temporal::LocalTime>{}(value.getTime());
         return dateHash ^ (timeHash + 0x9e3779b97f4a7c15ULL + (dateHash << 6) + (dateHash >> 2));
     }
 };

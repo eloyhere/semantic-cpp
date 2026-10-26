@@ -49,10 +49,7 @@ class Instant
 
     constexpr Instant() noexcept : day{}, nanos(0) {}
 
-    constexpr Instant(Timestamp days, Timestamp nanosecondsOfDay) : day(days), nanos(0)
-    {
-        normalize(nanosecondsOfDay);
-    }
+    constexpr Instant(Timestamp days, Timestamp nanosecondsOfDay) : day(days), nanos(0) { normalize(nanosecondsOfDay); }
 
     explicit constexpr Instant(const Day &value, Timestamp nanosecondsOfDay = 0) : day(value), nanos(0)
     {

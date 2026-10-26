@@ -24,20 +24,14 @@ class Year
 
     Year(Timestamp absoluteValue, Timestamp relativeValue, const Instant &startValue, const Instant &endValue,
          const Era *eraValue = nullptr)
-        : absolute(absoluteValue), relative(relativeValue), leap(false), start(startValue), end(endValue),
-          era(eraValue)
+        : absolute(absoluteValue), relative(relativeValue), leap(false), start(startValue), end(endValue), era(eraValue)
     {
     }
 
     Year(Timestamp absoluteValue, Timestamp relativeValue, bool leapValue, std::vector<Month> monthsValue,
          const Instant &startValue, const Instant &endValue, const Era *eraValue = nullptr)
-        : absolute(absoluteValue),
-          relative(relativeValue),
-          leap(leapValue),
-          months(std::move(monthsValue)),
-          start(startValue),
-          end(endValue),
-          era(eraValue)
+        : absolute(absoluteValue), relative(relativeValue), leap(leapValue), months(std::move(monthsValue)),
+          start(startValue), end(endValue), era(eraValue)
     {
     }
 

@@ -15,8 +15,6 @@
 namespace temporal
 {
 
-template <typename Calendar> class BasicDateTime;
-
 // A wall-clock time of day, without a date and without a time zone: the
 // equivalent of java.time.LocalTime, Temporal.PlainTime and Noda Time's
 // LocalTime. Storing nanoseconds within the day keeps it exact and lets LocalTime
@@ -24,7 +22,7 @@ template <typename Calendar> class BasicDateTime;
 //
 // A LocalTime is always in [00:00:00, 24:00:00); arithmetic wraps modulo one day,
 // which is what LocalTime.plus and PlainTime.add do. It is not an instant: a
-// LocalTime alone cannot be compared across calendars or LocalTime zones, so conversions
+// A time alone cannot be compared across calendars or time zones, so conversions
 // to Instant are deliberately absent.
 class LocalTime
 {
@@ -41,8 +39,8 @@ class LocalTime
             return std::nullopt;
         }
         return LocalTime(static_cast<Timestamp>(hour) * 3600LL * NanosPerSecond +
-                    static_cast<Timestamp>(minute) * 60LL * NanosPerSecond +
-                    static_cast<Timestamp>(second) * NanosPerSecond + nanosecond);
+                         static_cast<Timestamp>(minute) * 60LL * NanosPerSecond +
+                         static_cast<Timestamp>(second) * NanosPerSecond + nanosecond);
     }
 
     static constexpr LocalTime of(int hour, int minute, int second = 0, int nanosecond = 0)
@@ -258,8 +256,6 @@ class LocalTime
         text.push_back(static_cast<char>('0' + value / 10));
         text.push_back(static_cast<char>('0' + value % 10));
     }
-
-    template <typename Calendar> friend class BasicDateTime;
 
     Timestamp nanoseconds;
 };

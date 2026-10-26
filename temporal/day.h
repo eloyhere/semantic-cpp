@@ -26,10 +26,7 @@ class Day
 
     friend constexpr Day operator-(const Day &value, Timestamp amount) { return Day(subtract(value.days, amount)); }
 
-    friend constexpr Timestamp operator-(const Day &left, const Day &right) noexcept
-    {
-        return left.days - right.days;
-    }
+    friend constexpr Timestamp operator-(const Day &left, const Day &right) noexcept { return left.days - right.days; }
 
     constexpr Day &operator+=(Timestamp amount)
     {

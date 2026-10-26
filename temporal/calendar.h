@@ -115,19 +115,19 @@ template <typename Year, typename Month> struct DateFields
 // Calendar is a compile-time policy with this contract (all functions are
 // constexpr and noexcept unless marked otherwise):
 //
-//   using year_type                        // calendar-specific year value
-//   using month_type                       // calendar-specific month value
-//   using weekday_type                     // calendar-specific weekday value
-//   using fields = DateFields<year_type, month_type>
+//   using typename Calendar::Year                        // calendar-specific year value
+//   using typename Calendar::Month                       // calendar-specific month value
+//   using typename Calendar::Weekday                     // calendar-specific weekday value
+//   using fields = DateFields<typename Calendar::Year, typename Calendar::Month>
 //   static constexpr const char *getName()
-//   static constexpr bool isLeapYear(year_type)
-//   static constexpr int getMonthsInYear(year_type)          // 12 for Gregorian
-//   static constexpr int getDaysInMonth(year_type, month_type)
-//   static constexpr int getDaysInYear(year_type)
-//   static constexpr bool isValidDate(year_type, month_type, int day)
-//   static constexpr DayNumber toDayNumber(year_type, month_type, int day)
+//   static constexpr bool isLeapYear(typename Calendar::Year)
+//   static constexpr int getMonthsInYear(typename Calendar::Year)          // 12 for Gregorian
+//   static constexpr int getDaysInMonth(typename Calendar::Year, typename Calendar::Month)
+//   static constexpr int getDaysInYear(typename Calendar::Year)
+//   static constexpr bool isValidDate(typename Calendar::Year, typename Calendar::Month, int day)
+//   static constexpr DayNumber toDayNumber(typename Calendar::Year, typename Calendar::Month, int day)
 //   static constexpr fields fromDayNumber(DayNumber)
-//   static constexpr weekday_type getWeekday(DayNumber)
+//   static constexpr typename Calendar::Weekday getWeekday(DayNumber)
 //   static constexpr int getDayOfYear(DayNumber)
 //   static constexpr Timestamp getField(DayNumber, Field)
 //   static constexpr bool isSupportedField(Field)
@@ -152,10 +152,6 @@ template <typename Calendar> class BasicDate
 {
   public:
     using calendar_type = Calendar;
-    using year_type = typename Calendar::year_type;
-    using month_type = typename Calendar::month_type;
-    using weekday_type = typename Calendar::weekday_type;
-
     BasicDate() = delete;
 
     explicit constexpr BasicDate(DayNumber day) : serial(day)
@@ -184,7 +180,8 @@ template <typename Calendar> class BasicDate
     // (JavaScript's Date rolls 2024-02-30 into March 1st; C++20's
     // year_month_day happily stores an invalid value). Either the fields are
     // valid and the result is exact, or there is no result.
-    static constexpr std::optional<BasicDate> tryOf(year_type year, month_type month, int day) noexcept
+    static constexpr std::optional<BasicDate> tryOf(typename Calendar::Year year, typename Calendar::Month month,
+                                                    int day) noexcept
     {
         if (!Calendar::isValidDate(year, month, day))
         {
@@ -193,7 +190,7 @@ template <typename Calendar> class BasicDate
         return tryFromDayNumber(Calendar::toDayNumber(year, month, day));
     }
 
-    static constexpr BasicDate of(year_type year, month_type month, int day)
+    static constexpr BasicDate of(typename Calendar::Year year, typename Calendar::Month month, int day)
     {
         if (!Calendar::isValidDate(year, month, day))
         {
@@ -224,18 +221,15 @@ template <typename Calendar> class BasicDate
 
     constexpr DayNumber getDayNumber() const noexcept { return serial; }
 
-    constexpr year_type getYear() const noexcept { return Calendar::fromDayNumber(serial).y; }
-    constexpr month_type getMonth() const noexcept { return Calendar::fromDayNumber(serial).m; }
+    constexpr typename Calendar::Year getYear() const noexcept { return Calendar::fromDayNumber(serial).y; }
+    constexpr typename Calendar::Month getMonth() const noexcept { return Calendar::fromDayNumber(serial).m; }
     constexpr int getDay() const noexcept { return Calendar::fromDayNumber(serial).d; }
 
     // Conventional EpochDay: days since 1970-01-01, 1-based (1970-01-01 is 1),
     // as in java.time's LocalDate.toEpochDay() but with the 1-based convention
     // used by Instant::toEpoch(). This is the Unix epoch, not the
     // natural-calendar epoch of Instant::toProleptic().
-    constexpr Timestamp toEpochDay() const noexcept
-    {
-        return static_cast<Timestamp>(serial.getValue()) - 719163 + 1;
-    }
+    constexpr Timestamp toEpochDay() const noexcept { return static_cast<Timestamp>(serial.getValue()) - 719163 + 1; }
 
     static constexpr std::optional<BasicDate> tryFromEpochDay(Timestamp epochDay) noexcept
     {
@@ -259,7 +253,7 @@ template <typename Calendar> class BasicDate
         return *value;
     }
 
-    constexpr weekday_type getWeekday() const noexcept { return Calendar::getWeekday(serial); }
+    constexpr typename Calendar::Weekday getWeekday() const noexcept { return Calendar::getWeekday(serial); }
 
     constexpr int getDayOfYear() const noexcept { return Calendar::getDayOfYear(serial); }
 

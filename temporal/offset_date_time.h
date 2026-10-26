@@ -11,13 +11,13 @@
 #include <string>
 #include <string_view>
 
-#include "calendar.h"
-#include "date_time.h"
 #include "instant.h"
+#include "local_date.h"
+#include "local_date_time.h"
+#include "local_time.h"
 #include "offset.h"
 #include "overflow.h"
 #include "period.h"
-#include "time.h"
 
 namespace temporal
 {
@@ -28,38 +28,33 @@ namespace temporal
 // (local time minus offset), but it is not an Instant: it cannot resolve a
 // time-zone rule, so it never has to deal with a DST gap or overlap.
 //
-// Conversion to Instant is deliberately absent, for the same reason DateTime is
-// not an Instant: the natural-calendar epoch bridge is not defined yet. What is
-// defined is the Unix-second position, which is calendar-independent and is
-// enough for ordering, serialisation and tests.
-template <typename Calendar> class BasicOffsetDateTime
+// Conversion to Instant uses the exact Unix position; no natural-calendar
+// extrapolation is involved.
+class OffsetGregoryDateTime
 {
   public:
-    using calendar_type = Calendar;
-    using date_time_type = BasicDateTime<Calendar>;
-    using date_type = BasicDate<Calendar>;
-    using year_type = typename Calendar::year_type;
-    using month_type = typename Calendar::month_type;
+    using date_time_type = LocalDateTime;
+    using date_type = LocalDate;
 
-    BasicOffsetDateTime() = delete;
+    OffsetGregoryDateTime() = delete;
 
-    constexpr BasicOffsetDateTime(const date_time_type &dateTime, const Offset &offset) noexcept
+    constexpr OffsetGregoryDateTime(const date_time_type &dateTime, const Offset &offset) noexcept
         : dateTime(dateTime), offset(offset)
     {
     }
 
-    static constexpr BasicOffsetDateTime from(const date_time_type &dateTime, const Offset &offset) noexcept
+    static constexpr OffsetGregoryDateTime from(const date_time_type &dateTime, const Offset &offset) noexcept
     {
-        return BasicOffsetDateTime(dateTime, offset);
+        return OffsetGregoryDateTime(dateTime, offset);
     }
 
     constexpr const date_time_type &getDateTime() const noexcept { return dateTime; }
     constexpr const date_type &getDate() const noexcept { return dateTime.getDate(); }
-    constexpr const Time &getTime() const noexcept { return dateTime.getTime(); }
+    constexpr const LocalTime &getTime() const noexcept { return dateTime.getTime(); }
     constexpr const Offset &getOffset() const noexcept { return offset; }
 
-    constexpr year_type getYear() const noexcept { return dateTime.getYear(); }
-    constexpr month_type getMonth() const noexcept { return dateTime.getMonth(); }
+    constexpr gregory::Year getYear() const noexcept { return dateTime.getYear(); }
+    constexpr gregory::Month getMonth() const noexcept { return dateTime.getMonth(); }
     constexpr int getDay() const noexcept { return dateTime.getDay(); }
     constexpr int getHour() const noexcept { return dateTime.getHour(); }
     constexpr int getMinute() const noexcept { return dateTime.getMinute(); }
@@ -69,36 +64,36 @@ template <typename Calendar> class BasicOffsetDateTime
     constexpr Timestamp get(Field field) const { return dateTime.get(field); }
     constexpr bool isSupported(Field field) const noexcept { return dateTime.isSupported(field); }
 
-    constexpr BasicOffsetDateTime plus(const Duration &duration) const
+    constexpr OffsetGregoryDateTime plus(const Duration &duration) const
     {
-        return BasicOffsetDateTime(dateTime.plus(duration), offset);
+        return OffsetGregoryDateTime(dateTime.plus(duration), offset);
     }
 
-    constexpr BasicOffsetDateTime minus(const Duration &duration) const
+    constexpr OffsetGregoryDateTime minus(const Duration &duration) const
     {
-        return BasicOffsetDateTime(dateTime.minus(duration), offset);
+        return OffsetGregoryDateTime(dateTime.minus(duration), offset);
     }
 
-    constexpr BasicOffsetDateTime plus(const Period &period, Overflow overflow = Overflow::Constrain) const
+    constexpr OffsetGregoryDateTime plus(const Period &period, Overflow overflow = Overflow::Constrain) const
     {
-        return BasicOffsetDateTime(dateTime.plus(period, overflow), offset);
+        return OffsetGregoryDateTime(dateTime.plus(period, overflow), offset);
     }
 
-    constexpr BasicOffsetDateTime minus(const Period &period, Overflow overflow = Overflow::Constrain) const
+    constexpr OffsetGregoryDateTime minus(const Period &period, Overflow overflow = Overflow::Constrain) const
     {
-        return BasicOffsetDateTime(dateTime.minus(period, overflow), offset);
+        return OffsetGregoryDateTime(dateTime.minus(period, overflow), offset);
     }
 
-    constexpr BasicOffsetDateTime plus(Timestamp amount, Unit unit) const
+    constexpr OffsetGregoryDateTime plus(Timestamp amount, Unit unit) const
     {
-        return BasicOffsetDateTime(dateTime.plus(amount, unit), offset);
+        return OffsetGregoryDateTime(dateTime.plus(amount, unit), offset);
     }
 
     // Keep the represented instant and change only the offset: 08:00+08:00
     // becomes 00:00Z. This is the operation that must not be confused with
     // "reinterpret the same wall clock in another zone" (withOffsetSameLocal in
-    // java.time, which has no counterpart here yet).
-    constexpr BasicOffsetDateTime withOffsetSameInstant(const Offset &offset) const
+    // java.LocalTime, which has no counterpart here yet).
+    constexpr OffsetGregoryDateTime withOffsetSameInstant(const Offset &offset) const
     {
         const Timestamp utcSeconds = getUtcSeconds();
         const Timestamp localSeconds = utcSeconds + offset.getSeconds();
@@ -108,9 +103,9 @@ template <typename Calendar> class BasicOffsetDateTime
         {
             throw std::out_of_range("temporal: offset date-time outside the supported range");
         }
-        return BasicOffsetDateTime(
+        return OffsetGregoryDateTime(
             date_time_type(date_type::fromDayNumber(DayNumber(static_cast<std::int32_t>(day))),
-                           Time::ofNanoseconds(secondOfDay * NanosPerSecond + dateTime.getTime().getNanosecond())),
+                           LocalTime::ofNanoseconds(secondOfDay * NanosPerSecond + dateTime.getTime().getNanosecond())),
             offset);
     }
 
@@ -120,20 +115,20 @@ template <typename Calendar> class BasicOffsetDateTime
 
     constexpr Instant toInstant() const { return Instant::fromUnixSeconds(toUnixSeconds(), getNanosecond()); }
 
-    static constexpr BasicOffsetDateTime fromInstant(const Instant &instant, const Offset &offset)
+    static constexpr OffsetGregoryDateTime fromInstant(const Instant &instant, const Offset &offset)
     {
         return fromUnixSeconds(instant.toUnixSeconds(), offset)
             .plus(Duration(0, instant.getNanosecondsOfDay() % NanosPerSecond));
     }
 
-    constexpr Duration durationUntil(const BasicOffsetDateTime &other) const
+    constexpr Duration durationUntil(const OffsetGregoryDateTime &other) const
     {
         return Duration(other.toUnixSeconds() - toUnixSeconds(), other.getNanosecond() - getNanosecond());
     }
 
-    constexpr Duration operator-(const BasicOffsetDateTime &other) const { return other.durationUntil(*this); }
+    constexpr Duration operator-(const OffsetGregoryDateTime &other) const { return other.durationUntil(*this); }
 
-    constexpr Timestamp until(const BasicOffsetDateTime &other, Unit unit) const
+    constexpr Timestamp until(const OffsetGregoryDateTime &other, Unit unit) const
     {
         if (isCalendarBased(unit) || unit == Unit::Days || unit == Unit::Weeks)
         {
@@ -147,7 +142,7 @@ template <typename Calendar> class BasicOffsetDateTime
         return durationUntil(other).toNanoseconds() / factor;
     }
 
-    static constexpr BasicOffsetDateTime fromUnixSeconds(Timestamp seconds, const Offset &offset)
+    static constexpr OffsetGregoryDateTime fromUnixSeconds(Timestamp seconds, const Offset &offset)
     {
         constexpr Timestamp SecondsPerDay = 86400;
         constexpr Timestamp unixEpochDay = 719163;
@@ -166,14 +161,14 @@ template <typename Calendar> class BasicOffsetDateTime
         {
             throw std::out_of_range("temporal: offset date-time outside the supported range");
         }
-        return BasicOffsetDateTime(date_time_type(date_type::fromDayNumber(DayNumber(static_cast<std::int32_t>(day))),
-                                                  Time::ofNanoseconds(secondOfDay * NanosPerSecond)),
-                                   offset);
+        return OffsetGregoryDateTime(date_time_type(date_type::fromDayNumber(DayNumber(static_cast<std::int32_t>(day))),
+                                                    LocalTime::ofNanoseconds(secondOfDay * NanosPerSecond)),
+                                     offset);
     }
 
     std::string to_string() const { return dateTime.to_string() + offset.to_string(); }
 
-    static constexpr std::optional<BasicOffsetDateTime> tryParse(std::string_view text) noexcept
+    static constexpr std::optional<OffsetGregoryDateTime> tryParse(std::string_view text) noexcept
     {
         std::size_t bodyLength = 0;
         std::optional<Offset> offset;
@@ -201,12 +196,12 @@ template <typename Calendar> class BasicOffsetDateTime
         {
             return std::nullopt;
         }
-        return BasicOffsetDateTime(*dateTime, *offset);
+        return OffsetGregoryDateTime(*dateTime, *offset);
     }
 
-    static constexpr BasicOffsetDateTime parse(std::string_view text)
+    static constexpr OffsetGregoryDateTime parse(std::string_view text)
     {
-        const std::optional<BasicOffsetDateTime> value = tryParse(text);
+        const std::optional<OffsetGregoryDateTime> value = tryParse(text);
         if (!value)
         {
             throw std::invalid_argument("temporal: invalid offset date-time text");
@@ -216,14 +211,14 @@ template <typename Calendar> class BasicOffsetDateTime
 
     // Ordering is by the represented instant, not by the local fields:
     // 2023-12-31T16:00:00Z and 2024-01-01T00:00:00+08:00 are equal.
-    constexpr bool operator==(const BasicOffsetDateTime &other) const noexcept
+    constexpr bool operator==(const OffsetGregoryDateTime &other) const noexcept
     {
         return getUtcSeconds() == other.getUtcSeconds() && getTime().getNanosecond() == other.getTime().getNanosecond();
     }
 
-    constexpr bool operator!=(const BasicOffsetDateTime &other) const noexcept { return !(*this == other); }
+    constexpr bool operator!=(const OffsetGregoryDateTime &other) const noexcept { return !(*this == other); }
 
-    constexpr bool operator<(const BasicOffsetDateTime &other) const noexcept
+    constexpr bool operator<(const OffsetGregoryDateTime &other) const noexcept
     {
         const Timestamp seconds = getUtcSeconds();
         const Timestamp otherSeconds = other.getUtcSeconds();
@@ -234,19 +229,19 @@ template <typename Calendar> class BasicOffsetDateTime
         return getTime().getNanosecond() < other.getTime().getNanosecond();
     }
 
-    constexpr bool operator<=(const BasicOffsetDateTime &other) const noexcept
+    constexpr bool operator<=(const OffsetGregoryDateTime &other) const noexcept
     {
         return *this < other || *this == other;
     }
 
-    constexpr bool operator>(const BasicOffsetDateTime &other) const noexcept { return other < *this; }
-    constexpr bool operator>=(const BasicOffsetDateTime &other) const noexcept { return other <= *this; }
+    constexpr bool operator>(const OffsetGregoryDateTime &other) const noexcept { return other < *this; }
+    constexpr bool operator>=(const OffsetGregoryDateTime &other) const noexcept { return other <= *this; }
 
   private:
     constexpr Timestamp getUtcSeconds() const noexcept
     {
         const Timestamp localSeconds = static_cast<Timestamp>(dateTime.getDayNumber().getValue()) * 86400 +
-                                          dateTime.getTime().getNanoseconds() / NanosPerSecond;
+                                       dateTime.getTime().getNanoseconds() / NanosPerSecond;
         return localSeconds - offset.getSeconds();
     }
 
@@ -264,18 +259,23 @@ template <typename Calendar> class BasicOffsetDateTime
     Offset offset;
 };
 
-template <typename Calendar> std::ostream &operator<<(std::ostream &stream, const BasicOffsetDateTime<Calendar> &value)
+inline std::ostream &operator<<(std::ostream &stream, const OffsetGregoryDateTime &value)
 {
     return stream << value.to_string();
 }
 
 } // namespace temporal
 
+namespace temporal::gregory
+{
+using OffsetDateTime = OffsetGregoryDateTime;
+}
+
 namespace std
 {
-template <typename Calendar> struct hash<temporal::BasicOffsetDateTime<Calendar>>
+template <> struct hash<temporal::OffsetGregoryDateTime>
 {
-    size_t operator()(const temporal::BasicOffsetDateTime<Calendar> &value) const noexcept
+    size_t operator()(const temporal::OffsetGregoryDateTime &value) const noexcept
     {
         const size_t secondHash = hash<temporal::Timestamp>{}(value.toUnixSeconds());
         const size_t nanosecondHash = hash<int>{}(value.getNanosecond());

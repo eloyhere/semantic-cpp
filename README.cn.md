@@ -17,86 +17,142 @@ Semantic-Cpp 是一个完全重构设计的现代化 C++ 流处理库，采用**
 
 ---
 
-## 🏗️ 项目架构：七层模块化设计
+## 🏗️ 项目架构：四模块分层设计
 
-Semantic-Cpp 由七个核心头文件组成，层层递进，每个文件职责单一、独立可测。五个命名空间各司其职，共同构成了从数据源头到最终结果的完整流水线：
+Semantic-Cpp 按职责划分为四个模块目录，每个头文件职责单一、独立可测；从编码与 bunch 原语开始，逐层构建到流处理 API：
 
 ```
-┌─────────────────────────────────────────────────┐
-│               🌊 semantics.h                     │
-│   命名空间: semantic                             │
-│   流构建工厂：数值范围、容器、文本、Unicode         │
-├─────────────────────────────────────────────────┤
-│                 📦 semantic.h                     │
-│   命名空间: semantic / collectable               │
-│   流式中介操作、Collectable体系、容器展开支持      │
-├─────────────────────────────────────────────────┤
-│                ⚙️ collector.h                     │
-│   命名空间: collector                            │
-│   收集器框架 + 工厂：匹配、查找、聚合、统计、DFT/FFT│
-├─────────────────────────────────────────────────┤
-│                🔤 charsequence.h                   │
-│   命名空间: charsequence                         │
-│   Unicode字符序列、多编码转换、Builder、Buffer     │
-├─────────────────────────────────────────────────┤
-│                🧵 pool.h                          │
-│   命名空间: pool                                 │
-│   全局线程池：任务提交、紧急关闭、异常传播            │
-├─────────────────────────────────────────────────┤
-│                📄 function.h                      │
-│   命名空间: function                             │
-│   类型定义：Generator、Supplier、Consumer等别名     │
-├─────────────────────────────────────────────────┤
-│               🔐 hash.h / less.h                  │
-│   命名空间: std (扩展)                            │
-│   标准库容器哈希与比较特化，支持任意嵌套             │
-└─────────────────────────────────────────────────┘
+semantic-cpp/
+├── structure/          基础层：类型别名、线程池、数据结构
+│   ├── function.h
+│   ├── pool.h
+│   ├── hash.h
+│   ├── less.h
+│   ├── node.h          树节点模板
+│   ├── tree.h          二叉搜索树
+│   ├── ast.h           抽象语法树
+│   ├── trie.h          前缀树（trie）
+│   ├── segment_tree.h  线段树
+│   └── character_search_tree.h  三叉字符搜索树
+├── bunch/              Unicode 字符、编码与字符串
+│   ├── charset.h       编码选择器
+│   ├── encode.h        编解码（UTF-8/16/32、ASCII、Latin1）
+│   ├── meta.h          Meta
+│   ├── point.h         Point / PointIterator
+│   ├── character.h     Character
+│   ├── unicode_data.h  生成的 Unicode 15 数据表
+│   ├── unicode.h       规范化（NFC/NFD/NFKC/NFKD）与文本样式
+│   ├── sequence.h      Bunch
+│   ├── builder.h       Builder
+│   ├── buffer.h        Buffer
+│   └── bunch.h         聚合头文件
+├── localisation/       消息本地化
+│   ├── localisation.h
+│   └── unicode.md      Unicode 概念与纠错说明
+└── semantic/           流构建与收集
+    ├── collector.h
+    └── semantic.h
 ```
 
 ### 🧩 依赖关系
-依赖链路清晰明了，如同精心设计的电路图：电流从最底层的类型定义开始，逐级向上，每一层都只依赖于它脚下的层级。最终，所有线路汇聚到 `semantic.h` 和 `semantics.h`，形成完整的流处理能力。
+每一层只依赖它下方的层级。编码与值类型相互独立，bunch 类型构建在其上，流 API 再构建在 bunch 与基础模块之上：
 
 ```
-function.h          ← 无依赖，类型基石
-pool.h              ← 依赖 function.h
-charsequence.h      ← 独立模块，Unicode 处理
-collector.h         ← 依赖 function.h、pool.h
-hash.h / less.h     ← 独立模块，标准库扩展
-semantic.h          ← 依赖以上全部
-semantics.h         ← 依赖 semantic.h
+structure/function.h       ← 无依赖，类型基石
+structure/pool.h           ← structure/function.h
+structure/hash.h, less.h   ← 标准库扩展，无内部依赖
+structure/node.h           ← 树节点模板，无内部依赖
+structure/tree.h           ← structure/node.h（二叉搜索树）
+structure/ast.h            ← 仅依赖标准库（自持有 AST 节点）
+structure/trie.h           ← structure/node.h（前缀树）
+structure/segment_tree.h   ← 仅依赖标准库（迭代式线段树）
+structure/character_search_tree.h ← structure/node.h（三叉字符搜索树）
+bunch/charset.h            ← 编码原语
+bunch/encode.h             ← bunch/charset.h（编解码）
+bunch/meta.h               ← 应用元数据，无内部依赖
+bunch/point.h              ← Point / PointIterator，无内部依赖
+bunch/character.h          ← bunch/meta.h、bunch/point.h
+bunch/unicode_data.h       ← 生成的 Unicode 15 数据表，无内部依赖
+bunch/unicode.h            ← bunch/charset.h、bunch/encode.h、bunch/unicode_data.h
+bunch/sequence.h           ← charset.h、encode.h、meta.h、point.h
+bunch/builder.h            ← bunch/point.h、bunch/sequence.h
+bunch/buffer.h             ← bunch/sequence.h、bunch/builder.h
+bunch/bunch.h              ← 聚合全部 bunch 头
+localisation/localisation.h ← bunch 头（消息本地化与文本样式）
+semantic/collector.h       ← structure/function.h、structure/pool.h、bunch/bunch.h
+semantic/semantic.h        ← 以上全部
 ```
 
 ---
 
 ## 🌍 命名空间全景
 
-Semantic-Cpp 精心设计了五个命名空间，每个都像一个独立的“部门”，各司其职又紧密协作：
+Semantic-Cpp 精心设计了多个命名空间，每个都像一个独立的“部门”，各司其职又紧密协作：
 
-| 命名空间    | 所在文件         | 职责                                   | 核心类型/函数                                                                  |
-| :---------- | :--------------- | :------------------------------------- | :----------------------------------------------------------------------------- |
-| function    | function.h       | 类型系统基石                           | `Timestamp`、`Module`、`Generator<T>`、`Supplier<R>`、`Consumer<T>`、`Predicate<T>` 等 |
-| pool        | pool.h           | 并发执行引擎                           | `pool::pool`（全局线程池）、`submit()`、`emergencyShutdown()`                    |
-| charsequence| charsequence.h   | Unicode 字符串处理                     | `charset`、`Meta`、`Point`、`Charsequence`、`Builder`、`Buffer` 等                |
-| collector   | collector.h      | 终端收集执行                           | `Collector<E,A,R>`、`Identity<A>`、`Accumulator<A,E>` 等                        |
-| collectable | semantic.h       | 物化数据容器                           | `Collectable<E>`、`OrderedCollectable<E>`、`UnorderedCollectable<E>` 等         |
-| semantic    | semantic.h<br>semantics.h | 流构建与中间操作                 | `Semantic<E>`、`useRange()`、`useFrom()` 等                                      |
+| 命名空间    | 所在文件                                | 职责                                   | 核心类型/函数                                                                  |
+| :---------- | :-------------------------------------- | :------------------------------------- | :----------------------------------------------------------------------------- |
+| function    | `structure/function.h`                  | 类型系统基石                           | `Timestamp`、`Module`、`Generator<T>`、`Supplier<R>`、`Consumer<T>`、`Predicate<T>` 等 |
+| pool        | `structure/pool.h`                      | 并发执行引擎                           | `pool::ThreadPool`、`submit()`、`emergencyShutdown()`                           |
+| node        | `structure/node.h`                      | 可复用的树节点模板                     | `BinaryNode<T>`、`TrieNode<Char,T>`、`TernaryNode<Char,T>`                       |
+| tree        | `structure/tree.h`                      | 有序二叉搜索树                         | `tree::BinarySearchTree<T>`、`insert()`、`erase()`、`inorder()` 等               |
+| ast         | `structure/ast.h`                       | 抽象语法树                             | `ast::Tree<Kind,Value>`、`ast::Node<Kind,Value>`、`SourceRange`、遍历与查询      |
+| trie        | `structure/trie.h`                      | 字符序列前缀树                         | `trie::Trie<Char,Value>`、`keysWithPrefix()`、`longestPrefixOf()`                |
+| segment     | `structure/segment_tree.h`              | 点更新与区间查询                       | `segment::SegmentTree<T,Operation>`、`query()`、`set()`、`update()`              |
+| character   | `structure/character_search_tree.h`     | 字节字符串三叉搜索树                   | `character::CharacterSearchTree<Value>`、`keysWithPrefix()`、`match()`           |
+| localisation | `localisation/localisation.h`          | 消息本地化与文本样式                   | `Locale`、`Catalog`、`Message`、`Arguments`、`TextFormat`、复数/数字格式化       |
+| bunch       | `bunch/bunch.h`                        | Unicode 字符、编码与字符串             | `charset`、`Character`、`Meta`、`Point`、`PointIterator`、`Bunch`、`Builder`、`Buffer`、`NormalizationForm`、`TextStyle` |
+| collector   | `semantic/collector.h`                  | 终端收集执行                           | `Collector<E,A,R>`、`Identity<A>`、`Accumulator<A,E>` 等                        |
+| collectable | `semantic/semantic.h`                   | 物化数据容器                           | `Collectable<E>`、`OrderedCollectable<E>`、`UnorderedCollectable<E>` 等         |
+| semantic    | `semantic/semantic.h`                   | 流构建与中间操作                       | `Semantic<E>`、`useRange()`、`useFrom()` 等                                      |
 
 ### 🔁 命名空间协作流程
 数据在命名空间之间的流转，就像工厂里的流水线——原料从 `semantic` 进入，经过层层加工，最终在 `collector` 包装出厂。每一步都有明确的职责边界：
 
 ```cpp
 semantic::useRange(0, 100)          // ← semantic 命名空间：创建流
-    .map(int x { return x * 2; })   // ← semantic 命名空间：中间变换
-    .filter(int x { return x > 50; }) // ← semantic 命名空间：中间过滤
+    .map([](int x) { return x * 2; })   // ← semantic 命名空间：中间变换
+    .filter([](int x) { return x > 50; }) // ← semantic 命名空间：中间过滤
     .toUnordered()                  // ← 转换为 collectable 命名空间
     .toVector();                    // ← 调用 collector 命名空间的收集器
 ```
 
 ---
 
-## 📦 第一层：function.h — 类型基础
+## 🛠️ 构建、测试与安装
 
-`function.h` 定义了整个框架的类型系统，是所有模块的共同基石。🔑
+**环境要求：** CMake 3.21+ 与 C++17 编译器（MSVC 2019+、GCC 9+、Clang 10+）。
+
+```bash
+cmake -S . -B build -DCMAKE_BUILD_TYPE=Release -DSEMANTIC_CPP_BUILD_TESTS=ON
+cmake --build build --config Release
+ctest --test-dir build -C Release --output-on-failure
+```
+
+安装纯头文件库及 CMake 包配置：
+
+```bash
+cmake --install build --config Release --prefix <安装前缀>
+```
+
+在其他 CMake 项目中使用：
+
+```cmake
+find_package(semantic-cpp CONFIG REQUIRED)
+target_link_libraries(app PRIVATE semantic-cpp::semantic-cpp)
+```
+
+```cpp
+#include <semantic-cpp/semantic/semantic.h>
+#include <semantic-cpp/bunch/bunch.h>
+```
+
+在本仓库内开发时，按仓库根目录的相对路径包含头文件（例如 `#include "semantic/semantic.h"`）。测试套件会逐个独立编译所有公开头文件，因此每个头文件都自带完整依赖。
+
+---
+
+## 📦 第一层：structure/function.h — 类型基础
+
+`structure/function.h` 定义了整个框架的类型系统，是所有模块的共同基石。🔑
 
 ```cpp
 namespace function {
@@ -135,9 +191,9 @@ namespace function {
 
 ---
 
-## 🧵 第二层：pool.h — 并发基石
+## 🧵 第二层：structure/pool.h — 并发基石
 
-`pool.h` 提供全局线程池 `pool::pool`，是整个框架的并发引擎。🚀 它采用**声明式并行**设计——当你写下 `.parallel(4)` 时，并没有立即启动 4 个线程开始处理。这行代码仅仅是一个“声明”：告诉框架“我打算用 4 个线程来并行处理”。真正的并行执行发生在终端操作被调用时——也就是当你调用 `toVector()`、`findFirst()`、`count()` 等收集方法的那一刻。
+`structure/pool.h` 提供全局线程池 `pool::ThreadPool`，是整个框架的并发引擎。🚀 它采用**声明式并行**设计——当你写下 `.parallel(4)` 时，并没有立即启动 4 个线程开始处理。这行代码仅仅是一个“声明”：告诉框架“我打算用 4 个线程来并行处理”。真正的并行执行发生在终端操作被调用时——也就是当你调用 `toVector()`、`findFirst()`、`count()` 等收集方法的那一刻。
 
 | 特性         | 说明                                                   |
 | :----------- | :----------------------------------------------------- |
@@ -147,28 +203,33 @@ namespace function {
 
 ---
 
-## 🔤 第三层：charsequence.h — Unicode 字符序列
+## 🔤 第三层：bunch/ + localisation/ — Unicode 字符与字符串
 
-`charsequence.h` 是一个完整的 Unicode 处理模块，提供字符序列的创建、转换和操作功能。🌍 它支持 UTF-8、UTF-16（LE/BE）、UTF-32（LE/BE）、ASCII 和 Latin1 等多种编码，能够正确检测和处理代理对，对无效码点返回标准的 U+FFFD 替代字符。
+`bunch/charset.h` 定义编码选择器，`bunch/encode.h` 实现编解码，`bunch/unicode.h` 提供 NFC/NFD/NFKC/NFKD 规范化、大小写映射与文本样式；`bunch/` 其余部分在其上构建码点、字符与不可变/可变序列。🌍 共同支持 UTF-8、UTF-16（LE/BE）、UTF-32（LE/BE）、ASCII 和 Latin1；无效序列替换为 U+FFFD。精确术语与当前实现限制见 [Unicode 概念与纠错](localisation/unicode.md)。`localisation/localisation.h` 复用这些原语实现按 locale 的消息处理。
 
-| 类型/函数       | 描述                                                                     |
-| :-------------- | :----------------------------------------------------------------------- |
-| charset         | 枚举 ascii、utf8、utf16、utf16be、utf16le、utf32、utf32be、utf32le、latin1 |
-| Meta            | 元数据包装器，存储无符号整数值                                           |
-| Point           | Unicode 码点，支持代理对检测和有效性验证                                 |
-| Charsequence    | 不可变字符序列：split、replace、indexOf、lastIndexOf、sub、trim、toUpperCase、toLowerCase、reverse、startsWith、endsWith、contains、compare、getBytes、getPoints、getMetas、getCharacters、repeat、concat、count、join |
-| Builder         | 可变字节构建器：prepend、insert、append（支持基本类型、Point、Charsequence、string_view） |
-| Buffer          | 线程安全环形缓冲区：write、read、peek、prepend、append、clear、shrinkToFit、data、size、capacity、atomic |
-| PointIterator   | 双向迭代器，遍历 Unicode 码点                                            |
-| encode()        | 将单个码点编码为指定编码的字节序列                                       |
-| decode()        | 从字节序列解码下一个码点，自动推进指针                                   |
-| convert()       | 编码转换（支持 string、vector、deque 输出）                               |
+| 类型/函数       | 所在头文件                      | 描述                                                                     |
+| :-------------- | :------------------------------ | :----------------------------------------------------------------------- |
+| charset         | `bunch/charset.h`               | 编码/编码方案选择器：ascii、utf8、utf16、utf16be、utf16le、utf32、utf32be、utf32le、latin1 |
+| encode()        | `bunch/encode.h`                | 将单个码点编码为指定编码的码元                                           |
+| decode()        | `bunch/encode.h`                | 从码元解码下一个码点，自动推进输入                                       |
+| convert()       | `bunch/encode.h`                | 编码转换（支持 string、vector、deque 输出）                               |
+| NormalizationForm | `bunch/unicode.h`             | NFC/NFD/NFKC/NFKD 形式选择器                                              |
+| normalize()     | `bunch/unicode.h`               | Unicode 规范化：分解、规范排序、重组                                     |
+| TextStyle       | `bunch/unicode.h`               | plain / lowercase / uppercase / capitalize / title                        |
+| TextFormat      | `localisation/localisation.h`   | 绑定 Locale 的文本样式与可选规范化                                        |
+| Meta            | `bunch/meta.h`                  | 应用元数据包装器；不是 Unicode 属性                                      |
+| Point           | `bunch/point.h`                 | Unicode 码点数值，提供标量值/非字符/代理项判断                           |
+| PointIterator   | `bunch/point.h`                 | 码点双向迭代器                                                           |
+| Character       | `bunch/character.h`             | 码点 + 应用元数据                                                        |
+| Bunch           | `bunch/sequence.h`              | 不可变码点序列：split、replace、indexOf、lastIndexOf、sub、trim、toUpperCase、toLowerCase、reverse、startsWith、endsWith、contains、compare、getBytes、getPoints、getMetas、getCharacters、repeat、concat、count、join |
+| Builder         | `bunch/builder.h`               | 可变字节构建器：prepend、insert、append（支持基本类型、Point、Bunch、string_view）、toBunch() |
+| Buffer          | `bunch/buffer.h`                | 线程安全字节环形缓冲区：write、read、peek、prepend、append、clear、shrinkToFit、data、size、capacity、atomic |
 
 ---
 
-## ⚙️ 第四层：collector.h — 收集器框架与工厂
+## ⚙️ 第四层：semantic/collector.h — 收集器框架与工厂
 
-`collector.h` 是 Semantic-Cpp 的收集器核心模块，将收集器框架与工厂函数合二为一。
+`semantic/collector.h` 是 Semantic-Cpp 的收集器核心模块，将收集器框架与工厂函数合二为一。
 
 ### 🧩 五阶段模型
 ```
@@ -267,7 +328,7 @@ Identity → Accumulator → Combiner → Finisher
 #### 📄 字符串输出
 | 方法                               | 返回类型 |
 | :--------------------------------- | :------- |
-| `useJoin()` / `useOut()` / `useError()` 及其各种重载 | `charsequence::Charsequence` |
+| `useJoin()` / `useOut()` / `useError()` 及其各种重载 | `bunch::Bunch` |
 
 #### 📊 数学工具
 | 方法             | 返回类型 |
@@ -280,7 +341,7 @@ Identity → Accumulator → Combiner → Finisher
 
 ---
 
-## 📦 第五层：semantic.h — 流式中间操作与收集体系
+## 📦 第五层：semantic/semantic.h — 流式中间操作与收集体系
 
 ### 🧩 核心设计：三阶段流水线
 ```
@@ -325,11 +386,11 @@ Collectable<E> (物化与收集)
 | `forEach(consumer)`                                 | `void`                      | 遍历每个元素执行副作用                   |
 | `group(keyExtractor)`                               | `unordered_map<K, vector<E>>`| 按键分组                                 |
 | `groupBy(keyExtractor, valueExtractor)`            | `unordered_map<K, vector<V>>`| 按键分组并提取值                         |
-| `join()`                                            | `Charsequence`               | 默认格式连接                             |
-| `join(delimiter)`                                   | `Charsequence`               | 自定义分隔符连接                         |
-| `join(prefix, delimiter, suffix)`                  | `Charsequence`               | 完全自定义格式连接                       |
+| `join()`                                            | `Bunch`               | 默认格式连接                             |
+| `join(delimiter)`                                   | `Bunch`               | 自定义分隔符连接                         |
+| `join(prefix, delimiter, suffix)`                  | `Bunch`               | 完全自定义格式连接                       |
 | `noneMatch(predicate)`                              | `bool`                       | 没有元素满足条件                         |
-| `out()`                                             | `Charsequence`               | 输出到 stdout（支持 delimiter/prefix/suffix/converter） |
+| `out()`                                             | `Bunch`               | 输出到 stdout（支持 delimiter/prefix/suffix/converter） |
 | `partition(size)`                                   | `vector<vector<E>>`          | 按固定大小分区                           |
 | `partitionBy(keyExtractor)`                        | `vector<vector<E>>`          | 按索引键分区                             |
 | `partitionBy(keyExtractor, valueExtractor)`        | `vector<vector<V>>`          | 按索引键分区并提取值                     |
@@ -411,7 +472,7 @@ Collectable<E> (物化与收集)
 
 ---
 
-## 🔧 第六层：semantics.h — 流构建工厂
+## 🔧 第六层：semantic/semantic.h — 流构建工厂
 
 ### 🔢 数值范围生成
 | 方法                          | 描述                     |
@@ -452,17 +513,17 @@ Collectable<E> (物化与收集)
 | `useBlob(text, start, end)` | 指定范围按字节拆分           |
 | `useBlob(istream)`          | 从输入流按行读取             |
 | `useBlob(istream, delimiter)` | 从输入流按分隔符读取       |
-| `useText(text)`             | 整体文本流（Charsequence）   |
+| `useText(text)`             | 整体文本流（Bunch）   |
 | `useText(text, delimiter)`  | 按分隔符拆分文本             |
 | `useText(istream)`          | 从输入流读取整个内容         |
-| `useSequence(charsequence)` | 从字符序列创建码点流         |
+| `useSequence(string)` | 从字符序列创建码点流         |
 | `useSequence(text, encoding)` | 从文本创建指定编码码点流   |
-| `useCharsequence(charsequence)` | 字符序列作为整体流       |
-| `useCharsequence(charsequence, delimiter)` | 按分隔符拆分字符序列 |
+| `useBunch(bunch)` | 码点序列作为整体流       |
+| `useBunch(bunch, delimiter)` | 按分隔符拆分码点序列 |
 
 ---
 
-## 🔐 第七层：hash.h / less.h — 容器世界的通用语言
+## 🔐 第七层：structure/hash.h / structure/less.h — 容器世界的通用语言
 
 为所有标准库容器（包括嵌套容器）、pair、tuple、optional、variant、chrono 时间类型、complex 复数等提供完整的哈希和比较支持。任意深度、任意组合的嵌套容器现在都可以作为 unordered_set 的键或 set 的元素。🌉
 

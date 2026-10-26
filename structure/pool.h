@@ -1,4 +1,7 @@
 #pragma once
+#include <cstddef>
+#include <exception>
+#include <functional>
 #include <vector>
 #include <queue>
 #include <mutex>

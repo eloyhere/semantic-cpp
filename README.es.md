@@ -23,39 +23,39 @@ Semantic-Cpp consta de siete archivos de encabezado principales, construidos en 
 
 ```
 ┌─────────────────────────────────────────────────┐
-│               🌊 semantics.h                     │
+│               🌊 semantic/semantic.h                     │
 │   Espacio de nombres: semantic                  │
 │   Fábricas de construcción de flujos: rangos    │
 │   numéricos, contenedores, texto, Unicode       │
 ├─────────────────────────────────────────────────┤
-│                 📦 semantic.h                   │
+│                 📦 semantic/semantic.h                   │
 │   Espacio de nombres: semantic / collectable    │
 │   Operaciones intermedias de flujo, sistema     │
 │   Collectable, soporte de desempaquetado de     │
 │   contenedores                                  │
 ├─────────────────────────────────────────────────┤
-│                ⚙️ collector.h                   │
+│                ⚙️ semantic/collector.h                   │
 │   Espacio de nombres: collector                 │
 │   Marco de colectores + fábricas: coincidencia, │
 │   búsqueda, agregación, estadísticas, DFT/FFT  │
 ├─────────────────────────────────────────────────┤
-│                🔤 charsequence.h                │
-│   Espacio de nombres: charsequence              │
+│                🔤 bunch/bunch.h                │
+│   Espacio de nombres: bunch              │
 │   Secuencias de caracteres Unicode, conversión  │
 │   multi-codificación, Builder, Buffer          │
 ├─────────────────────────────────────────────────┤
-│                🧵 pool.h                        │
+│                🧵 structure/pool.h                        │
 │   Espacio de nombres: pool                      │
 │   Grupo de hilos global: envío de tareas,       │
 │   apagado de emergencia, propagación de         │
 │   excepciones                                   │
 ├─────────────────────────────────────────────────┤
-│                📄 function.h                    │
+│                📄 structure/function.h                    │
 │   Espacio de nombres: function                  │
 │   Definiciones de tipos: alias para Generator,  │
 │   Supplier, Consumer, etc.                     │
 ├─────────────────────────────────────────────────┤
-│               🔐 hash.h / less.h                │
+│               🔐 structure/hash.h / structure/less.h                │
 │   Espacio de nombres: std (extensiones)         │
 │   Especializaciones de Hash y Comparación de    │
 │   contenedores de biblioteca estándar, soporte  │
@@ -64,16 +64,16 @@ Semantic-Cpp consta de siete archivos de encabezado principales, construidos en 
 ```
 
 ### 🧩 Gráfico de dependencias
-La cadena de dependencias es clara y lógica, como un diagrama de circuitos diseñado meticulosamente: la corriente fluye desde las definiciones de tipo fundamentales hacia arriba, donde cada capa depende solo de las capas inferiores. Finalmente, todas las rutas convergen en `semantic.h` y `semantics.h`, formando la capacidad completa de procesamiento de flujos.
+La cadena de dependencias es clara y lógica, como un diagrama de circuitos diseñado meticulosamente: la corriente fluye desde las definiciones de tipo fundamentales hacia arriba, donde cada capa depende solo de las capas inferiores. Finalmente, todas las rutas convergen en `semantic/semantic.h` y `semantic/semantic.h`, formando la capacidad completa de procesamiento de flujos.
 
 ```
-function.h          ← Sin dependencias, la base de tipos
-pool.h              ← Depende de function.h
-charsequence.h      ← Módulo independiente, procesamiento Unicode
-collector.h         ← Depende de function.h, pool.h
-hash.h / less.h     ← Módulos independientes, extensiones de biblioteca estándar
-semantic.h          ← Depende de todos los anteriores
-semantics.h         ← Depende de semantic.h
+structure/function.h          ← Sin dependencias, la base de tipos
+structure/pool.h              ← Depende de structure/function.h
+bunch/bunch.h      ← Módulo independiente, procesamiento Unicode
+semantic/collector.h         ← Depende de structure/function.h, structure/pool.h
+structure/hash.h / structure/less.h     ← Módulos independientes, extensiones de biblioteca estándar
+semantic/semantic.h          ← Depende de todos los anteriores
+semantic/semantic.h         ← Depende de semantic/semantic.h
 ```
 
 ---
@@ -84,29 +84,29 @@ Semantic-Cpp diseña meticulosamente cinco espacios de nombres, cada uno como un
 
 | Espacio de nombres | Archivo de encabezado | Responsabilidad                               | Tipos/Funciones principales                                                  |
 | :----------------- | :-------------------- | :------------------------------------------- | :-------------------------------------------------------------------------- |
-| function           | function.h            | Base del sistema de tipos                    | `Timestamp`, `Module`, `Generator<T>`, `Supplier<R>`, `Consumer<T>`, `Predicate<T>` etc. |
-| pool               | pool.h                | Motor de ejecución concurrente               | `pool::pool` (grupo de hilos global), `submit()`, `emergencyShutdown()`    |
-| charsequence       | charsequence.h        | Procesamiento de cadenas Unicode             | `charset`, `Meta`, `Point`, `Charsequence`, `Builder`, `Buffer` etc.       |
-| collector          | collector.h           | Ejecución de colección terminal              | `Collector<E,A,R>`, `Identity<A>`, `Accumulator<A,E>` etc.                 |
-| collectable        | semantic.h            | Contenedores de datos materializados         | `Collectable<E>`, `OrderedCollectable<E>`, `UnorderedCollectable<E>` etc.  |
-| semantic           | semantic.h<br>semantics.h | Construcción de flujo y operaciones intermedias | `Semantic<E>`, `useRange()`, `useFrom()` etc.                              |
+| function           | structure/function.h            | Base del sistema de tipos                    | `Timestamp`, `Module`, `Generator<T>`, `Supplier<R>`, `Consumer<T>`, `Predicate<T>` etc. |
+| pool               | structure/pool.h                | Motor de ejecución concurrente               | `pool::pool` (grupo de hilos global), `submit()`, `emergencyShutdown()`    |
+| bunch       | bunch/bunch.h        | Procesamiento de cadenas Unicode             | `charset`, `Meta`, `Point`, `Bunch`, `Builder`, `Buffer` etc.       |
+| collector          | semantic/collector.h           | Ejecución de colección terminal              | `Collector<E,A,R>`, `Identity<A>`, `Accumulator<A,E>` etc.                 |
+| collectable        | semantic/semantic.h            | Contenedores de datos materializados         | `Collectable<E>`, `OrderedCollectable<E>`, `UnorderedCollectable<E>` etc.  |
+| semantic           | semantic/semantic.h<br>semantic/semantic.h | Construcción de flujo y operaciones intermedias | `Semantic<E>`, `useRange()`, `useFrom()` etc.                              |
 
 ### 🔁 Flujo de colaboración entre espacios de nombres
 El flujo de datos entre espacios de nombres es como una línea de montaje en una fábrica: la materia prima entra desde `semantic`, pasa por procesamiento capa por capa, y finalmente se empaqueta y envía desde `collector`. Cada paso tiene un límite de responsabilidad claro:
 
 ```cpp
 semantic::useRange(0, 100)          // ← espacio de nombres semantic: crear flujo
-    .map(int x { return x * 2; })   // ← espacio de nombres semantic: transformación intermedia
-    .filter(int x { return x > 50; }) // ← espacio de nombres semantic: filtro intermedio
+    .map([](int x) { return x * 2; })   // ← espacio de nombres semantic: transformación intermedia
+    .filter([](int x) { return x > 50; }) // ← espacio de nombres semantic: filtro intermedio
     .toUnordered()                  // ← Convertir al espacio de nombres collectable
     .toVector();                    // ← Invocar colector del espacio de nombres collector
 ```
 
 ---
 
-## 📦 Capa 1: function.h — Base de tipos
+## 📦 Capa 1: structure/function.h — Base de tipos
 
-`function.h` define el sistema de tipos para todo el marco, la base común para todos los módulos. 🔑
+`structure/function.h` define el sistema de tipos para todo el marco, la base común para todos los módulos. 🔑
 
 ```cpp
 namespace function {
@@ -145,9 +145,9 @@ namespace function {
 
 ---
 
-## 🧵 Capa 2: pool.h — Base de concurrencia
+## 🧵 Capa 2: structure/pool.h — Base de concurrencia
 
-`pool.h` proporciona el grupo de hilos global `pool::pool`, el motor de concurrencia para todo el marco. 🚀 Emplea un diseño de **paralelismo declarativo**; cuando escribe `.parallel(4)`, no lanza inmediatamente cuatro hilos para comenzar el procesamiento. Esta línea de código es meramente una "declaración": le dice al marco que "tengo la intención de usar 4 hilos para el procesamiento paralelo". La ejecución paralela real ocurre cuando se invoca una operación terminal; es decir, cuando llama a métodos de colección como `toVector()`, `findFirst()`, `count()`, etc.
+`structure/pool.h` proporciona el grupo de hilos global `pool::pool`, el motor de concurrencia para todo el marco. 🚀 Emplea un diseño de **paralelismo declarativo**; cuando escribe `.parallel(4)`, no lanza inmediatamente cuatro hilos para comenzar el procesamiento. Esta línea de código es meramente una "declaración": le dice al marco que "tengo la intención de usar 4 hilos para el procesamiento paralelo". La ejecución paralela real ocurre cuando se invoca una operación terminal; es decir, cuando llama a métodos de colección como `toVector()`, `findFirst()`, `count()`, etc.
 
 | Característica        | Descripción                                                               |
 | :-------------------- | :------------------------------------------------------------------------ |
@@ -157,17 +157,17 @@ namespace function {
 
 ---
 
-## 🔤 Capa 3: charsequence.h — Secuencias de caracteres Unicode
+## 🔤 Capa 3: bunch/bunch.h — Secuencias de caracteres Unicode
 
-`charsequence.h` es un módulo completo de procesamiento Unicode, que proporciona funcionalidad para crear, convertir y manipular secuencias de caracteres. 🌍 Admite varias codificaciones como UTF-8, UTF-16 (LE/BE), UTF-32 (LE/BE), ASCII y Latin1. Detecta y maneja correctamente pares sustitutos, devolviendo el carácter de reemplazo estándar U+FFFD para puntos de código no válidos.
+`bunch/bunch.h` es un módulo completo de procesamiento Unicode, que proporciona funcionalidad para crear, convertir y manipular secuencias de caracteres. 🌍 Admite varias codificaciones como UTF-8, UTF-16 (LE/BE), UTF-32 (LE/BE), ASCII y Latin1. Detecta y maneja correctamente pares sustitutos, devolviendo el carácter de reemplazo estándar U+FFFD para puntos de código no válidos.
 
 | Tipo/Función    | Descripción                                                               |
 | :-------------- | :------------------------------------------------------------------------ |
 | charset         | Enum: ascii, utf8, utf16, utf16be, utf16le, utf32, utf32be, utf32le, latin1 |
 | Meta            | Envoltura de metadatos, almacena valores enteros sin signo                |
 | Point           | Punto de código Unicode, admite detección de pares sustitutos y comprobaciones de validez |
-| Charsequence    | Secuencia de caracteres inmutable: split, replace, indexOf, lastIndexOf, sub, trim, toUpperCase, toLowerCase, reverse, startsWith, endsWith, contains, compare, getBytes, getPoints, getMetas, getCharacters, repeat, concat, count, join |
-| Builder         | Constructor de bytes mutable: prepend, insert, append (admite tipos primitivos, Point, Charsequence, string_view) |
+| Bunch    | Secuencia de caracteres inmutable: split, replace, indexOf, lastIndexOf, sub, trim, toUpperCase, toLowerCase, reverse, startsWith, endsWith, contains, compare, getBytes, getPoints, getMetas, getCharacters, repeat, concat, count, join |
+| Builder         | Constructor de bytes mutable: prepend, insert, append (admite tipos primitivos, Point, Bunch, string_view) |
 | Buffer          | Búfer circular seguro para hilos: write, read, peek, prepend, append, clear, shrinkToFit, data, size, capacity, atomic |
 | PointIterator   | Iterador bidireccional para recorrer puntos de código Unicode             |
 | encode()        | Codifica un solo punto de código a una secuencia de bytes de la codificación especificada |
@@ -176,9 +176,9 @@ namespace function {
 
 ---
 
-## ⚙️ Capa 4: collector.h — Marco de colectores y fábricas
+## ⚙️ Capa 4: semantic/collector.h — Marco de colectores y fábricas
 
-`collector.h` es el módulo central de colectores de Semantic-Cpp, que combina el marco de colectores con funciones de fábrica.
+`semantic/collector.h` es el módulo central de colectores de Semantic-Cpp, que combina el marco de colectores con funciones de fábrica.
 
 ### 🧩 Modelo de cinco etapas
 ```
@@ -277,7 +277,7 @@ Identity → Accumulator → Combiner → Finisher
 #### 📄 Salida de cadenas
 | Método                               | Tipo de retorno |
 | :----------------------------------- | :-------------- |
-| `useJoin()` / `useOut()` / `useError()` y sus sobrecargas | `charsequence::Charsequence` |
+| `useJoin()` / `useOut()` / `useError()` y sus sobrecargas | `bunch::Bunch` |
 
 #### 📊 Herramientas matemáticas
 | Método            | Tipo de retorno |
@@ -290,7 +290,7 @@ Identity → Accumulator → Combiner → Finisher
 
 ---
 
-## 📦 Capa 5: semantic.h — Operaciones intermedias de flujo y sistema de colección
+## 📦 Capa 5: semantic/semantic.h — Operaciones intermedias de flujo y sistema de colección
 
 ### 🧩 Diseño central: Canalización de tres etapas
 ```
@@ -335,11 +335,11 @@ Resultado final
 | `forEach(consumer)`                                 | `void`                     | Ejecuta efecto secundario para cada elemento   |
 | `group(keyExtractor)`                               | `unordered_map<K, vector<E>>` | Agrupa por clave                             |
 | `groupBy(keyExtractor, valueExtractor)`            | `unordered_map<K, vector<V>>` | Agrupa por clave y extrae valor              |
-| `join()`                                            | `Charsequence`              | Une con formato predeterminado                 |
-| `join(delimiter)`                                   | `Charsequence`              | Une con delimitador personalizado              |
-| `join(prefix, delimiter, suffix)`                  | `Charsequence`              | Une con formato completamente personalizado    |
+| `join()`                                            | `Bunch`              | Une con formato predeterminado                 |
+| `join(delimiter)`                                   | `Bunch`              | Une con delimitador personalizado              |
+| `join(prefix, delimiter, suffix)`                  | `Bunch`              | Une con formato completamente personalizado    |
 | `noneMatch(predicate)`                              | `bool`                     | Ningún elemento cumple la condición            |
-| `out()`                                             | `Charsequence`              | Salida a stdout (admite delimiter/prefix/suffix/converter) |
+| `out()`                                             | `Bunch`              | Salida a stdout (admite delimiter/prefix/suffix/converter) |
 | `partition(size)`                                   | `vector<vector<E>>`         | Particiona por tamaño fijo                     |
 | `partitionBy(keyExtractor)`                         | `vector<vector<E>>`         | Particiona por clave de índice                 |
 | `partitionBy(keyExtractor, valueExtractor)`         | `vector<vector<V>>`         | Particiona por clave de índice y extrae valor  |
@@ -421,7 +421,7 @@ Todos los métodos anteriores también admiten una versión de parámetro `mappe
 
 ---
 
-## 🔧 Capa 6: semantics.h — Fábricas de construcción de flujos
+## 🔧 Capa 6: semantic/semantic.h — Fábricas de construcción de flujos
 
 ### 🔢 Generación de rangos numéricos
 | Método                        | Descripción                     |
@@ -462,17 +462,17 @@ Todos los métodos anteriores también admiten una versión de parámetro `mappe
 | `useBlob(text, start, end)` | Dividir rango específico byte a byte |
 | `useBlob(istream)`          | Leer línea por línea desde flujo de entrada |
 | `useBlob(istream, delimiter)` | Leer por delimitador desde flujo de entrada |
-| `useText(text)`             | Flujo de texto completo (Charsequence) |
+| `useText(text)`             | Flujo de texto completo (Bunch) |
 | `useText(text, delimiter)`  | Dividir texto por delimitador      |
 | `useText(istream)`          | Leer contenido completo desde flujo de entrada |
-| `useSequence(charsequence)` | Crear flujo de puntos de código a partir de secuencia de caracteres |
+| `useSequence(string)` | Crear flujo de puntos de código a partir de secuencia de caracteres |
 | `useSequence(text, encoding)` | Crear flujo de puntos de código a partir de texto con codificación especificada |
-| `useCharsequence(charsequence)` | Secuencia de caracteres como flujo completo |
-| `useCharsequence(charsequence, delimiter)` | Dividir secuencia de caracteres por delimitador |
+| `useBunch(string)` | Secuencia de caracteres como flujo completo |
+| `useBunch(string, delimiter)` | Dividir secuencia de caracteres por delimitador |
 
 ---
 
-## 🔐 Capa 7: hash.h / less.h — El lenguaje universal del mundo de los contenedores
+## 🔐 Capa 7: structure/hash.h / structure/less.h — El lenguaje universal del mundo de los contenedores
 
 Proporciona soporte completo de hash y comparación para todos los contenedores de la biblioteca estándar (incluidos contenedores anidados), `pair`, `tuple`, `optional`, `variant`, tipos de tiempo `chrono`, números `complex`, y más. Los contenedores anidados en cualquier profundidad y combinación ahora pueden usarse como claves en `unordered_set` o elementos en `set`. 🌉
 

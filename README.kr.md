@@ -15,71 +15,71 @@
 Semantic-Cpp는 **7개의 핵심 헤더 파일**로 구성되며, 계층별로 점진적으로 발전합니다. **5개의 네임스페이스**가 각자의 역할을 수행하며 데이터 소스부터 최종 결과까지 완전한 파이프라인을 함께 구성합니다:
 ```
 ┌─────────────────────────────────────────────────┐
-│               🌊 semantics.h                    │
+│               🌊 semantic/semantic.h                    │
 │   네임스페이스: semantic                         │
 │   스트림 빌더 팩토리: 숫자 범위, 컨테이너, 텍스트, 유니코드 │
 ├─────────────────────────────────────────────────┤
-│                 📦 semantic.h                     │
+│                 📦 semantic/semantic.h                     │
 │   네임스페이스: semantic / collectable            │
 │   스트림 중간 연산, Collectable 체계, 컨테이너 확장 지원  │
 ├─────────────────────────────────────────────────┤
-│                ⚙️ collector.h                     │
+│                ⚙️ semantic/collector.h                     │
 │   네임스페이스: collector                        │
 │   컬렉터 프레임워크 + 팩토리: 매칭, 검색, 집계, 통계, DFT/FFT│
 ├─────────────────────────────────────────────────┤
-│                🔤 charsequence.h                   │
-│   네임스페이스: charsequence                     │
+│                🔤 bunch/bunch.h                   │
+│   네임스페이스: bunch                     │
 │   유니코드 문자 시퀀스, 다중 인코딩 변환, Builder, Buffer │
 ├─────────────────────────────────────────────────┤
-│                🧵 pool.h                          │
+│                🧵 structure/pool.h                          │
 │   네임스페이스: pool                             │
 │   전역 스레드 풀: 작업 제출, 긴급 종료, 예외 전파      │
 ├─────────────────────────────────────────────────┤
-│                📄 function.h                      │
+│                📄 structure/function.h                      │
 │   네임스페이스: function                         │
 │   타입 정의: Generator, Supplier, Consumer 등 별칭   │
 ├─────────────────────────────────────────────────┤
-│               🔐 hash.h / less.h                  │
+│               🔐 structure/hash.h / structure/less.h                  │
 │   네임스페이스: std (확장)                       │
 │   표준 라이브러리 컨테이너 해시 및 비교 특수화, 임의 중첩 지원 │
 └─────────────────────────────────────────────────┘
 
 ```
 ### 🧩 의존성 관계
-의존성 체인은 정교하게 설계된 회로도처럼 명확합니다. 전류가 가장 아래층의 타입 정의에서 시작하여 단계별로 위로 올라가며, 각 계층은 자신의 아래 계층에만 의존합니다. 최종적으로 모든 회선이 semantic.h와 semantics.h로 모여 완전한 스트림 처리 능력을 형성합니다.
+의존성 체인은 정교하게 설계된 회로도처럼 명확합니다. 전류가 가장 아래층의 타입 정의에서 시작하여 단계별로 위로 올라가며, 각 계층은 자신의 아래 계층에만 의존합니다. 최종적으로 모든 회선이 semantic/semantic.h와 semantic/semantic.h로 모여 완전한 스트림 처리 능력을 형성합니다.
 ```
-function.h          ← 의존성 없음, 타입 기초석
-pool.h              ← function.h에 의존
-charsequence.h      ← 독립 모듈, 유니코드 처리
-collector.h         ← function.h, pool.h에 의존
-hash.h / less.h     ← 독립 모듈, 표준 라이브러리 확장
-semantic.h          ← 위의 모든 것에 의존
-semantics.h         ← semantic.h에 의존
+structure/function.h          ← 의존성 없음, 타입 기초석
+structure/pool.h              ← structure/function.h에 의존
+bunch/bunch.h      ← 독립 모듈, 유니코드 처리
+semantic/collector.h         ← structure/function.h, structure/pool.h에 의존
+structure/hash.h / structure/less.h     ← 독립 모듈, 표준 라이브러리 확장
+semantic/semantic.h          ← 위의 모든 것에 의존
+semantic/semantic.h         ← semantic/semantic.h에 의존
 
 ```
 ## 🌍 네임스페이스 파노라마
 Semantic-Cpp는 5개의 네임스페이스를 정교하게 설계했으며, 각각은 마치 독립된 "부서"처럼 각자의 임무를 수행하면서도 긴밀하게 협력합니다:
 | 네임스페이스 | 소속 파일 | 책임 | 핵심 타입/함수 |
 |---|---|---|---|
-| **function** | function.h | 타입 시스템 기초석 | Timestamp, Module, Generator<T>, Supplier<R>, Consumer<T>, Predicate<T> 등 |
-| **pool** | pool.h | 동시성 실행 엔진 | pool::pool(전역 스레드 풀), submit(), emergencyShutdown() |
-| **charsequence** | charsequence.h | 유니코드 문자열 처리 | charset, Meta, Point, Charsequence, Builder, Buffer 등 |
-| **collector** | collector.h | 최종 수집 실행 | Collector<E,A,R>, Identity<A>, Accumulator<A,E> 등 |
-| **collectable** | semantic.h | 구체화된 데이터 컨테이너 | Collectable<E>, OrderedCollectable<E>, UnorderedCollectable<E> 등 |
-| **semantic** | semantic.h
-semantics.h | 스트림 빌드 및 중간 연산 | Semantic<E>, useRange(), useFrom() 등 |
+| **function** | structure/function.h | 타입 시스템 기초석 | Timestamp, Module, Generator<T>, Supplier<R>, Consumer<T>, Predicate<T> 등 |
+| **pool** | structure/pool.h | 동시성 실행 엔진 | pool::pool(전역 스레드 풀), submit(), emergencyShutdown() |
+| **bunch** | bunch/bunch.h | 유니코드 문자열 처리 | charset, Meta, Point, Bunch, Builder, Buffer 등 |
+| **collector** | semantic/collector.h | 최종 수집 실행 | Collector<E,A,R>, Identity<A>, Accumulator<A,E> 등 |
+| **collectable** | semantic/semantic.h | 구체화된 데이터 컨테이너 | Collectable<E>, OrderedCollectable<E>, UnorderedCollectable<E> 등 |
+| **semantic** | semantic/semantic.h
+semantic/semantic.h | 스트림 빌드 및 중간 연산 | Semantic<E>, useRange(), useFrom() 등 |
 ### 🔁 네임스페이스 협업 흐름
 네임스페이스 간 데이터 흐름은 마치 공장의 조립 라인과 같습니다. 원자재는 semantic으로 들어와 여러 단계의 가공을 거쳐 최종적으로 collector에서 포장되어 출하됩니다. 각 단계마다 명확한 책임 경계가 있습니다:
 ```cpp
 semantic::useRange(0, 100)          // ← semantic 네임스페이스: 스트림 생성
-    .map(int x { return x * 2; })   // ← semantic 네임스페이스: 중간 변환
-    .filter(int x { return x > 50; }) // ← semantic 네임스페이스: 중간 필터
+    .map([](int x) { return x * 2; })   // ← semantic 네임스페이스: 중간 변환
+    .filter([](int x) { return x > 50; }) // ← semantic 네임스페이스: 중간 필터
     .toUnordered()                  // ← collectable 네임스페이스로 변환
     .toVector();                    // ← collector 네임스페이스의 컬렉터 호출
 
 ```
-## 📦 제1계층: function.h — 타입 기초
-function.h는 전체 프레임워크의 타입 시스템을 정의하며, 모든 모듈의 공통 기초석입니다. 🔑
+## 📦 제1계층: structure/function.h — 타입 기초
+structure/function.h는 전체 프레임워크의 타입 시스템을 정의하며, 모든 모듈의 공통 기초석입니다. 🔑
 ```cpp
 namespace function {
     using Timestamp = long long;           // 인덱스 타입, 스트림 내 데이터의 "타임스탬프"
@@ -114,8 +114,8 @@ Generator는 전체 스트림 시스템의 핵심 추상화입니다. 🌀 데�
 | TriPredicate<T,U,V> | std::function<bool(T,U,V)> | 삼중 매개변수 술어 |
 | Comparator<T> | std::function<int(const T&,const T&)> | 비교자, 음/0/양 반환 |
 | Generator<T> | BiConsumer<BiConsumer<T,Timestamp>, BiPredicate<T,Timestamp>> | 스트림 생성자 핵심 추상화 |
-## 🧵 제2계층: pool.h — 동시성 기초석
-pool.h는 전역 스레드 풀 pool::pool을 제공하며, 전체 프레임워크의 동시성 엔진입니다. 🚀
+## 🧵 제2계층: structure/pool.h — 동시성 기초석
+structure/pool.h는 전역 스레드 풀 pool::pool을 제공하며, 전체 프레임워크의 동시성 엔진입니다. 🚀
 **선언적 병렬 처리(declarative parallelism)** 설계를 채택했습니다. .parallel(4)라고 작성했을 때, 즉시 4개의 스레드가 시작되어 처리를 시작하지 않습니다. 이 코드 줄은 단지 "선언"일 뿐입니다. 프레임워크에게 "4개의 스레드로 병렬 처리할 계획입니다"라고 알려주는 것입니다.
 실제 병렬 실행은 최종 연산이 호출될 때—즉, toVector(), findFirst(), count()와 같은 수집 메서드를 호출하는 순간에 발생합니다.
 | 기능 | 설명 |
@@ -123,23 +123,23 @@ pool.h는 전역 스레드 풀 pool::pool을 제공하며, 전체 프레임워�
 | **선언적 병렬** | .parallel(4)는 단지 "스레드 4개로 병렬 처리하겠다"는 선언이며, 즉시 시작하지 않음 |
 | **긴급 종료** | 내장 emergencyShutdown() 및 std::set_terminate 핸들러 |
 | **예외 전파** | submit()은 std::future를 반환하며, 예외를 안전하게 주 스레드로 전파 |
-## 🔤 제3계층: charsequence.h — 유니코드 문자 시퀀스
-charsequence.h는 완전한 유니코드 처리 모듈로, 문자 시퀀스의 생성, 변환 및 조작 기능을 제공합니다. 🌍
+## 🔤 제3계층: bunch/bunch.h — 유니코드 문자 시퀀스
+bunch/bunch.h는 완전한 유니코드 처리 모듈로, 문자 시퀀스의 생성, 변환 및 조작 기능을 제공합니다. 🌍
 UTF-8, UTF-16(LE/BE), UTF-32(LE/BE), ASCII, Latin1 등 다양한 인코딩을 지원하며, 서로게이트 페어(surrogate pair)를 올바르게 감지하고 처리하며, 유효하지 않은 코드 포인트에 대해 표준 U+FFFD 대체 문자를 반환합니다.
 | 타입/함수 | 설명 |
 |---|---|
 | charset | 열거형: ascii, utf8, utf16, utf16be, utf16le, utf32, utf32be, utf32le, latin1 |
 | Meta | 메타데이터 래퍼, 부호 없는 정수 값 저장 |
 | Point | 유니코드 코드 포인트, 서로게이트 감지 및 유효성 검증 지원 |
-| Charsequence | 불변 문자 시퀀스: split, replace, indexOf, lastIndexOf, sub, trim, toUpperCase, toLowerCase, reverse, startsWith, endsWith, contains, compare, getBytes, getPoints, getMetas, getCharacters, repeat, concat, count, join |
-| Builder | 가변 바이트 빌더: prepend, insert, append (기본 타입, Point, Charsequence, string_view 지원) |
+| Bunch | 불변 문자 시퀀스: split, replace, indexOf, lastIndexOf, sub, trim, toUpperCase, toLowerCase, reverse, startsWith, endsWith, contains, compare, getBytes, getPoints, getMetas, getCharacters, repeat, concat, count, join |
+| Builder | 가변 바이트 빌더: prepend, insert, append (기본 타입, Point, Bunch, string_view 지원) |
 | Buffer | 스레드 안전 링 버퍼: write, read, peek, prepend, append, clear, shrinkToFit, data, size, capacity, atomic |
 | PointIterator | 양방향 반복자, 유니코드 코드 포인트 순회 |
 | encode() | 단일 코드 포인트를 지정된 인코딩의 바이트 시퀀스로 인코딩 |
 | decode() | 바이트 시퀀스에서 다음 코드 포인트를 디코딩하고 포인터 자동 전진 |
 | convert() | 인코딩 변환 (string, vector, deque 출력 지원) |
-## ⚙️ 제4계층: collector.h — 컬렉터 프레임워크 및 팩토리
-collector.h는 Semantic-Cpp의 컬렉터 핵심 모듈로, 컬렉터 프레임워크와 팩토리 함수를 하나로 통합했습니다.
+## ⚙️ 제4계층: semantic/collector.h — 컬렉터 프레임워크 및 팩토리
+semantic/collector.h는 Semantic-Cpp의 컬렉터 핵심 모듈로, 컬렉터 프레임워크와 팩토리 함수를 하나로 통합했습니다.
 ### 🧩 5단계 모델
 ```
 Identity → Accumulator → Combiner → Finisher
@@ -228,7 +228,7 @@ Identity → Accumulator → Combiner → Finisher
 #### 📄 문자열 출력
 | 메서드 | 반환 타입 |
 |---|---|
-| useJoin() / useOut() / useError() 및 그 다양한 오버로드 | charsequence::Charsequence |
+| useJoin() / useOut() / useError() 및 그 다양한 오버로드 | bunch::Bunch |
 #### 📊 수학 도구
 | 메서드 | 반환 타입 |
 |---|---|
@@ -237,7 +237,7 @@ Identity → Accumulator → Combiner → Finisher
 | useFFT() | vector<complex<double>> |
 | useIFFT() | vector<complex<double>> |
 | useGradient() | vector<double> |
-## 📦 제5계층: semantic.h — 스트림 중간 연산 및 수집 체계
+## 📦 제5계층: semantic/semantic.h — 스트림 중간 연산 및 수집 체계
 ### 🧩 핵심 설계: 3단계 파이프라인
 ```
 Semantic<E> (구축 및 변환)
@@ -280,11 +280,11 @@ Collectable<E> (구체화 및 수집)
 | forEach(consumer) | void | 각 요소를 순회하며 부수 효과 실행 |
 | group(keyExtractor) | unordered_map<K, vector<E>> | 키 기준 그룹화 |
 | groupBy(keyExtractor, valueExtractor) | unordered_map<K, vector<V>> | 키 기준 그룹화 및 값 추출 |
-| join() | Charsequence | 기본 형식으로 연결 |
-| join(delimiter) | Charsequence | 사용자 정의 구분자로 연결 |
-| join(prefix, delimiter, suffix) | Charsequence | 완전히 사용자 정의된 형식으로 연결 |
+| join() | Bunch | 기본 형식으로 연결 |
+| join(delimiter) | Bunch | 사용자 정의 구분자로 연결 |
+| join(prefix, delimiter, suffix) | Bunch | 완전히 사용자 정의된 형식으로 연결 |
 | noneMatch(predicate) | bool | 어떤 요소도 조건을 만족하지 않음 |
-| out() | Charsequence | stdout으로 출력 (delimiter/prefix/suffix/converter 지원) |
+| out() | Bunch | stdout으로 출력 (delimiter/prefix/suffix/converter 지원) |
 | partition(size) | vector<vector<E>> | 고정 크기로 파티션 |
 | partitionBy(keyExtractor) | vector<vector<E>> | 인덱스 키 기준 파티션 |
 | partitionBy(keyExtractor, valueExtractor) | vector<vector<V>> | 인덱스 키 기준 파티션 및 값 추출 |
@@ -361,7 +361,7 @@ Collectable<E> (구체화 및 수집)
 | **병렬 선언** | parallel(n) | 병렬도 선언 |
 | **연결 연산** | concatenate | Semantic/요소/생성자/컨테이너 연결 |
 | **최종 변환** | toUnordered / toOrdered / toWindow / toStatistics / sort | Collectable로 변환 |
-## 🔧 제6계층: semantics.h — 스트림 빌더 팩토리
+## 🔧 제6계층: semantic/semantic.h — 스트림 빌더 팩토리
 ### 🔢 숫자 범위 생성
 | 메서드 | 설명 |
 |---|---|
@@ -398,14 +398,14 @@ Collectable<E> (구체화 및 수집)
 | useBlob(text, start, end) | 지정 범위를 바이트 단위로 분할 |
 | useBlob(istream) | 입력 스트림에서 줄 단위로 읽기 |
 | useBlob(istream, delimiter) | 입력 스트림에서 구분자 기준 읽기 |
-| useText(text) | 전체 텍스트 스트림 (Charsequence) |
+| useText(text) | 전체 텍스트 스트림 (Bunch) |
 | useText(text, delimiter) | 구분자 기준 텍스트 분할 |
 | useText(istream) | 입력 스트림에서 전체 내용 읽기 |
-| useSequence(charsequence) | 문자 시퀀스에서 코드 포인트 스트림 생성 |
+| useSequence(string) | 문자 시퀀스에서 코드 포인트 스트림 생성 |
 | useSequence(text, encoding) | 텍스트에서 지정 인코딩 코드 포인트 스트림 생성 |
-| useCharsequence(charsequence) | 문자 시퀀스를 전체 스트림으로 |
-| useCharsequence(charsequence, delimiter) | 구분자 기준 문자 시퀀스 분할 |
-## 🔐 제7계층: hash.h / less.h — 컨테이너 세계의 공용어
+| useBunch(string) | 문자 시퀀스를 전체 스트림으로 |
+| useBunch(string, delimiter) | 구분자 기준 문자 시퀀스 분할 |
+## 🔐 제7계층: structure/hash.h / structure/less.h — 컨테이너 세계의 공용어
 모든 표준 라이브러리 컨테이너(중첩 컨테이너 포함), pair, tuple, optional, variant, chrono 시간 타입, complex 복소수 등에 대해 완전한 해시 및 비교 지원을 제공합니다. 이제 임의의 깊이와 조합의 중첩 컨테이너도 unordered_set의 키나 set의 요소로 사용할 수 있습니다. 🌉
 ## 🚀 성능 최적화 팁
  1. **적합한 컨테이너 선택:** 순서가 중요하지 않다면 toUnordered(), 정렬이 필요하다면 toOrdered() 또는 sort()

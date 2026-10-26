@@ -15,71 +15,71 @@
 Semantic-Cpp 由 **7 個核心標頭檔** 組成，層層遞進。**5 個命名空間** 各司其職，共同構建出從資料源到最終結果 satisfaction 的完整管線（Pipeline）：
 ```
 ┌─────────────────────────────────────────────────┐
-│               🌊 semantics.h                    │
+│               🌊 semantic/semantic.h                    │
 │   命名空間: semantic                            │
 │   串流構建器工廠: 數字範圍、容器、文本、Unicode       │
 ├─────────────────────────────────────────────────┤
-│                 📦 semantic.h                     │
+│                 📦 semantic/semantic.h                     │
 │   命名空間: semantic / collectable            │
 │   串流中間操作、Collectable 體系、容器擴充支援       │
 ├─────────────────────────────────────────────────┤
-│                ⚙️ collector.h                     │
+│                ⚙️ semantic/collector.h                     │
 │   命名空間: collector                           │
 │   收集器框架 + 工廠: 匹配、搜尋、聚合、統計、DFT/FFT │
 ├─────────────────────────────────────────────────┤
-│                🔤 charsequence.h                   │
-│   命名空間: charsequence                        │
+│                🔤 bunch/bunch.h                   │
+│   命名空間: bunch                        │
 │   Unicode 字元序列、多編碼轉換、Builder、Buffer    │
 ├─────────────────────────────────────────────────┤
-│                🧵 pool.h                          │
+│                🧵 structure/pool.h                          │
 │   命名空間: pool                                │
 │   全域執行緒池: 工作提交、緊急關閉、例外傳播         │
 ├─────────────────────────────────────────────────┤
-│                📄 function.h                      │
+│                📄 structure/function.h                      │
 │   命名空間: function                            │
 │   型態定義: Generator, Supplier, Consumer 等別名  │
 ├─────────────────────────────────────────────────┤
-│               🔐 hash.h / less.h                  │
+│               🔐 structure/hash.h / structure/less.h                  │
 │   命名空間: std (擴充)                           │
 │   標準函式庫容器雜湊及比較特例化，支援任意巢狀結構    │
 └─────────────────────────────────────────────────┘
 
 ```
 ### 🧩 依賴關係
-依賴鏈如同精心設計的電路圖般清晰明瞭。電流從最底層的型態定義開始，逐層向上延伸，每一層僅依賴其下方的層級。最終，所有線路皆匯集於 semantic.h 與 semantics.h，形成完整的串流處理能力。
+依賴鏈如同精心設計的電路圖般清晰明瞭。電流從最底層的型態定義開始，逐層向上延伸，每一層僅依賴其下方的層級。最終，所有線路皆匯集於 semantic/semantic.h 與 semantic/semantic.h，形成完整的串流處理能力。
 ```
-function.h          ← 無依賴，型態基石
-pool.h              ← 依賴 function.h
-charsequence.h      ← 獨立模組，Unicode 處理
-collector.h         ← 依賴 function.h, pool.h
-hash.h / less.h     ← 獨立模組，標準函式庫擴充
-semantic.h          ← 依賴上述所有項目
-semantics.h         ← 依賴 semantic.h
+structure/function.h          ← 無依賴，型態基石
+structure/pool.h              ← 依賴 structure/function.h
+bunch/bunch.h      ← 獨立模組，Unicode 處理
+semantic/collector.h         ← 依賴 structure/function.h, structure/pool.h
+structure/hash.h / structure/less.h     ← 獨立模組，標準函式庫擴充
+semantic/semantic.h          ← 依賴上述所有項目
+semantic/semantic.h         ← 依賴 semantic/semantic.h
 
 ```
 ## 🌍 命名空間全景
 Semantic-Cpp 精心設計了 5 個命名空間，每個命名空間就像是一個獨立的「部門」，各自履行職責卻又緊密協作：
 | 命名空間 | 所屬檔案 | 職責 | 核心型態 / 函式 |
 |---|---|---|---|
-| **function** | function.h | 型態系統基石 | Timestamp, Module, Generator<T>, Supplier<R>, Consumer<T>, Predicate<T> 等 |
-| **pool** | pool.h | 同步執行引擎 | pool::pool（全域執行緒池）、submit()、emergencyShutdown() |
-| **charsequence** | charsequence.h | Unicode 字串處理 | charset, Meta, Point, Charsequence, Builder, Buffer 等 |
-| **collector** | collector.h | 最終收集執行 | Collector<E,A,R>, Identity<A>, Accumulator<A,E> 等 |
-| **collectable** | semantic.h | 具體化數據容器 | Collectable<E>, OrderedCollectable<E>, UnorderedCollectable<E> 等 |
-| **semantic** | semantic.h
-semantics.h | 串流構建及中間操作 | Semantic<E>, useRange(), useFrom() 等 |
+| **function** | structure/function.h | 型態系統基石 | Timestamp, Module, Generator<T>, Supplier<R>, Consumer<T>, Predicate<T> 等 |
+| **pool** | structure/pool.h | 同步執行引擎 | pool::pool（全域執行緒池）、submit()、emergencyShutdown() |
+| **bunch** | bunch/bunch.h | Unicode 字串處理 | charset, Meta, Point, Bunch, Builder, Buffer 等 |
+| **collector** | semantic/collector.h | 最終收集執行 | Collector<E,A,R>, Identity<A>, Accumulator<A,E> 等 |
+| **collectable** | semantic/semantic.h | 具體化數據容器 | Collectable<E>, OrderedCollectable<E>, UnorderedCollectable<E> 等 |
+| **semantic** | semantic/semantic.h
+semantic/semantic.h | 串流構建及中間操作 | Semantic<E>, useRange(), useFrom() 等 |
 ### 🔁 命名空間協作流程
 命名空間之間的資料流動就像是工廠的組裝流水線。原始物料進入 semantic，經過多個階段的加工變換，最終在 collector 中打包出貨。每個階段皆有清晰的責任邊界：
 ```cpp
 semantic::useRange(0, 100)          // ← semantic 命名空間: 串流生成
-    .map(int x { return x * 2; })   // ← semantic 命名空間: 中間轉換
-    .filter(int x { return x > 50; }) // ← semantic 命名空間: 中間過濾
+    .map([](int x) { return x * 2; })   // ← semantic 命名空間: 中間轉換
+    .filter([](int x) { return x > 50; }) // ← semantic 命名空間: 中間過濾
     .toUnordered()                  // ← collectable 命名空間轉換
     .toVector();                    // ← 呼叫 collector 命名空間的收集器
 
 ```
-## 📦 第 1 層：function.h — 型態基礎
-function.h 定義了整個框架的型態系統，是所有模組的共同基石。 🔑
+## 📦 第 1 層：structure/function.h — 型態基礎
+structure/function.h 定義了整個框架的型態系統，是所有模組的共同基石。 🔑
 ```cpp
 namespace function {
     using Timestamp = long long;           // 索引型態，串流內數據的「時間戳記」
@@ -114,8 +114,8 @@ Generator 是整個串流系統的核心抽象。 🌀 它不返回資料，而�
 | TriPredicate<T,U,V> | std::function<bool(T,U,V)> | 三參數述詞 |
 | Comparator<T> | std::function<int(const T&,const T&)> | 比較器，傳回 負數/0/正數 |
 | Generator<T> | BiConsumer<BiConsumer<T,Timestamp>, BiPredicate<T,Timestamp>> | 串流生成器核心抽象 |
-## 🧵 第 2 層：pool.h — 同行基礎
-pool.h 提供了全域執行緒池 pool::pool，是整個框架的並行引擎。 🚀
+## 🧵 第 2 層：structure/pool.h — 同行基礎
+structure/pool.h 提供了全域執行緒池 pool::pool，是整個框架的並行引擎。 🚀
 採用了**宣告式並行處理（Declarative Parallelism）**設計。當您寫下 .parallel(4) 時，並不會立即啟動 4 個執行緒並開始處理。這行程式碼僅僅是一個「宣告」：告訴框架「我計劃使用 4 個執行緒進行並行處理」。
 真正的並行執行會發生在最終運算被呼叫之時——也就是呼叫 toVector()、findFirst()、count() 等收集方法的那一刻。
 | 功能 | 說明 |
@@ -123,23 +123,23 @@ pool.h 提供了全域執行緒池 pool::pool，是整個框架的並行引擎�
 | **宣告式並行** | .parallel(4) 僅是「宣告將使用 4 個執行緒進行並行處理」，不會立即啟動 |
 | **緊急關閉** | 內建 emergencyShutdown() 及 std::set_terminate 處理常式 |
 | **例外傳播** | submit() 傳回 std::future，可將例外安全地傳播至主執行緒 |
-## 🔤 第 3 層：charsequence.h — Unicode 字元序列
-charsequence.h 是一個完整的 Unicode 處理模組，提供了字元序列的生成、轉換及操作功能。 🌍
+## 🔤 第 3 層：bunch/bunch.h — Unicode 字元序列
+bunch/bunch.h 是一個完整的 Unicode 處理模組，提供了字元序列的生成、轉換及操作功能。 🌍
 支援 UTF-8、UTF-16(LE/BE)、UTF-32(LE/BE)、ASCII、Latin1 等多種編碼，能正確偵測並處理代理對（Surrogate Pair），且針對無效的碼位（Code Point）會傳回標準的 U+FFFD 替代字元。
 | 型態 / 函式 | 說明 |
 |---|---|
 | charset | 列舉：ascii, utf8, utf16, utf16be, utf16le, utf32, utf32be, utf32le, latin1 |
 | Meta | 中介資料包裝器，儲存無號整數值 |
 | Point | Unicode 碼位，支援代理對偵測與有效性驗證 |
-| Charsequence | 不可變字元序列：split, replace, indexOf, lastIndexOf, sub, trim, toUpperCase, toLowerCase, reverse, startsWith, endsWith, contains, compare, getBytes, getPoints, getMetas, getCharacters, repeat, concat, count, join |
-| Builder | 可變位元組構建器：prepend, insert, append （支援基本型態、Point、Charsequence、string_view） |
+| Bunch | 不可變字元序列：split, replace, indexOf, lastIndexOf, sub, trim, toUpperCase, toLowerCase, reverse, startsWith, endsWith, contains, compare, getBytes, getPoints, getMetas, getCharacters, repeat, concat, count, join |
+| Builder | 可變位元組構建器：prepend, insert, append （支援基本型態、Point、Bunch、string_view） |
 | Buffer | 執行緒安全環形緩衝區：write, read, peek, prepend, append, clear, shrinkToFit, data, size, capacity, atomic |
 | PointIterator | 雙向迭代器，走訪 Unicode 碼位 |
 | encode() | 將單一碼位編碼為指定編碼的位元組序列 |
 | decode() | 從位元組序列中解碼下一個碼位並自動推進指標 |
 | convert() | 編碼轉換（支援輸出為 string、vector、deque） |
-## ⚙️ 第 4 層：collector.h — 收集器框架與工廠
-collector.h 是 Semantic-Cpp 的 收集器核心模組，將收集器框架與工廠函式合而為一。
+## ⚙️ 第 4 層：semantic/collector.h — 收集器框架與工廠
+semantic/collector.h 是 Semantic-Cpp 的 收集器核心模組，將收集器框架與工廠函式合而為一。
 ### 🧩 5 階段模型
 ```
 Identity → Accumulator → Combiner → Finisher
@@ -228,7 +228,7 @@ Identity → Accumulator → Combiner → Finisher
 #### 📄 字串輸出
 | 方法 | 傳回型態 |
 |---|---|
-| useJoin() / useOut() / useError() 及其多種多載版本 | charsequence::Charsequence |
+| useJoin() / useOut() / useError() 及其多種多載版本 | bunch::Bunch |
 #### 📊 數學工具
 | 方法 | 傳回型態 |
 |---|---|
@@ -237,7 +237,7 @@ Identity → Accumulator → Combiner → Finisher
 | useFFT() | vector<complex<double>> |
 | useIFFT() | vector<complex<double>> |
 | useGradient() | vector<double> |
-## 📦 第 5 層：semantic.h — 串流中間操作與收集體系
+## 📦 第 5 層：semantic/semantic.h — 串流中間操作與收集體系
 ### 🧩 核心設計：3 階段管線
 ```
 Semantic<E> (構建與變換)
@@ -280,11 +280,11 @@ Collectable<E> (具體化與收集)
 | forEach(consumer) | void | 走訪每個元素並執行副作用 |
 | group(keyExtractor) | unordered_map<K, vector<E>> | 依鍵值分組 |
 | groupBy(keyExtractor, valueExtractor) | unordered_map<K, vector<V>> | 依鍵值分組並擷取值 |
-| join() | Charsequence | 以預設格式連接 |
-| join(delimiter) | Charsequence | 以自訂分隔符號連接 |
-| join(prefix, delimiter, suffix) | Charsequence | 以完全自訂的格式連接 |
+| join() | Bunch | 以預設格式連接 |
+| join(delimiter) | Bunch | 以自訂分隔符號連接 |
+| join(prefix, delimiter, suffix) | Bunch | 以完全自訂的格式連接 |
 | noneMatch(predicate) | bool | 所有元素皆不滿足條件 |
-| out() | Charsequence | 輸出至 stdout （支援 delimiter/prefix/suffix/converter） |
+| out() | Bunch | 輸出至 stdout （支援 delimiter/prefix/suffix/converter） |
 | partition(size) | vector<vector<E>> | 以固定大小分區 |
 | partitionBy(keyExtractor) | vector<vector<E>> | 依索引鍵分區 |
 | partitionBy(keyExtractor, valueExtractor) | vector<vector<V>> | 依索引鍵分區並擷取值 |
@@ -361,7 +361,7 @@ Collectable<E> (具體化與收集)
 | **並行宣告** | parallel(n) | 宣告並行度 |
 | **連接運算** | concatenate | 連接 Semantic / 元素 / 生成器 / 容器 |
 | **最終轉換** | toUnordered / toOrdered / toWindow / toStatistics / sort | 轉換為 Collectable |
-## 🔧 第 6 層：semantics.h — 串流構建器工廠
+## 🔧 第 6 層：semantic/semantic.h — 串流構建器工廠
 ### 🔢 數字範圍生成
 | 方法 | 說明 |
 |---|---|
@@ -398,14 +398,14 @@ Collectable<E> (具體化與收集)
 | useBlob(text, start, end) | 將指定範圍以位元組為單位進行分割 |
 | useBlob(istream) | 從輸入串流中按行讀取 |
 | useBlob(istream, delimiter) | 從輸入串流中依分隔符號讀取 |
-| useText(text) | 完整文本串流（Charsequence） |
+| useText(text) | 完整文本串流（Bunch） |
 | useText(text, delimiter) | 依分隔符號分割文本 |
 | useText(istream) | 從輸入串流中讀取完整內容 |
-| useSequence(charsequence) | 從字元序列生成碼位串流 |
+| useSequence(string) | 從字元序列生成碼位串流 |
 | useSequence(text, encoding) | 從文字中生成指定編碼的碼位串流 |
-| useCharsequence(charsequence) | 將字元序列轉換為完整串流 |
-| useCharsequence(charsequence, delimiter) | 依分隔符號分割字元序列 |
-## 🔐 第 7 層：hash.h / less.h — 容器世界的共通語言
+| useBunch(string) | 將字元序列轉換為完整串流 |
+| useBunch(string, delimiter) | 依分隔符號分割字元序列 |
+## 🔐 第 7 層：structure/hash.h / structure/less.h — 容器世界的共通語言
 針對所有標準函式庫容器（包含巢狀容器）、pair、tuple、optional、variant、chrono 時間型態、complex 複數等，提供了完整的雜湊與比較支援。現在，即便具有任意深度與組合的巢狀容器，也能直接作為 unordered_set 的鍵值（Key）或 set 的元素使用。 🌉
 ## 🚀 效能優化秘笈
  1. **選擇適合的容器：** 若順序無關緊要，請使用 toUnordered()；若需要排序，請使用 toOrdered() 或 sort()。

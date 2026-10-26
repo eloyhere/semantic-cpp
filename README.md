@@ -17,93 +17,142 @@ It abstracts data processing as operations on "elements" and their "logical posi
 
 ---
 
-## 🏗️ Project Architecture: Seven-Layer Modular Design
+## 🏗️ Project Architecture: Four Modules, Layered Design
 
-Semantic-Cpp consists of seven core header files, layered progressively. Each file has a single responsibility and is independently testable. Five namespaces, each with its own remit, work together to form a complete pipeline from data source to final result:
+Semantic-Cpp is organised into four module directories. Each header has a single responsibility and is independently testable. The modules are layered from encoding and bunch primitives up to the stream processing API:
 
 ```
-┌─────────────────────────────────────────────────┐
-│               🌊 semantics.h                     │
-│   Namespace: semantic                           │
-│   Stream Construction Factories: numeric ranges, │
-│   containers, text, Unicode                     │
-├─────────────────────────────────────────────────┤
-│                 📦 semantic.h                   │
-│   Namespace: semantic / collectable            │
-│   Stream Intermediate Operations, Collectable  │
-│   system, container unwrapping support         │
-├─────────────────────────────────────────────────┤
-│                ⚙️ collector.h                   │
-│   Namespace: collector                          │
-│   Collector Framework + Factories: matching,   │
-│   finding, aggregation, statistics, DFT/FFT   │
-├─────────────────────────────────────────────────┤
-│                🔤 charsequence.h               │
-│   Namespace: charsequence                      │
-│   Unicode character sequences, multi-encoding  │
-│   conversion, Builder, Buffer                  │
-├─────────────────────────────────────────────────┤
-│                🧵 pool.h                        │
-│   Namespace: pool                              │
-│   Global Thread Pool: task submission,         │
-│   emergency shutdown, exception propagation    │
-├─────────────────────────────────────────────────┤
-│                📄 function.h                    │
-│   Namespace: function                          │
-│   Type Definitions: aliases for Generator,     │
-│   Supplier, Consumer, etc.                    │
-├─────────────────────────────────────────────────┤
-│               🔐 hash.h / less.h               │
-│   Namespace: std (extensions)                  │
-│   Standard Library Container Hash & Comparison │
-│   specialisations, supporting arbitrary nesting│
-└─────────────────────────────────────────────────┘
+semantic-cpp/
+├── structure/          Foundation: type aliases, thread pool, data structures
+│   ├── function.h
+│   ├── pool.h
+│   ├── hash.h
+│   ├── less.h
+│   ├── node.h          Tree node templates
+│   ├── tree.h          Binary search tree
+│   ├── ast.h           Abstract syntax tree
+│   ├── trie.h          Prefix tree (trie)
+│   ├── segment_tree.h  Segment tree
+│   └── character_search_tree.h  Ternary character search tree
+├── bunch/              Unicode characters, encodings and strings
+│   ├── charset.h       Encoding selector
+│   ├── encode.h        Codecs (UTF-8/16/32, ASCII, Latin1)
+│   ├── meta.h          Meta
+│   ├── point.h         Point / PointIterator
+│   ├── character.h     Character
+│   ├── unicode_data.h  Generated Unicode 15 tables
+│   ├── unicode.h       Normalisation (NFC/NFD/NFKC/NFKD) and text styles
+│   ├── sequence.h      Bunch
+│   ├── builder.h       Builder
+│   ├── buffer.h        Buffer
+│   └── bunch.h         Umbrella header
+├── localisation/       Message localisation
+│   ├── localisation.h
+│   └── unicode.md      Unicode concept notes and corrections
+└── semantic/           Stream construction and collection
+    ├── collector.h
+    └── semantic.h
 ```
 
 ### 🧩 Dependency Graph
-The dependency chain is clear and logical, like a meticulously designed circuit diagram: current flows from the foundational type definitions upwards, with each layer depending only on the layers beneath it. Ultimately, all paths converge at `semantic.h` and `semantics.h`, forming the complete stream processing capability.
+Each layer depends only on the layers beneath it. Encoding and value types are independent; bunch types build on them; the stream API builds on the bunch and foundation modules:
 
 ```
-function.h          ← No dependencies, the type foundation
-pool.h              ← Depends on function.h
-charsequence.h      ← Independent module, Unicode processing
-collector.h         ← Depends on function.h, pool.h
-hash.h / less.h     ← Independent modules, standard library extensions
-semantic.h          ← Depends on all of the above
-semantics.h         ← Depends on semantic.h
+structure/function.h       ← No dependencies, the type foundation
+structure/pool.h           ← structure/function.h
+structure/hash.h, less.h   ← Standard library extensions, no internal dependencies
+structure/node.h           ← Tree node templates, no internal dependencies
+structure/tree.h           ← structure/node.h (binary search tree)
+structure/ast.h            ← Standard library only (owning AST nodes)
+structure/trie.h           ← structure/node.h (prefix tree)
+structure/segment_tree.h   ← Standard library only (iterative segment tree)
+structure/character_search_tree.h ← structure/node.h (ternary character search tree)
+bunch/charset.h            ← Encoding primitives
+bunch/encode.h             ← bunch/charset.h (codecs)
+bunch/meta.h               ← Application metadata, no internal dependencies
+bunch/point.h              ← Point / PointIterator, no internal dependencies
+bunch/character.h          ← bunch/meta.h, bunch/point.h
+bunch/unicode_data.h       ← Generated Unicode 15 tables, no internal dependencies
+bunch/unicode.h            ← bunch/charset.h, bunch/encode.h, bunch/unicode_data.h
+bunch/sequence.h           ← charset.h, encode.h, meta.h, point.h
+bunch/builder.h            ← bunch/point.h, bunch/sequence.h
+bunch/buffer.h             ← bunch/sequence.h, bunch/builder.h
+bunch/bunch.h              ← All bunch headers
+localisation/localisation.h ← bunch headers (message localisation, text styles)
+semantic/collector.h       ← structure/function.h, structure/pool.h, bunch/bunch.h
+semantic/semantic.h        ← All of the above
 ```
 
 ---
 
 ## 🌍 Namespace Overview
 
-Semantic-Cpp meticulously designs five namespaces, each like an independent "department", with distinct responsibilities yet closely collaborating:
+Semantic-Cpp meticulously designs several namespaces, each like an independent "department", with distinct responsibilities yet closely collaborating:
 
-| Namespace     | Header File        | Responsibility                                   | Core Types/Functions                                                          |
-| :------------ | :----------------- | :----------------------------------------------- | :---------------------------------------------------------------------------- |
-| function      | function.h         | Type system foundation                           | `Timestamp`, `Module`, `Generator<T>`, `Supplier<R>`, `Consumer<T>`, `Predicate<T>` etc. |
-| pool          | pool.h             | Concurrent execution engine                      | `pool::pool` (global thread pool), `submit()`, `emergencyShutdown()`          |
-| charsequence  | charsequence.h     | Unicode string processing                        | `charset`, `Meta`, `Point`, `Charsequence`, `Builder`, `Buffer` etc.          |
-| collector     | collector.h        | Terminal collection execution                    | `Collector<E,A,R>`, `Identity<A>`, `Accumulator<A,E>` etc.                    |
-| collectable   | semantic.h         | Materialised data containers                     | `Collectable<E>`, `OrderedCollectable<E>`, `UnorderedCollectable<E>` etc.     |
-| semantic      | semantic.h<br>semantics.h | Stream construction & intermediate operations | `Semantic<E>`, `useRange()`, `useFrom()` etc.                                 |
+| Namespace     | Header File                              | Responsibility                                   | Core Types/Functions                                                          |
+| :------------ | :--------------------------------------- | :----------------------------------------------- | :---------------------------------------------------------------------------- |
+| function      | `structure/function.h`                   | Type system foundation                           | `Timestamp`, `Module`, `Generator<T>`, `Supplier<R>`, `Consumer<T>`, `Predicate<T>` etc. |
+| pool          | `structure/pool.h`                       | Concurrent execution engine                      | `pool::ThreadPool`, `submit()`, `emergencyShutdown()`                         |
+| node          | `structure/node.h`                       | Reusable tree node templates                     | `BinaryNode<T>`, `TrieNode<Char,T>`, `TernaryNode<Char,T>`                     |
+| tree          | `structure/tree.h`                       | Ordered binary search tree                       | `tree::BinarySearchTree<T>`, `insert()`, `erase()`, `inorder()` etc.           |
+| ast           | `structure/ast.h`                        | Abstract syntax tree                             | `ast::Tree<Kind,Value>`, `ast::Node<Kind,Value>`, `SourceRange`, traversals    |
+| trie          | `structure/trie.h`                       | Prefix tree over character sequences             | `trie::Trie<Char,Value>`, `keysWithPrefix()`, `longestPrefixOf()`              |
+| segment       | `structure/segment_tree.h`               | Range queries with point updates                 | `segment::SegmentTree<T,Operation>`, `query()`, `set()`, `update()`            |
+| character     | `structure/character_search_tree.h`      | Ternary search tree over byte strings            | `character::CharacterSearchTree<Value>`, `keysWithPrefix()`, `match()`         |
+| localisation  | `localisation/localisation.h`            | Message localisation and text styles             | `Locale`, `Catalog`, `Message`, `Arguments`, `TextFormat`, plural/number formatting |
+| bunch         | `bunch/bunch.h`                          | Unicode characters, encodings and strings        | `charset`, `Character`, `Meta`, `Point`, `PointIterator`, `Bunch`, `Builder`, `Buffer`, `NormalizationForm`, `TextStyle` |
+| collector     | `semantic/collector.h`                   | Terminal collection execution                    | `Collector<E,A,R>`, `Identity<A>`, `Accumulator<A,E>` etc.                    |
+| collectable   | `semantic/semantic.h`                    | Materialised data containers                     | `Collectable<E>`, `OrderedCollectable<E>`, `UnorderedCollectable<E>` etc.     |
+| semantic      | `semantic/semantic.h`                    | Stream construction & intermediate operations    | `Semantic<E>`, `useRange()`, `useFrom()` etc.                                 |
 
 ### 🔁 Namespace Collaboration Flow
 Data flow between namespaces is like an assembly line in a factory—raw material enters from `semantic`, undergoes processing layer by layer, and is finally packaged and shipped from `collector`. Each step has a clear boundary of responsibility:
 
 ```cpp
 semantic::useRange(0, 100)          // ← semantic namespace: create stream
-    .map(int x { return x * 2; })   // ← semantic namespace: intermediate transform
-    .filter(int x { return x > 50; }) // ← semantic namespace: intermediate filter
+    .map([](int x) { return x * 2; })   // ← semantic namespace: intermediate transform
+    .filter([](int x) { return x > 50; }) // ← semantic namespace: intermediate filter
     .toUnordered()                  // ← Convert to collectable namespace
     .toVector();                    // ← Invoke collector from collector namespace
 ```
 
 ---
 
-## 📦 Layer 1: function.h — Type Foundation
+## 🛠️ Build, Test & Install
 
-`function.h` defines the type system for the entire framework, the common foundation for all modules. 🔑
+**Requirements:** CMake 3.21+ and a C++17 compiler (MSVC 2019+, GCC 9+, Clang 10+).
+
+```bash
+cmake -S . -B build -DCMAKE_BUILD_TYPE=Release -DSEMANTIC_CPP_BUILD_TESTS=ON
+cmake --build build --config Release
+ctest --test-dir build -C Release --output-on-failure
+```
+
+Install the header-only package and its CMake package files:
+
+```bash
+cmake --install build --config Release --prefix <install-prefix>
+```
+
+Consume it from another CMake project:
+
+```cmake
+find_package(semantic-cpp CONFIG REQUIRED)
+target_link_libraries(app PRIVATE semantic-cpp::semantic-cpp)
+```
+
+```cpp
+#include <semantic-cpp/semantic/semantic.h>
+#include <semantic-cpp/bunch/bunch.h>
+```
+
+When working inside this repository, include headers relative to the repository root (for example `#include "semantic/semantic.h"`). Every public header is compiled standalone by the test suite, so each one carries its own dependencies.
+
+---
+
+## 📦 Layer 1: structure/function.h — Type Foundation
+
+`structure/function.h` defines the type system for the entire framework, the common foundation for all modules. 🔑
 
 ```cpp
 namespace function {
@@ -142,9 +191,9 @@ namespace function {
 
 ---
 
-## 🧵 Layer 2: pool.h — Concurrency Foundation
+## 🧵 Layer 2: structure/pool.h — Concurrency Foundation
 
-`pool.h` provides the global thread pool `pool::pool`, the concurrency engine for the entire framework. 🚀 It employs a **declarative parallelism** design—when you write `.parallel(4)`, it does not immediately launch four threads to start processing. This line of code is merely a "declaration": telling the framework "I intend to use 4 threads for parallel processing". Actual parallel execution occurs when a terminal operation is invoked—that is, when you call collection methods like `toVector()`, `findFirst()`, `count()`, etc.
+`structure/pool.h` provides the global thread pool `pool::ThreadPool`, the concurrency engine for the entire framework. 🚀 It employs a **declarative parallelism** design—when you write `.parallel(4)`, it does not immediately launch four threads to start processing. This line of code is merely a "declaration": telling the framework "I intend to use 4 threads for parallel processing". Actual parallel execution occurs when a terminal operation is invoked—that is, when you call collection methods like `toVector()`, `findFirst()`, `count()`, etc.
 
 | Feature            | Description                                                                 |
 | :----------------- | :------------------------------------------------------------------------- |
@@ -154,28 +203,33 @@ namespace function {
 
 ---
 
-## 🔤 Layer 3: charsequence.h — Unicode Character Sequences
+## 🔤 Layer 3: bunch/ + localisation/ — Unicode Characters and Strings
 
-`charsequence.h` is a complete Unicode processing module, providing functionality for creating, converting, and manipulating character sequences. 🌍 It supports various encodings like UTF-8, UTF-16 (LE/BE), UTF-32 (LE/BE), ASCII, and Latin1. It correctly detects and handles surrogate pairs, returning the standard U+FFFD replacement character for invalid code points.
+`bunch/charset.h` defines the encoding selector, `bunch/encode.h` implements the codecs, and `bunch/unicode.h` adds NFC/NFD/NFKC/NFKD normalisation, case mapping and text styles. The rest of the `bunch/` module builds code points, characters and immutable/mutable sequences on top of them. 🌍 Together they support UTF-8, UTF-16 (LE/BE), UTF-32 (LE/BE), ASCII, and Latin1. Invalid sequences are replaced with U+FFFD; see [Unicode concepts and corrections](localisation/unicode.md) for the precise terminology and the limits of the current implementation. `localisation/localisation.h` reuses these primitives for locale-aware messages.
 
-| Type/Function    | Description                                                                 |
-| :--------------- | :-------------------------------------------------------------------------- |
-| charset          | Enum: ascii, utf8, utf16, utf16be, utf16le, utf32, utf32be, utf32le, latin1 |
-| Meta             | Metadata wrapper, stores unsigned integer values                            |
-| Point            | Unicode code point, supports surrogate pair detection and validity checks   |
-| Charsequence     | Immutable character sequence: split, replace, indexOf, lastIndexOf, sub, trim, toUpperCase, toLowerCase, reverse, startsWith, endsWith, contains, compare, getBytes, getPoints, getMetas, getCharacters, repeat, concat, count, join |
-| Builder          | Mutable byte builder: prepend, insert, append (supports primitives, Point, Charsequence, string_view) |
-| Buffer           | Thread-safe ring buffer: write, read, peek, prepend, append, clear, shrinkToFit, data, size, capacity, atomic |
-| PointIterator    | Bidirectional iterator for traversing Unicode code points                   |
-| encode()         | Encode a single code point to a byte sequence of the specified encoding    |
-| decode()         | Decode the next code point from a byte sequence, auto-advancing pointer     |
-| convert()        | Encoding conversion (supports string, vector, deque output)                 |
+| Type/Function    | Header                          | Description                                                                 |
+| :--------------- | :------------------------------ | :-------------------------------------------------------------------------- |
+| charset          | `bunch/charset.h`               | Encoding/encoding-scheme selector: ascii, utf8, utf16, utf16be, utf16le, utf32, utf32be, utf32le, latin1 |
+| encode()         | `bunch/encode.h`                | Encode a single code point to code units of the specified encoding         |
+| decode()         | `bunch/encode.h`                | Decode the next code point from code units, auto-advancing the input        |
+| convert()        | `bunch/encode.h`                | Encoding conversion (supports string, vector, deque output)                 |
+| NormalizationForm | `bunch/unicode.h`              | NFC/NFD/NFKC/NFKD form selector                                             |
+| normalize()      | `bunch/unicode.h`               | Unicode normalisation: decompose, canonically order, recompose              |
+| TextStyle        | `bunch/unicode.h`               | plain / lowercase / uppercase / capitalize / title                          |
+| TextFormat       | `localisation/localisation.h`   | Locale-bound text style plus optional normalisation                         |
+| Meta             | `bunch/meta.h`                  | Application metadata wrapper; not a Unicode property                        |
+| Point            | `bunch/point.h`                 | Numeric Unicode code point, with scalar/noncharacter/surrogate predicates   |
+| PointIterator    | `bunch/point.h`                 | Bidirectional iterator over code points                                     |
+| Character        | `bunch/character.h`             | A code point plus application metadata                                      |
+| Bunch            | `bunch/sequence.h`              | Immutable code-point sequence: split, replace, indexOf, lastIndexOf, sub, trim, toUpperCase, toLowerCase, reverse, startsWith, endsWith, contains, compare, getBytes, getPoints, getMetas, getCharacters, repeat, concat, count, join |
+| Builder          | `bunch/builder.h`               | Mutable byte builder: prepend, insert, append (supports primitives, Point, Bunch, string_view), toBunch() |
+| Buffer           | `bunch/buffer.h`                | Thread-safe byte ring buffer: write, read, peek, prepend, append, clear, shrinkToFit, data, size, capacity, atomic |
 
 ---
 
-## ⚙️ Layer 4: collector.h — Collector Framework & Factories
+## ⚙️ Layer 4: semantic/collector.h — Collector Framework & Factories
 
-`collector.h` is the core collector module of Semantic-Cpp, combining the collector framework with factory functions.
+`semantic/collector.h` is the core collector module of Semantic-Cpp, combining the collector framework with factory functions.
 
 ### 🧩 Five-Stage Model
 ```
@@ -271,10 +325,10 @@ Identity → Accumulator → Combiner → Finisher
 | `usePartitionBy(keyExtractor)`                      | `std::vector<vector<E>>` |
 | `usePartitionBy(keyExtractor, valueExtractor)`      | `std::vector<vector<V>>` |
 
-#### 📄 String Output
+#### 📄 Bunch Output
 | Method                               | Return Type |
 | :----------------------------------- | :---------- |
-| `useJoin()` / `useOut()` / `useError()` and their overloads | `charsequence::Charsequence` |
+| `useJoin()` / `useOut()` / `useError()` and their overloads | `bunch::Bunch` |
 
 #### 📊 Mathematical Tools
 | Method            | Return Type |
@@ -287,7 +341,7 @@ Identity → Accumulator → Combiner → Finisher
 
 ---
 
-## 📦 Layer 5: semantic.h — Stream Intermediate Operations & Collection System
+## 📦 Layer 5: semantic/semantic.h — Stream Intermediate Operations & Collection System
 
 ### 🧩 Core Design: Three-Stage Pipeline
 ```
@@ -332,11 +386,11 @@ Final Result
 | `forEach(consumer)`                                   | `void`                         | Perform side-effect for each element            |
 | `group(keyExtractor)`                                 | `unordered_map<K, vector<E>>`  | Group by key                                    |
 | `groupBy(keyExtractor, valueExtractor)`              | `unordered_map<K, vector<V>>`  | Group by key and extract value                  |
-| `join()`                                              | `Charsequence`                  | Join with default format                        |
-| `join(delimiter)`                                     | `Charsequence`                  | Join with custom delimiter                      |
-| `join(prefix, delimiter, suffix)`                    | `Charsequence`                  | Join with fully custom format                   |
+| `join()`                                              | `Bunch`                  | Join with default format                        |
+| `join(delimiter)`                                     | `Bunch`                  | Join with custom delimiter                      |
+| `join(prefix, delimiter, suffix)`                    | `Bunch`                  | Join with fully custom format                   |
 | `noneMatch(predicate)`                                | `bool`                         | No element matches condition                    |
-| `out()`                                               | `Charsequence`                  | Output to stdout (supports delimiter/prefix/suffix/converter) |
+| `out()`                                               | `Bunch`                  | Output to stdout (supports delimiter/prefix/suffix/converter) |
 | `partition(size)`                                     | `vector<vector<E>>`             | Partition by fixed size                         |
 | `partitionBy(keyExtractor)`                           | `vector<vector<E>>`             | Partition by index key                          |
 | `partitionBy(keyExtractor, valueExtractor)`           | `vector<vector<V>>`             | Partition by index key and extract value        |
@@ -418,7 +472,7 @@ All the above methods also support an optional `mapper` parameter version.
 
 ---
 
-## 🔧 Layer 6: semantics.h — Stream Construction Factories
+## 🔧 Layer 6: semantic/semantic.h — Stream Construction Factories
 
 ### 🔢 Numeric Range Generation
 | Method                          | Description                     |
@@ -459,17 +513,17 @@ All the above methods also support an optional `mapper` parameter version.
 | `useBlob(text, start, end)`   | Split specified range by bytes     |
 | `useBlob(istream)`            | Read from input stream line by line |
 | `useBlob(istream, delimiter)` | Read from input stream by delimiter |
-| `useText(text)`               | Whole text stream (Charsequence)   |
+| `useText(text)`               | Whole text stream (Bunch)   |
 | `useText(text, delimiter)`    | Split text by delimiter            |
 | `useText(istream)`            | Read entire content from input stream |
-| `useSequence(charsequence)`   | Create code point stream from character sequence |
+| `useSequence(string)`   | Create code point stream from character sequence |
 | `useSequence(text, encoding)` | Create code point stream from text with specified encoding |
-| `useCharsequence(charsequence)` | Character sequence as a whole stream |
-| `useCharsequence(charsequence, delimiter)` | Split character sequence by delimiter |
+| `useBunch(bunch)` | Code-point sequence as a whole stream |
+| `useBunch(bunch, delimiter)` | Split a code-point sequence by delimiter |
 
 ---
 
-## 🔐 Layer 7: hash.h / less.h — The Universal Language of the Container World
+## 🔐 Layer 7: structure/hash.h / structure/less.h — The Universal Language of the Container World
 
 Provides complete hash and comparison support for all standard library containers (including nested containers), `pair`, `tuple`, `optional`, `variant`, `chrono` time types, `complex` numbers, and more. Containers nested to any depth and in any combination can now be used as keys in `unordered_set` or elements in `set`. 🌉
 

@@ -1,0 +1,38 @@
+# CMake build trees
+/build/
+/build-*/
+/out/
+/cmake-build-*/
+CMakeUserPresets.json
+
+# Visual Studio
+.vs/
+*.sln
+*.vcxproj
+*.vcxproj.filters
+*.vcxproj.user
+*.user
+
+# Compiler and linker outputs
+*.obj
+*.o
+*.exe
+*.pdb
+*.ilk
+*.lib
+*.a
+*.dll
+*.so
+*.dylib
+
+# Editor and OS files
+.idea/
+.vscode/
+.DS_Store
+Thumbs.db
+
+# Local probe files
+/.probe/
+
+# Local data files
+*.xlsx

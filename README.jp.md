@@ -23,37 +23,37 @@ Semantic-Cppは、7つのコアヘッダーファイルで構成され、層状�
 
 ```
 ┌─────────────────────────────────────────────────┐
-│               🌊 semantics.h                     │
+│               🌊 semantic/semantic.h                     │
 │   名前空間: semantic                            │
 │   ストリーム構築ファクトリ：数値範囲、コンテナ、  │
 │   テキスト、Unicode                             │
 ├─────────────────────────────────────────────────┤
-│                 📦 semantic.h                   │
+│                 📦 semantic/semantic.h                   │
 │   名前空間: semantic / collectable              │
 │   ストリーム中間操作、Collectableシステム、      │
 │   コンテナアンパックサポート                    │
 ├─────────────────────────────────────────────────┤
-│                ⚙️ collector.h                   │
+│                ⚙️ semantic/collector.h                   │
 │   名前空間: collector                           │
 │   コレクターフレームワーク＋ファクトリ：マッチング、│
 │   検索、集約、統計、DFT/FFT                    │
 ├─────────────────────────────────────────────────┤
-│                🔤 charsequence.h                │
-│   名前空間: charsequence                        │
+│                🔤 bunch/bunch.h                │
+│   名前空間: bunch                        │
 │   Unicode文字シーケンス、マルチエンコーディング  │
 │   変換、Builder、Buffer                         │
 ├─────────────────────────────────────────────────┤
-│                🧵 pool.h                        │
+│                🧵 structure/pool.h                        │
 │   名前空間: pool                                │
 │   グローバルスレッドプール：タスク送信、緊急停止、 │
 │   例外伝播                                      │
 ├─────────────────────────────────────────────────┤
-│                📄 function.h                    │
+│                📄 structure/function.h                    │
 │   名前空間: function                            │
 │   型定義：Generator、Supplier、Consumerなどの  │
 │   エイリアス                                    │
 ├─────────────────────────────────────────────────┤
-│               🔐 hash.h / less.h                │
+│               🔐 structure/hash.h / structure/less.h                │
 │   名前空間: std (拡張)                          │
 │   標準ライブラリコンテナハッシュ＆比較の特殊化、 │
 │   任意のネストをサポート                        │
@@ -61,16 +61,16 @@ Semantic-Cppは、7つのコアヘッダーファイルで構成され、層状�
 ```
 
 ### 🧩 依存関係グラフ
-依存関係チェーンは、入念に設計された回路図のように明確で論理的です：電流は基本的な型定義から上向きに流れ、各層は下位層にのみ依存します。最終的に、すべてのパスは`semantic.h`と`semantics.h`に収束し、完全なストリーム処理能力を形成します。
+依存関係チェーンは、入念に設計された回路図のように明確で論理的です：電流は基本的な型定義から上向きに流れ、各層は下位層にのみ依存します。最終的に、すべてのパスは`semantic/semantic.h`と`semantic/semantic.h`に収束し、完全なストリーム処理能力を形成します。
 
 ```
-function.h          ← 依存関係なし、型の基盤
-pool.h              ← function.hに依存
-charsequence.h      ← 独立モジュール、Unicode処理
-collector.h         ← function.h、pool.hに依存
-hash.h / less.h     ← 独立モジュール、標準ライブラリ拡張
-semantic.h          ← 上記すべてに依存
-semantics.h         ← semantic.hに依存
+structure/function.h          ← 依存関係なし、型の基盤
+structure/pool.h              ← structure/function.hに依存
+bunch/bunch.h      ← 独立モジュール、Unicode処理
+semantic/collector.h         ← structure/function.h、structure/pool.hに依存
+structure/hash.h / structure/less.h     ← 独立モジュール、標準ライブラリ拡張
+semantic/semantic.h          ← 上記すべてに依存
+semantic/semantic.h         ← semantic/semantic.hに依存
 ```
 
 ---
@@ -81,29 +81,29 @@ Semantic-Cppは、5つの名前空間を入念に設計しています。各々�
 
 | 名前空間    | ヘッダーファイル | 責任                                     | 主要な型/関数                                                          |
 | :---------- | :--------------- | :--------------------------------------- | :--------------------------------------------------------------------- |
-| function    | function.h       | 型システムの基盤                         | `Timestamp`、`Module`、`Generator<T>`、`Supplier<R>`、`Consumer<T>`、`Predicate<T>`など |
-| pool        | pool.h           | 並行実行エンジン                         | `pool::pool`（グローバルスレッドプール）、`submit()`、`emergencyShutdown()` |
-| charsequence| charsequence.h   | Unicode文字列処理                       | `charset`、`Meta`、`Point`、`Charsequence`、`Builder`、`Buffer`など    |
-| collector   | collector.h      | 終端収集実行                             | `Collector<E,A,R>`、`Identity<A>`、`Accumulator<A,E>`など              |
-| collectable | semantic.h       | 具体化されたデータコンテナ               | `Collectable<E>`、`OrderedCollectable<E>`、`UnorderedCollectable<E>`など |
-| semantic    | semantic.h<br>semantics.h | ストリーム構築と中間操作             | `Semantic<E>`、`useRange()`、`useFrom()`など                           |
+| function    | structure/function.h       | 型システムの基盤                         | `Timestamp`、`Module`、`Generator<T>`、`Supplier<R>`、`Consumer<T>`、`Predicate<T>`など |
+| pool        | structure/pool.h           | 並行実行エンジン                         | `pool::pool`（グローバルスレッドプール）、`submit()`、`emergencyShutdown()` |
+| bunch| bunch/bunch.h   | Unicode文字列処理                       | `charset`、`Meta`、`Point`、`Bunch`、`Builder`、`Buffer`など    |
+| collector   | semantic/collector.h      | 終端収集実行                             | `Collector<E,A,R>`、`Identity<A>`、`Accumulator<A,E>`など              |
+| collectable | semantic/semantic.h       | 具体化されたデータコンテナ               | `Collectable<E>`、`OrderedCollectable<E>`、`UnorderedCollectable<E>`など |
+| semantic    | semantic/semantic.h<br>semantic/semantic.h | ストリーム構築と中間操作             | `Semantic<E>`、`useRange()`、`useFrom()`など                           |
 
 ### 🔁 名前空間連携フロー
 名前空間間のデータフローは、工場の組立ラインのようです — 原材料は`semantic`から入り、層ごとに処理を受け、最終的に`collector`からパッケージ化され出荷されます。各ステップには明確な責任の境界があります：
 
 ```cpp
 semantic::useRange(0, 100)          // ← semantic名前空間：ストリーム作成
-    .map(int x { return x * 2; })   // ← semantic名前空間：中間変換
-    .filter(int x { return x > 50; }) // ← semantic名前空間：中間フィルター
+    .map([](int x) { return x * 2; })   // ← semantic名前空間：中間変換
+    .filter([](int x) { return x > 50; }) // ← semantic名前空間：中間フィルター
     .toUnordered()                  // ← collectable名前空間に変換
     .toVector();                    // ← collector名前空間のコレクターを呼び出し
 ```
 
 ---
 
-## 📦 レイヤー1：function.h — 型の基盤
+## 📦 レイヤー1：structure/function.h — 型の基盤
 
-`function.h`は、フレームワーク全体の型システムを定義し、すべてのモジュールの共通基盤です。🔑
+`structure/function.h`は、フレームワーク全体の型システムを定義し、すべてのモジュールの共通基盤です。🔑
 
 ```cpp
 namespace function {
@@ -142,9 +142,9 @@ namespace function {
 
 ---
 
-## 🧵 レイヤー2：pool.h — 並行性の基盤
+## 🧵 レイヤー2：structure/pool.h — 並行性の基盤
 
-`pool.h`は、グローバルスレッドプール`pool::pool`を提供し、フレームワーク全体の並行性エンジンです。🚀 **宣言的並列処理**の設計を採用しています — `.parallel(4)`と書いても、すぐに4つのスレッドを起動して処理を開始するわけではありません。このコード行は単なる「宣言」です：フレームワークに「並列処理に4つのスレッドを使用するつもりです」と伝えます。実際の並列実行は、終端操作が呼び出されたときに発生します — つまり、`toVector()`、`findFirst()`、`count()`などの収集メソッドを呼び出したときです。
+`structure/pool.h`は、グローバルスレッドプール`pool::pool`を提供し、フレームワーク全体の並行性エンジンです。🚀 **宣言的並列処理**の設計を採用しています — `.parallel(4)`と書いても、すぐに4つのスレッドを起動して処理を開始するわけではありません。このコード行は単なる「宣言」です：フレームワークに「並列処理に4つのスレッドを使用するつもりです」と伝えます。実際の並列実行は、終端操作が呼び出されたときに発生します — つまり、`toVector()`、`findFirst()`、`count()`などの収集メソッドを呼び出したときです。
 
 | 特徴            | 説明                                                                 |
 | :-------------- | :------------------------------------------------------------------- |
@@ -154,17 +154,17 @@ namespace function {
 
 ---
 
-## 🔤 レイヤー3：charsequence.h — Unicode文字シーケンス
+## 🔤 レイヤー3：bunch/bunch.h — Unicode文字シーケンス
 
-`charsequence.h`は、完全なUnicode処理モジュールで、文字シーケンスの作成、変換、操作の機能を提供します。🌍 UTF-8、UTF-16（LE/BE）、UTF-32（LE/BE）、ASCII、Latin1などの様々なエンコーディングをサポートします。サロゲートペアを正しく検出・処理し、無効なコードポイントには標準のU+FFFD置換文字を返します。
+`bunch/bunch.h`は、完全なUnicode処理モジュールで、文字シーケンスの作成、変換、操作の機能を提供します。🌍 UTF-8、UTF-16（LE/BE）、UTF-32（LE/BE）、ASCII、Latin1などの様々なエンコーディングをサポートします。サロゲートペアを正しく検出・処理し、無効なコードポイントには標準のU+FFFD置換文字を返します。
 
 | 型/関数       | 説明                                                                   |
 | :------------ | :--------------------------------------------------------------------- |
 | charset       | 列挙型：ascii、utf8、utf16、utf16be、utf16le、utf32、utf32be、utf32le、latin1 |
 | Meta          | メタデータラッパー、符号なし整数値を格納                                 |
 | Point         | Unicodeコードポイント、サロゲートペア検出と妥当性チェックをサポート       |
-| Charsequence  | 不変文字シーケンス：split、replace、indexOf、lastIndexOf、sub、trim、toUpperCase、toLowerCase、reverse、startsWith、endsWith、contains、compare、getBytes、getPoints、getMetas、getCharacters、repeat、concat、count、join |
-| Builder       | 可変バイトビルダー：prepend、insert、append（基本型、Point、Charsequence、string_viewをサポート） |
+| Bunch  | 不変文字シーケンス：split、replace、indexOf、lastIndexOf、sub、trim、toUpperCase、toLowerCase、reverse、startsWith、endsWith、contains、compare、getBytes、getPoints、getMetas、getCharacters、repeat、concat、count、join |
+| Builder       | 可変バイトビルダー：prepend、insert、append（基本型、Point、Bunch、string_viewをサポート） |
 | Buffer        | スレッドセーフリングバッファ：write、read、peek、prepend、append、clear、shrinkToFit、data、size、capacity、atomic |
 | PointIterator | Unicodeコードポイントを走査する双方向イテレータ                         |
 | encode()      | 単一コードポイントを指定エンコーディングのバイトシーケンスにエンコード   |
@@ -173,9 +173,9 @@ namespace function {
 
 ---
 
-## ⚙️ レイヤー4：collector.h — コレクターフレームワークとファクトリ
+## ⚙️ レイヤー4：semantic/collector.h — コレクターフレームワークとファクトリ
 
-`collector.h`は、Semantic-Cppのコレクターコアモジュールで、コレクターフレームワークとファクトリ関数を組み合わせています。
+`semantic/collector.h`は、Semantic-Cppのコレクターコアモジュールで、コレクターフレームワークとファクトリ関数を組み合わせています。
 
 ### 🧩 5段階モデル
 ```
@@ -274,7 +274,7 @@ Identity → Accumulator → Combiner → Finisher
 #### 📄 文字列出力
 | メソッド                               | 戻り値の型 |
 | :----------------------------------- | :--------- |
-| `useJoin()` / `useOut()` / `useError()` とそのオーバーロード | `charsequence::Charsequence` |
+| `useJoin()` / `useOut()` / `useError()` とそのオーバーロード | `bunch::Bunch` |
 
 #### 📊 数学ツール
 | メソッド        | 戻り値の型 |
@@ -287,7 +287,7 @@ Identity → Accumulator → Combiner → Finisher
 
 ---
 
-## 📦 レイヤー5：semantic.h — ストリーム中間操作と収集システム
+## 📦 レイヤー5：semantic/semantic.h — ストリーム中間操作と収集システム
 
 ### 🧩 コアデザイン：3段階パイプライン
 ```
@@ -332,11 +332,11 @@ Collectable<E>（具体化と収集）
 | `forEach(consumer)`                               | `void`               | 各要素に対して副作用を実行               |
 | `group(keyExtractor)`                             | `unordered_map<K, vector<E>>` | キーでグループ化                     |
 | `groupBy(keyExtractor, valueExtractor)`          | `unordered_map<K, vector<V>>` | キーでグループ化し値を抽出         |
-| `join()`                                          | `Charsequence`        | デフォルト形式で結合                     |
-| `join(delimiter)`                                 | `Charsequence`        | カスタム区切り文字で結合                 |
-| `join(prefix, delimiter, suffix)`                | `Charsequence`        | 完全にカスタム形式で結合                 |
+| `join()`                                          | `Bunch`        | デフォルト形式で結合                     |
+| `join(delimiter)`                                 | `Bunch`        | カスタム区切り文字で結合                 |
+| `join(prefix, delimiter, suffix)`                | `Bunch`        | 完全にカスタム形式で結合                 |
 | `noneMatch(predicate)`                            | `bool`               | いずれの要素も条件に一致しない           |
-| `out()`                                           | `Charsequence`        | stdoutへの出力（区切り文字/接頭辞/接尾辞/コンバーターをサポート） |
+| `out()`                                           | `Bunch`        | stdoutへの出力（区切り文字/接頭辞/接尾辞/コンバーターをサポート） |
 | `partition(size)`                                 | `vector<vector<E>>`   | 固定サイズでパーティション分割           |
 | `partitionBy(keyExtractor)`                       | `vector<vector<E>>`   | インデックスキーでパーティション分割     |
 | `partitionBy(keyExtractor, valueExtractor)`       | `vector<vector<V>>`   | インデックスキーでパーティション分割し値を抽出 |
@@ -418,7 +418,7 @@ Collectable<E>（具体化と収集）
 
 ---
 
-## 🔧 レイヤー6：semantics.h — ストリーム構築ファクトリ
+## 🔧 レイヤー6：semantic/semantic.h — ストリーム構築ファクトリ
 
 ### 🔢 数値範囲生成
 | メソッド                        | 説明                     |
@@ -459,17 +459,17 @@ Collectable<E>（具体化と収集）
 | `useBlob(text, start, end)` | 指定範囲をバイトごとに分割     |
 | `useBlob(istream)`          | 入力ストリームから行ごとに読み込み |
 | `useBlob(istream, delimiter)` | 区切り文字で入力ストリームから読み込み |
-| `useText(text)`             | 完全なテキストストリーム（Charsequence） |
+| `useText(text)`             | 完全なテキストストリーム（Bunch） |
 | `useText(text, delimiter)`  | 区切り文字でテキストを分割     |
 | `useText(istream)`          | 入力ストリームから完全な内容を読み込み |
-| `useSequence(charsequence)` | 文字シーケンスからコードポイントストリームを作成 |
+| `useSequence(string)` | 文字シーケンスからコードポイントストリームを作成 |
 | `useSequence(text, encoding)` | 指定エンコーディングのテキストからコードポイントストリームを作成 |
-| `useCharsequence(charsequence)` | 文字シーケンス全体としてのストリーム |
-| `useCharsequence(charsequence, delimiter)` | 区切り文字で文字シーケンスを分割 |
+| `useBunch(string)` | 文字シーケンス全体としてのストリーム |
+| `useBunch(string, delimiter)` | 区切り文字で文字シーケンスを分割 |
 
 ---
 
-## 🔐 レイヤー7：hash.h / less.h — コンテナ世界の普遍言語
+## 🔐 レイヤー7：structure/hash.h / structure/less.h — コンテナ世界の普遍言語
 
 すべての標準ライブラリコンテナ（ネストされたコンテナを含む）、`pair`、`tuple`、`optional`、`variant`、`chrono`時間型、`complex`数などに対する完全なハッシュと比較サポートを提供します。任意の深さと組み合わせでネストされたコンテナを、`unordered_set`のキーや`set`の要素として使用できるようになりました。🌉
 

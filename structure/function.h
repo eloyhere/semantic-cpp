@@ -4,6 +4,7 @@
 #include <functional>
 #include <iostream>
 #include <algorithm>
+#include <exception>
 #include <type_traits>
 
 namespace function
@@ -85,7 +86,7 @@ D randomly(const D &start, const D &end)
 	}
 }
 
-bool randomly()
+inline bool randomly()
 {
 	try
 	{

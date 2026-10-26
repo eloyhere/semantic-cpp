@@ -15,71 +15,71 @@
 Semantic-Cpp состоит из **7 ключевых заголовочных файлов**, плавно развивающихся от уровня к уровню. **5 пространств имен** распределяют обязанности между собой, формируя сквозной конвейер (pipeline) от источника данных до финального результата:
 ```
 ┌─────────────────────────────────────────────────┐
-│               🌊 semantics.h                    │
+│               🌊 semantic/semantic.h                    │
 │   Пространство имен: semantic                   │
 │   Фабрика фабрик потоков: диапазоны, контейнеры, текст, Unicode │
 ├─────────────────────────────────────────────────┤
-│                 📦 semantic.h                     │
+│                 📦 semantic/semantic.h                     │
 │   Пространство имен: semantic / collectable            │
 │   Промежуточные операции, система Collectable, поддержка контейнеров │
 ├─────────────────────────────────────────────────┤
-│                ⚙️ collector.h                     │
+│                ⚙️ semantic/collector.h                     │
 │   Пространство имен: collector                        │
 │   Фреймворк коллекторов + фабрика: поиск, агрегация, DFT/FFT │
 ├─────────────────────────────────────────────────┤
-│                🔤 charsequence.h                   │
-│   Пространство имен: charsequence                     │
+│                🔤 bunch/bunch.h                   │
+│   Пространство имен: bunch                     │
 │   Последовательности Unicode, конвертация кодировок, Builder, Buffer │
 ├─────────────────────────────────────────────────┤
-│                🧵 pool.h                          │
+│                🧵 structure/pool.h                          │
 │   Пространство имен: pool                             │
 │   Глобальный пул потоков: отправка задач, экстренное завершение │
 ├─────────────────────────────────────────────────┤
-│                📄 function.h                      │
+│                📄 structure/function.h                      │
 │   Пространство имен: function                         │
 │   Система типов: алиасы для Generator, Supplier, Consumer и др. │
 ├─────────────────────────────────────────────────┤
-│               🔐 hash.h / less.h                  │
+│               🔐 structure/hash.h / structure/less.h                  │
 │   Пространство имен: std (расширение)              │
 │   Специализация хэшей и сравнений для STL, поддержка любой вложенности │
 └─────────────────────────────────────────────────┘
 
 ```
 ### 🧩 Взаимосвязь зависимостей
-Цепочка зависимостей прозрачна, как схема четко спроектированной электронной платы. Ток зарождается в базовых определениях типов на самом нижнем уровне и поднимается вверх шаг за шагом — каждый уровень зависит строго от нижележащего. В итоге все линии сходятся в semantic.h и semantics.h, формируя монолитную функциональность потоковой обработки.
+Цепочка зависимостей прозрачна, как схема четко спроектированной электронной платы. Ток зарождается в базовых определениях типов на самом нижнем уровне и поднимается вверх шаг за шагом — каждый уровень зависит строго от нижележащего. В итоге все линии сходятся в semantic/semantic.h и semantic/semantic.h, формируя монолитную функциональность потоковой обработки.
 ```
-function.h          ← Нет зависимостей, фундамент системы типов
-pool.h              ← Зависит от function.h
-charsequence.h      ← Изолированный модуль для работы с Unicode
-collector.h         ← Зависит от function.h, pool.h
-hash.h / less.h     ← Изолированный модуль, расширение STL
-semantic.h          ← Зависит от всего вышеперечисленного
-semantics.h         ← Зависит от semantic.h
+structure/function.h          ← Нет зависимостей, фундамент системы типов
+structure/pool.h              ← Зависит от structure/function.h
+bunch/bunch.h      ← Изолированный модуль для работы с Unicode
+semantic/collector.h         ← Зависит от structure/function.h, structure/pool.h
+structure/hash.h / structure/less.h     ← Изолированный модуль, расширение STL
+semantic/semantic.h          ← Зависит от всего вышеперечисленного
+semantic/semantic.h         ← Зависит от semantic/semantic.h
 
 ```
 ## 🌍 Панорама пространств имен
 В Semantic-Cpp четко выстроена структура из 5 пространств имен. Каждое из них работает как автономный «департамент», выполняющий свою задачу, но при этом они тесно взаимодействуют друг с другом:
 | Пространство имен | Файл | Обязанности | Ключевые типы / функции |
 |---|---|---|---|
-| **function** | function.h | Фундамент системы типов | Timestamp, Module, Generator<T>, Supplier<R>, Consumer<T>, Predicate<T> и др. |
-| **pool** | pool.h | Движок параллельного выполнения | pool::pool (глобальный пул), submit(), emergencyShutdown() |
-| **charsequence** | charsequence.h | Обработка Unicode-строк | charset, Meta, Point, Charsequence, Builder, Buffer и др. |
-| **collector** | collector.h | Финальный сбор данных | Collector<E,A,R>, Identity<A>, Accumulator<A,E> и др. |
-| **collectable** | semantic.h | Материализованные контейнеры данных | Collectable<E>, OrderedCollectable<E>, UnorderedCollectable<E> и др. |
-| **semantic** | semantic.h
-semantics.h | Создание потока и промежуточные операции | Semantic<E>, useRange(), useFrom() и др. |
+| **function** | structure/function.h | Фундамент системы типов | Timestamp, Module, Generator<T>, Supplier<R>, Consumer<T>, Predicate<T> и др. |
+| **pool** | structure/pool.h | Движок параллельного выполнения | pool::pool (глобальный пул), submit(), emergencyShutdown() |
+| **bunch** | bunch/bunch.h | Обработка Unicode-строк | charset, Meta, Point, Bunch, Builder, Buffer и др. |
+| **collector** | semantic/collector.h | Финальный сбор данных | Collector<E,A,R>, Identity<A>, Accumulator<A,E> и др. |
+| **collectable** | semantic/semantic.h | Материализованные контейнеры данных | Collectable<E>, OrderedCollectable<E>, UnorderedCollectable<E> и др. |
+| **semantic** | semantic/semantic.h
+semantic/semantic.h | Создание потока и промежуточные операции | Semantic<E>, useRange(), useFrom() и др. |
 ### 🔁 Схема взаимодействия пространств имен
 Потоки данных между пространствами имен напоминают сборочный конвейер на заводе. Сырье поступает в semantic, проходит через несколько стадий обработки и трансформации, после чего упаковывается в collector и отгружается. На каждом этапе границы ответственности строго разграничены:
 ```cpp
 semantic::useRange(0, 100)          // ← Пространство semantic: создание потока
-    .map(int x { return x * 2; })   // ← Пространство semantic: промежуточное преобразование
-    .filter(int x { return x > 50; }) // ← Пространство semantic: промежуточная фильтрация
+    .map([](int x) { return x * 2; })   // ← Пространство semantic: промежуточное преобразование
+    .filter([](int x) { return x > 50; }) // ← Пространство semantic: промежуточная фильтрация
     .toUnordered()                  // ← Переход в пространство collectable
     .toVector();                    // ← Вызов коллектора из пространства collector
 
 ```
-## 📦 Уровень 1: function.h — Основа системы типов
-Файл function.h задает систему типов для всего фреймворка и служит общим фундаментом для всех без исключения модулей. 🔑
+## 📦 Уровень 1: structure/function.h — Основа системы типов
+Файл structure/function.h задает систему типов для всего фреймворка и служит общим фундаментом для всех без исключения модулей. 🔑
 ```cpp
 namespace function {
     using Timestamp = long long;           // Тип индекса, «таймстамп» данных внутри потока
@@ -114,8 +114,8 @@ Generator — это главная абстракция всей потоков
 | TriPredicate<T,U,V> | std::function<bool(T,U,V)> | Предикат с тремя параметрами |
 | Comparator<T> | std::function<int(const T&,const T&)> | Компаратор, возвращает отриц./0/полож. |
 | Generator<T> | BiConsumer<BiConsumer<T,Timestamp>, BiPredicate<T,Timestamp>> | Ключевая абстракция генератора потока |
-## 🧵 Уровень 2: pool.h — База параллелизма
-Файл pool.h предоставляет глобальный пул потоков pool::pool, который выступает многопоточным движком фреймворка. 🚀
+## 🧵 Уровень 2: structure/pool.h — База параллелизма
+Файл structure/pool.h предоставляет глобальный пул потоков pool::pool, который выступает многопоточным движком фреймворка. 🚀
 Здесь применяется концепция **декларативного параллелизма (Declarative Parallelism)**. Когда вы пишете .parallel(4), четыре потока не запускаются сию же секунду. Эта строка кода — всего лишь намерение. Вы сообщаете фреймворку: «Я планирую обработать это в 4 потока».
 Реальное параллельное выполнение начнется только в момент вызова терминальной (финальной) операции — то есть при вызове методов сбора данных, таких как toVector(), findFirst(), count().
 | Возможность | Описание |
@@ -123,23 +123,23 @@ Generator — это главная абстракция всей потоков
 | **Декларативный параллелизм** | .parallel(4) — это декларация намерения выделить 4 потока; мгновенного старта не происходит |
 | **Аварийный останов** | Встроенный метод emergencyShutdown() и хэндлер std::set_terminate |
 | **Проброс исключений** | Метод submit() возвращает std::future, безопасно транслируя исключения в главный поток |
-## 🔤 Уровень 3: charsequence.h — Unicode-последовательности
-Модуль charsequence.h представляет собой полноценный инструмент для работы с Unicode, обеспечивающий создание, конвертацию и манипулирование символьными последовательностями. 🌍
+## 🔤 Уровень 3: bunch/bunch.h — Unicode-последовательности
+Модуль bunch/bunch.h представляет собой полноценный инструмент для работы с Unicode, обеспечивающий создание, конвертацию и манипулирование символьными последовательностями. 🌍
 Он поддерживает кодировки UTF-8, UTF-16(LE/BE), UTF-32(LE/BE), ASCII, Latin1, корректно определяет суррогатные пары (Surrogate Pairs) и возвращает стандартный символ замены U+FFFD в случае обнаружения некорректных кодовых точек (Code Points).
 | Тип / Функция | Описание |
 |---|---|
 | charset | Перечисление кодировок: ascii, utf8, utf16, utf16be, utf16le, utf32, utf32be, utf32le, latin1 |
 | Meta | Обертка метаданных, хранящая беззнаковое целое число |
 | Point | Кодовая точка Unicode с поддержкой проверки валидности и суррогатных пар |
-| Charsequence | Неизменяемая строка: split, replace, indexOf, lastIndexOf, sub, trim, toUpperCase, toLowerCase, reverse, startsWith, endsWith, contains, compare, getBytes, getPoints, getMetas, getCharacters, repeat, concat, count, join |
-| Builder | Изменяемый байтовый билдер: prepend, insert, append (поддерживает базовые типы, Point, Charsequence, string_view) |
+| Bunch | Неизменяемая строка: split, replace, indexOf, lastIndexOf, sub, trim, toUpperCase, toLowerCase, reverse, startsWith, endsWith, contains, compare, getBytes, getPoints, getMetas, getCharacters, repeat, concat, count, join |
+| Builder | Изменяемый байтовый билдер: prepend, insert, append (поддерживает базовые типы, Point, Bunch, string_view) |
 | Buffer | Потокобезопасный кольцевой буфер: write, read, peek, prepend, append, clear, shrinkToFit, data, size, capacity, atomic |
 | PointIterator | Двунаправленный итератор по кодовым точкам Unicode |
 | encode() | Кодирует одну кодовую точку в байтовую последовательность заданной кодировки |
 | decode() | Декодирует следующую кодовую точку из байтового потока и автоматически сдвигает указатель |
 | convert() | Конвертация кодировок (поддерживает вывод в string, vector, deque) |
-## ⚙️ Уровень 4: collector.h — Архитектура коллекторов и фабрика
-Файл collector.h содержит в себе ядро системы сборщиков данных Semantic-Cpp, объединяя в одном месте общую инфраструктуру коллекторов и фабричные функции.
+## ⚙️ Уровень 4: semantic/collector.h — Архитектура коллекторов и фабрика
+Файл semantic/collector.h содержит в себе ядро системы сборщиков данных Semantic-Cpp, объединяя в одном месте общую инфраструктуру коллекторов и фабричные функции.
 ### 🧩 5-стадийная модель
 ```
 Identity → Accumulator → Combiner → Finisher
@@ -228,7 +228,7 @@ Identity → Accumulator → Combiner → Finisher
 #### 📄 Строковый вывод
 | Метод | Возвращаемый тип |
 |---|---|
-| useJoin() / useOut() / useError() и их различные перегрузки | charsequence::Charsequence |
+| useJoin() / useOut() / useError() и их различные перегрузки | bunch::Bunch |
 #### 📊 Математический инструментарий
 | Метод | Возвращаемый тип |
 |---|---|
@@ -237,7 +237,7 @@ Identity → Accumulator → Combiner → Finisher
 | useFFT() | vector<complex<double>> |
 | useIFFT() | vector<complex<double>> |
 | useGradient() | vector<double> |
-## 📦 Уровень 5: semantic.h — Промежуточные операции и конвейер сборки
+## 📦 Уровень 5: semantic/semantic.h — Промежуточные операции и конвейер сборки
 ### 🧩 Архитектура: 3-стадийный пайплайн
 ```
 Semantic<E> (Создание и трансформация)
@@ -280,11 +280,11 @@ Collectable<E> (Материализация и сборка)
 | forEach(consumer) | void | Обход элементов с выполнением сайд-эффектов |
 | group(keyExtractor) | unordered_map<K, vector<E>> | Группировка по ключу |
 | groupBy(keyExtractor, valueExtractor) | unordered_map<K, vector<V>> | Группировка по ключу с извлечением значений |
-| join() | Charsequence | Соединение в строку в дефолтном формате |
-| join(delimiter) | Charsequence | Соединение строк через разделитель |
-| join(prefix, delimiter, suffix) | Charsequence | Соединение строк в полностью кастомном формате |
+| join() | Bunch | Соединение в строку в дефолтном формате |
+| join(delimiter) | Bunch | Соединение строк через разделитель |
+| join(prefix, delimiter, suffix) | Bunch | Соединение строк в полностью кастомном формате |
 | noneMatch(predicate) | bool | Ни один элемент не удовлетворяет условию |
-| out() | Charsequence | Вывод в stdout (поддерживает delimiter/prefix/suffix/converter) |
+| out() | Bunch | Вывод в stdout (поддерживает delimiter/prefix/suffix/converter) |
 | partition(size) | vector<vector<E>> | Разбиение на блоки фиксированного размера |
 | partitionBy(keyExtractor) | vector<vector<E>> | Разбиение на блоки по индексному ключу |
 | partitionBy(keyExtractor, valueExtractor) | vector<vector<V>> | Разбиение по ключу с извлечением значений |
@@ -361,7 +361,7 @@ Collectable<E> (Материализация и сборка)
 | **Параллелизм** | parallel(n) | Объявление уровня многопоточности |
 | **Слияние** | concatenate | Объединение Semantic / элементов / генераторов / контейнеров |
 | **Финальный шаг** | toUnordered / toOrdered / toWindow / toStatistics / sort | Преобразование в Collectable |
-## 🔧 Уровень 6: semantics.h — Фабрика конвейеров потока
+## 🔧 Уровень 6: semantic/semantic.h — Фабрика конвейеров потока
 ### 🔢 Генерация числовых диапазонов
 | Метод | Описание |
 |---|---|
@@ -398,14 +398,14 @@ Collectable<E> (Материализация и сборка)
 | useBlob(text, start, end) | Побайтовое разделение указанного диапазона строки |
 | useBlob(istream) | Построчное чтение из входного потока |
 | useBlob(istream, delimiter) | Чтение из входного потока по разделителю |
-| useText(text) | Полноценный текстовый поток (Charsequence) |
+| useText(text) | Полноценный текстовый поток (Bunch) |
 | useText(text, delimiter) | Разделение текста по разделителю |
 | useText(istream) | Чтение всего содержимого из входного потока |
-| useSequence(charsequence) | Поток кодовых точек из символьной последовательности |
+| useSequence(string) | Поток кодовых точек из символьной последовательности |
 | useSequence(text, encoding) | Поток кодовых точек заданной кодировки из текста |
-| useCharsequence(charsequence) | Символьная последовательность как единый поток |
-| useCharsequence(charsequence, delimiter) | Разделение последовательности по разделителю |
-## 🔐 Уровень 7: hash.h / less.h — Общий язык для мира контейнеров
+| useBunch(string) | Символьная последовательность как единый поток |
+| useBunch(string, delimiter) | Разделение последовательности по разделителю |
+## 🔐 Уровень 7: structure/hash.h / structure/less.h — Общий язык для мира контейнеров
 Предоставляет полноценную поддержку хэширования и сравнения для всех контейнеров стандартной библиотеки (включая контейнеры любой глубины вложенности), а также для pair, tuple, optional, variant, типов времени chrono, комплексных чисел complex и многого другого. Теперь вложенные контейнеры произвольной структуры можно напрямую использовать в качестве ключей в unordered_set или элементов в set. 🌉
 ## 🚀 Советы по оптимизации производительности
  1. **Выбирайте правильный тип материализации:** Если порядок элементов не важен, используйте toUnordered(). Если нужна сортировка — вызывайте toOrdered() или sort().

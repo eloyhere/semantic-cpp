@@ -19,6 +19,7 @@
 #include "local_date.h"
 #include "local_date_time.h"
 #include "local_time.h"
+#include "natural/tree/all.h"
 #include "month.h"
 #include "offset.h"
 #include "offset_date_time.h"

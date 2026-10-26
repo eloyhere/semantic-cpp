@@ -1,4 +1,4 @@
-﻿#include "temporal/temporal.h"
+#include "temporal/temporal.h"
 
 #include "test_framework.h"
 
@@ -1070,4 +1070,41 @@ TEST_CASE("temporal local contracts")
     CHECK(temporal::LocalDate<temporal::LocalGregoryDate>::value);
     CHECK(temporal::LocalTime<temporal::LocalGregoryTime>::value);
     CHECK(temporal::LocalDateTime<temporal::LocalGregoryDateTime>::value);
+}
+TEST_CASE("natural tree cycles")
+{
+    using temporal::natural::tree::Branch;
+    using temporal::natural::tree::Tree;
+    using temporal::natural::tree::Trunk;
+
+    static_assert(temporal::natural::tree::trunkOf(1) == Trunk::Jia, "absolute 1 is Jia");
+    static_assert(temporal::natural::tree::branchOf(1) == Branch::Zi, "absolute 1 is Zi");
+    static_assert(temporal::natural::tree::trunkOf(-1) == Trunk::Gui, "negative absolute wraps");
+    static_assert(temporal::natural::tree::branchOf(-1) == Branch::Hai, "negative absolute wraps");
+
+    CHECK(Tree(1).getTrunk() == Trunk::Jia);
+    CHECK(Tree(1).getBranch() == Branch::Zi);
+    CHECK(Tree(61) == Tree(1));
+    CHECK(Tree(24).getTrunk() == Trunk::Ding);
+    CHECK(Tree(24).getBranch() == Branch::Hai);
+
+    CHECK_EQ(temporal::natural::tree::Year(1).getAbsolute(), 1);
+    CHECK_EQ(temporal::natural::tree::Year(1).getRelative(), 1);
+    CHECK_EQ(temporal::natural::tree::Year(61).getRelative(), 1);
+
+    CHECK(temporal::natural::tree::Month(1).getTree() == Tree::fromIndex(3));
+    CHECK(temporal::natural::tree::Month(-1).getTree() == Tree::fromIndex(2));
+    CHECK(temporal::natural::tree::Month(2).getTree() == Tree::fromIndex(4));
+    CHECK_EQ(temporal::natural::tree::Month(1).getAbsolute(), 1);
+    CHECK_EQ(temporal::natural::tree::Month(1).getRelative(), 1);
+    CHECK_EQ(temporal::natural::tree::Month(13).getRelative(), 1);
+
+    CHECK(temporal::natural::tree::dayTree(0) == Tree(24));
+    CHECK(temporal::natural::tree::dayTree(1) == Tree(25));
+    CHECK(temporal::natural::tree::hourTree(0) == Tree::fromIndex(37));
+    CHECK(temporal::natural::tree::hourTree(1) == Tree::fromIndex(38));
+    CHECK_EQ(temporal::natural::tree::shichenOfHour(23), 0);
+    CHECK_EQ(temporal::natural::tree::shichenOfHour(0), 0);
+    CHECK_EQ(temporal::natural::tree::shichenOfHour(1), 1);
+    CHECK_EQ(temporal::natural::tree::shichenOfHour(22), 11);
 }

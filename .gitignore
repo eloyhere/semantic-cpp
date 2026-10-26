@@ -36,3 +36,7 @@ Thumbs.db
 
 # Local data files
 *.xlsx
+
+# Generated fit intermediates (regenerate with tools/fit_natural.py extract)
+/temporal/natural/data/natural_events.npz
+/temporal/natural/data/cpp/*.bin

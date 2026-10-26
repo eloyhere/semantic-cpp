@@ -37,6 +37,10 @@ set(SEMANTIC_CPP_HEADERS
     structure/trie.h
     structure/segment_tree.h
     structure/character_search_tree.h
+    mathematics/numerical.h
+    mathematics/epicycle.h
+    mathematics/waveform.h
+    mathematics/mathematics.h
     temporal/field.h
     temporal/types.h
     temporal/unit.h
@@ -56,6 +60,14 @@ set(SEMANTIC_CPP_HEADERS
     temporal/zone.h
     temporal/zone_temporal.h
     temporal/instant.h
+    temporal/natural/tree/all.h
+    temporal/natural/tree/branch.h
+    temporal/natural/tree/cycle.h
+    temporal/natural/tree/day.h
+    temporal/natural/tree/month.h
+    temporal/natural/tree/tree.h
+    temporal/natural/tree/trunk.h
+    temporal/natural/tree/year.h
     temporal/local_contract.h
     temporal/local_date.h
     temporal/local_date_time.h
@@ -140,6 +152,12 @@ install(
 install(
     FILES README.md LICENSE localisation/unicode.md temporal/README.cn.md
     DESTINATION "${SEMANTIC_CPP_INSTALL_DOCDIR}"
+    COMPONENT Documentation
+)
+
+install(
+    FILES mathematics/README.cn.md
+    DESTINATION "${SEMANTIC_CPP_INSTALL_DOCDIR}/mathematics"
     COMPONENT Documentation
 )
 

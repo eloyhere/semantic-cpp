@@ -11,6 +11,7 @@ add_executable(
     test_tree.cpp
     test_ast.cpp
     test_temporal.cpp
+    test_mathematics.cpp
 )
 
 target_link_libraries(${SEMANTIC_CPP_TEST_TARGET} PRIVATE semantic-cpp::semantic-cpp)

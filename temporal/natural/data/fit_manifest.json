@@ -1,0 +1,176 @@
+{
+  "source": "寿星数据整录——原版.xlsx",
+  "range": [
+    -9999,
+    13500
+  ],
+  "epoch": {
+    "astronomicalYear": -2696,
+    "date": "-2696-03-11",
+    "monthAbsolute": 1,
+    "yearAbsolute": 1
+  },
+  "timeScale": "Julian before 1582-10-15, Gregorian after (UTC+8)",
+  "normalization": "x = (JD - 2451545.0) / 36525.0; xs = x / 100",
+  "sheetLocalColumns": [
+    "jiyue (N)",
+    "monthEnd (O)"
+  ],
+  "rows": 290654,
+  "events": {
+    "solarTerms": 562539,
+    "solarJie": 281273,
+    "solarZhongQi": 281266,
+    "moonPhases": 1162616,
+    "leapMonths": 8654,
+    "leapYears": 8654
+  },
+  "models": {
+    "sunLongitude": {
+      "terms": 70,
+      "maxErrorDegrees": 0.016644282266497612,
+      "maxErrorSeconds": 1430.1439225673676,
+      "rmsErrorSeconds": 279.56907620769107,
+      "meanErrorSeconds": 221.20032679428152,
+      "validation": {
+        "random10": {
+          "n": 56253,
+          "max": 1329.6762317419052,
+          "mean": 220.93035720142825,
+          "rms": 279.0235250537521
+        },
+        "last500": {
+          "n": 11990,
+          "max": 1023.7367928028107,
+          "mean": 262.34876825597706,
+          "rms": 323.3208671547391
+        },
+        "epoch100": {
+          "n": 4806,
+          "max": 735.2626232430339,
+          "mean": 187.59357019097365,
+          "rms": 233.840074077535
+        }
+      }
+    },
+    "moonSunDifference": {
+      "terms": 89,
+      "maxErrorDegrees": 3.8618941754102707,
+      "maxErrorSeconds": 37436.07761263847,
+      "rmsErrorSeconds": 3642.324520574568,
+      "meanErrorSeconds": 2753.0804824856427,
+      "validation": {
+        "random10": {
+          "n": 116261,
+          "max": 36385.36474406719,
+          "mean": 2744.280335656619,
+          "rms": 3620.294611015291
+        },
+        "last500": {
+          "n": 24736,
+          "max": 12322.373396158218,
+          "mean": 3665.4462911792216,
+          "rms": 4567.703457007747
+        },
+        "epoch100": {
+          "n": 9944,
+          "max": 7620.703437086195,
+          "mean": 2186.442666033291,
+          "rms": 2678.2592044532335
+        }
+      }
+    },
+    "cumulative": {
+      "maxErrorDays": 1.1312412254483206,
+      "rmsErrorDays": 0.42557099391630526,
+      "meanDaysPerMonth": 29.530602393852533
+    },
+    "synodicYearLength": {
+      "maxErrorSeconds": 1707152.7746285708,
+      "rmsErrorSeconds": 1230628.6931450164,
+      "meanDays": 365.24230818332694,
+      "note": "year length is a 353..385 day integer; a smooth Waveform cannot represent the leap-month jumps"
+    },
+    "tropicalYearLength": {
+      "maxErrorSeconds": 1110.9192452331627,
+      "rmsErrorSeconds": 334.5958018283292,
+      "meanDays": 365.24214945005207
+    },
+    "leapYear": {
+      "accuracy": 1.0,
+      "truePositive": 8654,
+      "trueNegative": 14845,
+      "falsePositive": 0,
+      "falseNegative": 0
+    },
+    "leapMonth": {
+      "accuracy": 0.9992981345517351,
+      "truePositive": 8552,
+      "trueNegative": 281898,
+      "falsePositive": 102,
+      "falseNegative": 102
+    },
+    "leapYearFittedSun": {
+      "accuracy": 0.9999574449976595,
+      "truePositive": 8653,
+      "trueNegative": 14845,
+      "falsePositive": 0,
+      "falseNegative": 1
+    },
+    "leapMonthFittedSun": {
+      "accuracy": 0.9991845974939275,
+      "truePositive": 8535,
+      "trueNegative": 281882,
+      "falsePositive": 118,
+      "falseNegative": 119
+    }
+  },
+  "fit": {
+    "pythonSeconds": 51.358540534973145,
+    "cppSeconds": 65.416114,
+    "cppAgreement": {
+      "sun": {
+        "pythonRms": 0.003188032040657341,
+        "cppRms": 0.003188029101226815,
+        "relativeRmsDiff": 9.220203839714202e-07,
+        "pythonMax": 0.01664116606116295,
+        "cppMax": 0.016644282266497612
+      },
+      "moon": {
+        "pythonRms": 0.46412265627164057,
+        "cppRms": 0.46412265193685115,
+        "relativeRmsDiff": 9.339749649643852e-09,
+        "pythonMax": 3.861900642514229,
+        "cppMax": 3.8618941754102707
+      }
+    },
+    "command": "python tools/fit_natural.py all",
+    "cppCommand": "build-natural-fit/fit_natural_cpp temporal/natural/data temporal/natural/data"
+  },
+  "files": {
+    "header": "temporal/natural/data/waveforms.h",
+    "report": "temporal/natural/data/FIT_REPORT.md",
+    "cache": "temporal/natural/data/natural_events.npz"
+  },
+  "gpu": {
+    "device": "NVIDIA GeForce RTX 3060",
+    "torch": "2.5.1+cu121",
+    "cuda": "12.1",
+    "sun": {
+      "params": 70,
+      "rmsDegrees": 0.003188031475253057,
+      "maxDegrees": 0.016641732305288315,
+      "gpuSeconds": 0.2975003719329834,
+      "cppRms": 0.003188029102620229,
+      "cppMax": 0.01664428971707821
+    },
+    "moon": {
+      "params": 89,
+      "rmsDegrees": 0.4641226544901503,
+      "maxDegrees": 3.861900717020035,
+      "gpuSeconds": 0.4910006523132324,
+      "cppRms": 0.4641226519082646,
+      "cppMax": 3.8618942201137543
+    }
+  }
+}

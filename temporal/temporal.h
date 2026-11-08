@@ -1,6 +1,6 @@
-﻿#pragma once
+#pragma once
 
-#include "temporal/types.h"
+#include "types.h"
 
 #include "calendar.h"
 #include "date_time.h"

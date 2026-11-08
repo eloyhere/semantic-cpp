@@ -40,3 +40,10 @@ Thumbs.db
 # Generated fit intermediates (regenerate with tools/fit_natural.py extract)
 /temporal/natural/data/natural_events.npz
 /temporal/natural/data/cpp/*.bin
+
+# AMP runtime data written by deepseek-coordination
+.deepseek-coordination/
+
+# Python caches
+__pycache__/
+*.pyc

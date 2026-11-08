@@ -6,6 +6,21 @@ add_executable(
     test_bunch.cpp
     test_localisation.cpp
     test_unicode.cpp
+    test_segment.cpp
+    test_segment_dictionary.cpp
+    test_linebreak.cpp
+    test_compare_normalized.cpp
+    test_message_datetime.cpp
+    test_po.cpp
+    test_datetime.cpp
+    test_bidi.cpp
+    test_currency.cpp
+    test_number_format.cpp
+    test_collation.cpp
+    test_casefold.cpp
+    test_encoding_detect.cpp
+    test_caseless.cpp
+    test_properties.cpp
     test_semantic.cpp
     test_containers.cpp
     test_tree.cpp

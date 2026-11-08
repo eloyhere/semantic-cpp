@@ -4,9 +4,11 @@
 #include "encode.h"
 #include "meta.h"
 #include "point.h"
+#include "unicode.h"
 
 #include <algorithm>
 #include <cstddef>
+#include <cstdint>
 #include <functional>
 #include <iostream>
 #include <iterator>
@@ -483,49 +485,17 @@ class Bunch
         return sub(start, end - start);
     }
 
-    // ASCII-only simple case conversion. Full Unicode case conversion is
-    // context-sensitive and may change string length (for example, U+00DF
-    // LATIN SMALL LETTER SHARP S maps to "SS" in uppercase).
-    Bunch toUpperCase() const
-    {
-        Bunch result;
-        result.storageEncoding = storageEncoding;
-        result.pointStorage.reserve(pointStorage.size());
-        for (const auto &p : pointStorage)
-        {
-            unsigned int cp = p.getValue();
-            if (cp >= 'a' && cp <= 'z')
-            {
-                result.pointStorage.push_back(Point(cp - 32));
-            }
-            else
-            {
-                result.pointStorage.push_back(p);
-            }
-        }
-        return result;
-    }
+    // Full Unicode case mapping (see bunch/unicode.h), non-Turkic by default.
+    // The mapped text may differ in length: U+00DF LATIN SMALL LETTER SHARP S
+    // uppercases to "SS", and U+0130 LATIN CAPITAL LETTER I WITH DOT ABOVE
+    // lowercases to "i" plus U+0307 COMBINING DOT ABOVE. The code points are
+    // mapped, not the bytes of storageEncoding, and storageEncoding is kept.
+    Bunch toUpperCase() const { return mapCase(true); }
 
-    // ASCII-only simple case conversion. See toUpperCase().
-    Bunch toLowerCase() const
-    {
-        Bunch result;
-        result.storageEncoding = storageEncoding;
-        result.pointStorage.reserve(pointStorage.size());
-        for (const auto &p : pointStorage)
-        {
-            unsigned int cp = p.getValue();
-            if (cp >= 'A' && cp <= 'Z')
-            {
-                result.pointStorage.push_back(Point(cp + 32));
-            }
-            else
-            {
-                result.pointStorage.push_back(p);
-            }
-        }
-        return result;
-    }
+    // Full Unicode case mapping; see toUpperCase(). Lowercasing also applies
+    // Unicode's Final_Sigma rule, so a word-final capital sigma becomes U+03C2
+    // GREEK SMALL LETTER FINAL SIGMA.
+    Bunch toLowerCase() const { return mapCase(false); }
 
     // Reverses code points, not grapheme clusters. This can split a base
     // character from its combining marks; use a grapheme-aware algorithm if
@@ -623,6 +593,60 @@ class Bunch
     {
         Bunch temp(str, strEncoding, storageEncoding);
         return compare(temp);
+    }
+
+    // Normalised comparison. Both operands are re-encoded from their stored code
+    // points to UTF-8, normalised to the requested form, decoded again and
+    // compared by code point; storageEncoding therefore never affects the
+    // result and neither operand is modified. The return value is -1, 0 or 1
+    // with the same meaning as compare(), but over the normalised sequences:
+    // canonically equivalent text (and, for NFKC/NFKD, compatibility equivalent
+    // text) compares equal here even though compare()/operator== deliberately
+    // keep comparing raw code point sequences.
+    //
+    // Normalisation is not closed under string concatenation, so the normal
+    // form of a prefix does not determine that of the whole text; callers must
+    // choose `form` explicitly. Case folding is a separate operation (see
+    // caseless.h) and is not applied. The pass is O(n) in the text length.
+    // NormalizationForm::none skips normalisation and is exactly compare().
+    // Code points that are not Unicode scalar values are re-encoded as U+FFFD.
+    auto compareNormalized(const Bunch &other, NormalizationForm form = NormalizationForm::nfc) const -> int
+    {
+        if (form == NormalizationForm::none)
+        {
+            return compare(other);
+        }
+        const std::vector<std::uint32_t> left = normalizedCodepoints(form);
+        const std::vector<std::uint32_t> right = other.normalizedCodepoints(form);
+        const std::size_t minSize = std::min(left.size(), right.size());
+        for (std::size_t i = 0; i < minSize; ++i)
+        {
+            if (left[i] < right[i])
+            {
+                return -1;
+            }
+            if (left[i] > right[i])
+            {
+                return 1;
+            }
+        }
+        if (left.size() < right.size())
+        {
+            return -1;
+        }
+        if (left.size() > right.size())
+        {
+            return 1;
+        }
+        return 0;
+    }
+
+    // True when both operands normalise to the same code point sequence.
+    // Equivalent to compareNormalized(other, form) == 0; see that method for the
+    // form semantics, the concatenation caveat and the case-folding note.
+    auto equalsNormalized(const Bunch &other, NormalizationForm form = NormalizationForm::nfc) const -> bool
+    {
+        return compareNormalized(other, form) == 0;
     }
 
     std::vector<unsigned char> getBytes(charset targetEncoding) const
@@ -756,6 +780,74 @@ class Bunch
   private:
     std::vector<Point> pointStorage;
     charset storageEncoding;
+
+    // Returns this Bunch's code points after normalising to `form`. The stored
+    // Points are already encoding-independent, so rebuilding a UTF-8 buffer is
+    // what makes the comparison independent of storageEncoding (utf16le and
+    // friends take part without any branch); a Bunch is never converted in
+    // place. encode.h's appendUtf8 substitutes U+FFFD for non-scalar values.
+    auto normalizedCodepoints(NormalizationForm form) const -> std::vector<std::uint32_t>
+    {
+        std::string utf8;
+        utf8.reserve(pointStorage.size() + pointStorage.size() / 2 + 4);
+        for (const Point &point : pointStorage)
+        {
+            appendUtf8(utf8, point.getValue());
+        }
+        const std::string normalized = normalize(utf8, form);
+        std::vector<std::uint32_t> codepoints;
+        codepoints.reserve(normalized.size());
+        std::string_view remaining = normalized;
+        while (!remaining.empty())
+        {
+            codepoints.push_back(decode(remaining, charset::utf8));
+        }
+        return codepoints;
+    }
+
+    // Applies a full Unicode case mapping to the stored code points. The mapped
+    // form can be longer than the input (one code point may expand to several),
+    // so the result is rebuilt from mapped UTF-8 bytes rather than patched in
+    // place; storageEncoding only describes the preferred output encoding and is
+    // preserved unchanged.
+    Bunch mapCase(bool uppercase) const
+    {
+        if (pointStorage.empty())
+        {
+            return Bunch(storageEncoding);
+        }
+
+        std::vector<std::uint32_t> codepoints;
+        codepoints.reserve(pointStorage.size());
+        for (const Point &point : pointStorage)
+        {
+            codepoints.push_back(point.getValue());
+        }
+
+        std::string utf8;
+        utf8.reserve(pointStorage.size() + pointStorage.size() / 4 + 4);
+        for (std::size_t index = 0; index < codepoints.size(); ++index)
+        {
+            if (uppercase)
+            {
+                detail::appendUppercase(utf8, codepoints[index], false);
+            }
+            else
+            {
+                // appendLowercaseAt applies Unicode's Final_Sigma context rule.
+                detail::appendLowercaseAt(utf8, codepoints, index, false);
+            }
+        }
+
+        std::vector<Point> points;
+        points.reserve(utf8.size());
+        std::string_view remaining = utf8;
+        while (!remaining.empty())
+        {
+            points.emplace_back(decode(remaining, charset::utf8));
+        }
+        return Bunch(points.data(), points.size(), storageEncoding);
+    }
 
     static bool isWhitespace(unsigned int codepoint)
     {

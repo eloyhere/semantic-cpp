@@ -1,4 +1,4 @@
-﻿cmake_minimum_required(VERSION 3.21)
+cmake_minimum_required(VERSION 3.21)
 
 project(
     SemanticCpp
@@ -18,12 +18,36 @@ set(SEMANTIC_CPP_HEADERS
     bunch/charset.h
     bunch/encode.h
     localisation/localisation.h
+    localisation/locale.h
+    localisation/po.h
+    localisation/datetime.h
+    localisation/datetime_data.h
+    localisation/currency.h
+    localisation/currency_data.h
+    localisation/number_format.h
+    localisation/collation.h
+    localisation/collation_data.h
     bunch/meta.h
     bunch/point.h
     bunch/character.h
     bunch/unicode_data.h
     bunch/unicode.h
+    bunch/segment.h
+    bunch/segment_data.h
+    bunch/segment_dictionary.h
+    bunch/segment_dictionary_data.h
+    bunch/linebreak.h
+    bunch/linebreak_data.h
+    bunch/bidi.h
+    bunch/bidi_data.h
+    bunch/encoding_detect.h
     bunch/sequence.h
+    bunch/casefold.h
+    bunch/casefold_data.h
+    bunch/caseless.h
+    bunch/caseless_data.h
+    bunch/properties.h
+    bunch/properties_data.h
     bunch/builder.h
     bunch/buffer.h
     bunch/bunch.h

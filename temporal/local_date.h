@@ -1,6 +1,6 @@
 #pragma once
 
-#include "temporal/types.h"
+#include "types.h"
 
 #include "gregory/gregory.h"
 

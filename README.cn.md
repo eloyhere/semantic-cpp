@@ -227,6 +227,35 @@ namespace function {
 
 ---
 
+## 🌐 国际化（i18n）
+
+国际化能力全部在库内实现，不依赖 ICU 或系统 locale 数据库：Unicode 算法与数据表在 `bunch/`，locale 数据与消息格式化在 `localisation/`；所有数据表都由 `tools/` 下的脚本从 Unicode 15.0.0 / CLDR 49 生成。
+
+| 能力 | 头文件 | 覆盖范围 |
+| :--- | :--- | :--- |
+| 编码 | `bunch/charset.h`、`bunch/encode.h`、`bunch/encoding_detect.h` | UTF-8、UTF-16 LE/BE、UTF-32 LE/BE、ASCII、Latin-1；非法输入替换为 U+FFFD；BOM 识别、剥离与启发式编码探测 |
+| 规范化 | `bunch/unicode.h` | NFC/NFD/NFKC/NFKD（UAX #15）、Hangul、组合排除；显式 `Bunch::compareNormalized`/`equalsNormalized` |
+| 属性 | `bunch/properties.h` | General_Category、Script、East_Asian_Width、Alphabetic、White_Space、Uppercase/Lowercase、Default_Ignorable |
+| 大小写 | `bunch/unicode.h`、`bunch/casefold.h`、`bunch/caseless.h` | 完整 upper/lower/title 映射、土耳其语与希腊语词尾规则、完整大小写折叠、NFKC_CaseFold |
+| 分段 | `bunch/segment.h`、`bunch/segment_dictionary.h` | 扩展字素簇、单词、句子边界（UAX #29）；全部 2,927 个官方用例；泰/老/高棉/缅词典分词 |
+| 换行 | `bunch/linebreak.h` | UAX #14 换行机会与强制换行；全部 7,654 个官方用例 |
+| 双向文本 | `bunch/bidi.h` | UAX #9 段落方向、嵌入/覆盖/隔离、W/N/I/L 规则、视觉重排、L4 镜像 |
+| 排序 | `localisation/collation.h` | UCA 15.0.0（DUCET）三级比较、`sortKey`、CLDR standard tailorings（cs、da、es、et、fi、hu、lt、lv、nb、pl、ro、sk、tr、sv）、discontiguous contraction |
+| 消息 | `localisation/localisation.h` | ICU MessageFormat 子集：`number`、`plural`、`selectordinal`、`select`、`date`、`time`、`offset`、`#`；上下文、回退链、missing handler |
+| 目录文件 | `localisation/po.h` | GNU gettext `.po` 加载器（含 `Plural-Forms` 求值） |
+| 数字 | `localisation/localisation.h`、`localisation/number_format.h` | 分组、分隔符、原生数字、百分比、紧凑、科学计数、有效数字 |
+| 货币 | `localisation/currency.h` | CLDR 货币符号、小数位、标准/会计模式 |
+| 日期时间 | `localisation/datetime.h` | `java.time` 风格 `DateTimeFormatter`（`ofPattern`、本地化风格、`withLocale`）、CLDR 模式与名称、15 个 locale、offset 与 zone id 渲染 |
+| 文本方向 | `localisation/localisation.h` | LTR / RTL / 竖排检测 |
+
+日期时间格式化对齐 `java.time.format.DateTimeFormatter`：`ofPattern`、`ofLocalizedDate/Time/DateTime(FormatStyle)`、`withLocale` 与 Java 模式字母。
+
+**数据来源：** `tools/gen_unicode.py`、`tools/gen_segment_data.py`、`tools/gen_bidi_data.py`、`tools/gen_collation_data.py`、`tools/gen_datetime_data.py`、`tools/gen_currency_data.py`、`tools/gen_casefold_data.py`。
+
+**已知限制：** UAX #9 未实现 L3 字形层重排（L4 镜像已提供）；排序覆盖 13 个 locale 的 CLDR standard tailoring（de/fr/ru 按 CLDR 与 root 相同，ja/zh/ko 回退 root），未实现 quaternary/shifted 权重、reorder 与 case-first；日期时间仅公历、15 个 locale、不渲染 CLDR 时区显示名（`V` 仍输出 zone id）；词典分词覆盖泰/老/高棉/缅（内置精简词典，可用 `bunch::WordDictionary` 加载完整词典）；未实现断字与紧急换行；属性 API 覆盖 General_Category、Script、East_Asian_Width 与少量二值属性（无 emoji、Age、Script_Extensions）；无 BOM 的 UTF-32 不做猜测；土耳其语之外的折叠 tailoring 未实现。
+
+---
+
 ## ⚙️ 第四层：semantic/collector.h — 收集器框架与工厂
 
 `semantic/collector.h` 是 Semantic-Cpp 的收集器核心模块，将收集器框架与工厂函数合二为一。

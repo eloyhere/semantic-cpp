@@ -541,9 +541,9 @@ TEST_CASE("Bunch trim case and reverse")
     CHECK(same(Bunch("\xE2\x80\x8B" "abc").trim(), "\xE2\x80\x8B" "abc"));
 
     CHECK(same(Bunch("AbC\xC3\x87").toUpperCase(), "ABC\xC3\x87"));
-    CHECK(same(Bunch("AbC\xC3\x87").toLowerCase(), "abc\xC3\x87"));
-    // ASCII-only case conversion: U+00DF LATIN SMALL LETTER SHARP S is not 'A'..'Z'.
-    CHECK(same(Bunch("\xC3\x9F").toUpperCase(), "\xC3\x9F"));
+    CHECK(same(Bunch("AbC\xC3\x87").toLowerCase(), "abc\xC3\xA7"));
+    // Full Unicode case conversion: U+00DF LATIN SMALL LETTER SHARP S expands to "SS".
+    CHECK(same(Bunch("\xC3\x9F").toUpperCase(), "SS"));
 
     CHECK(same(Bunch("A\xC2\xA9\xE2\x82\xAC").reverse(), "\xE2\x82\xAC\xC2\xA9" "A"));
     CHECK(Bunch().reverse().empty());

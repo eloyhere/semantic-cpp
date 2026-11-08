@@ -19,6 +19,10 @@
 //   * ICU MessageFormat-style messages, so translators can reorder arguments,
 //     and so plural/select branches live in one string instead of being
 //     assembled with string concatenation (Java MessageFormat, FormatJS).
+//   * Date and time arguments in the same syntax ({d, date}, {t, time, short},
+//     ...) rendered through the CLDR patterns of localisation/datetime.h, so a
+//     translated message picks up the target locale's field order and month
+//     names instead of a pattern baked into the source string.
 //   * CLDR plural categories (zero/one/two/few/many/other) for cardinal and
 //     ordinal numbers, data-driven through CLDR plural rule expressions
 //     (i18next v4, ICU PluralRules).  `count == 1 ? singular : plural` is a
@@ -55,9 +59,19 @@
 //                                  localisation::Arguments().set("count", 3));
 //
 // Everything is UTF-8 in and UTF-8 out.  Formatting covers numbers, plurals,
-// ordinals, selections, Unicode normalisation and text styles; dates, times,
-// currencies and collation are left to the host platform.
+// ordinals, selections, dates and times (the styles and patterns of
+// localisation/datetime.h), Unicode normalisation and text styles; currencies
+// and collation live in their own headers (currency.h, collation.h).
 // ===========================================================================
+
+// Locale (BCP 47 tags) and the ASCII helpers live in locale.h, and the CLDR
+// date/time formatter in datetime.h, so that the dependency is a chain:
+// locale.h <- datetime.h <- localisation.h.  Both are included here because
+// this header is the one that offers the message and catalogue layer on top of
+// them, and the include order keeps a single definition of Locale.
+#include "locale.h"
+
+#include "datetime.h"
 
 #include "../bunch/charset.h"
 #include "../bunch/encode.h"
@@ -86,83 +100,6 @@ namespace localisation
 {
 namespace detail
 {
-inline bool isSpace(char character)
-{
-    return character == ' ' || character == '\t' || character == '\r' || character == '\n' || character == '\f' ||
-           character == '\v';
-}
-
-inline bool isDigit(char character) { return character >= '0' && character <= '9'; }
-
-inline bool isAlpha(char character)
-{
-    return (character >= 'a' && character <= 'z') || (character >= 'A' && character <= 'Z');
-}
-
-inline bool isAlnum(char character) { return isAlpha(character) || isDigit(character); }
-
-inline char toLower(char character)
-{
-    return (character >= 'A' && character <= 'Z') ? static_cast<char>(character - 'A' + 'a') : character;
-}
-
-inline char toUpper(char character)
-{
-    return (character >= 'a' && character <= 'z') ? static_cast<char>(character - 'a' + 'A') : character;
-}
-
-inline std::string asciiLower(std::string_view text)
-{
-    std::string result;
-    result.reserve(text.size());
-    for (char character : text)
-    {
-        result.push_back(toLower(character));
-    }
-    return result;
-}
-
-inline std::string asciiUpper(std::string_view text)
-{
-    std::string result;
-    result.reserve(text.size());
-    for (char character : text)
-    {
-        result.push_back(toUpper(character));
-    }
-    return result;
-}
-
-inline std::string asciiTitle(std::string_view text)
-{
-    std::string result;
-    result.reserve(text.size());
-    bool first = true;
-    for (char character : text)
-    {
-        result.push_back(first ? toUpper(character) : toLower(character));
-        first = false;
-    }
-    return result;
-}
-
-inline std::string_view trimView(std::string_view text)
-{
-    std::size_t begin = 0;
-    while (begin < text.size() && isSpace(text[begin]))
-    {
-        ++begin;
-    }
-    std::size_t end = text.size();
-    while (end > begin && isSpace(text[end - 1]))
-    {
-        --end;
-    }
-    return text.substr(begin, end - begin);
-}
-
-inline std::string trim(std::string_view text) { return std::string(trimView(text)); }
-
 inline void skipSpaces(std::string_view text, std::size_t &position)
 {
     while (position < text.size() && isSpace(text[position]))
@@ -202,238 +139,16 @@ inline int hexValue(char character)
 } // namespace detail
 
 // ---------------------------------------------------------------------------
-// Locale: a BCP 47 subset (language[-script][-region])
+// Locale negotiation
 //
-// Canonicalisation lower-cases the language, title-cases the script and
-// upper-cases the region.  Likely scripts are filled in where they change
-// behaviour: zh-CN/zh-SG -> Hans, zh-TW/zh-HK/zh-MO -> Hant, yue -> Hant,
-// mn-CN -> Mong and mn-MN -> Cyrl.
-// ---------------------------------------------------------------------------
-
-class Locale
-{
-  public:
-    Locale() : tag_("und"), language_("und") {}
-
-    explicit Locale(std::string_view tag)
-    {
-        std::vector<std::string> subtags;
-        std::string current;
-        for (char character : tag)
-        {
-            if (character == '-' || character == '_')
-            {
-                if (!current.empty())
-                {
-                    subtags.push_back(current);
-                    current.clear();
-                }
-            }
-            else
-            {
-                current.push_back(character);
-            }
-        }
-        if (!current.empty())
-        {
-            subtags.push_back(current);
-        }
-
-        std::size_t index = 0;
-        if (index < subtags.size() && isLanguageSubtag(subtags[index]))
-        {
-            language_ = detail::asciiLower(subtags[index]);
-            ++index;
-        }
-        // BCP 47 extlang form: zh-yue is the Cantonese tag used by some
-        // systems; canonicalise it to yue.
-        if (language_ == "zh" && index < subtags.size() && detail::asciiLower(subtags[index]) == "yue")
-        {
-            language_ = "yue";
-            ++index;
-        }
-        if (index < subtags.size() && isScriptSubtag(subtags[index]))
-        {
-            script_ = detail::asciiTitle(subtags[index]);
-            ++index;
-        }
-        if (index < subtags.size() && isRegionSubtag(subtags[index]))
-        {
-            region_ = detail::asciiUpper(subtags[index]);
-            ++index;
-        }
-        // Variants, extensions and private-use subtags are intentionally
-        // ignored: they do not affect message lookup or plural selection.
-        if (language_.empty())
-        {
-            language_ = "und";
-        }
-        applyLikelyScript();
-        recompose();
-    }
-
-    Locale(std::string_view language, std::string_view script, std::string_view region)
-    {
-        language_ = detail::asciiLower(detail::trimView(language));
-        script_ = detail::asciiTitle(detail::trimView(script));
-        region_ = detail::asciiUpper(detail::trimView(region));
-        if (language_.empty())
-        {
-            language_ = "und";
-        }
-        applyLikelyScript();
-        recompose();
-    }
-
-    const std::string &tag() const noexcept { return tag_; }
-    const std::string &language() const noexcept { return language_; }
-    const std::string &script() const noexcept { return script_; }
-    const std::string &region() const noexcept { return region_; }
-
-    bool specified() const noexcept { return language_ != "und" && !language_.empty(); }
-
-    // RFC 4647 lookup chain: zh-Hant-TW -> zh-Hant -> zh.
-    std::vector<Locale> fallbacks() const
-    {
-        std::vector<Locale> result;
-        result.push_back(*this);
-        if (!region_.empty())
-        {
-            result.push_back(raw(language_, script_, std::string()));
-        }
-        if (!script_.empty())
-        {
-            result.push_back(raw(language_, std::string(), std::string()));
-        }
-        return result;
-    }
-
-    bool operator==(const Locale &other) const noexcept { return tag_ == other.tag_; }
-    bool operator!=(const Locale &other) const noexcept { return tag_ != other.tag_; }
-    bool operator<(const Locale &other) const noexcept { return tag_ < other.tag_; }
-
-  private:
-    // Builds a locale without running likely-script inference.  The fallback
-    // chain must be able to produce the bare language tag (yue -> yue), which
-    // inference would otherwise turn back into yue-Hant.
-    static Locale raw(const std::string &language, const std::string &script, const std::string &region)
-    {
-        Locale result;
-        result.language_ = language;
-        result.script_ = script;
-        result.region_ = region;
-        result.recompose();
-        return result;
-    }
-
-    // CLDR likely-script inference for the scripts that change catalogue
-    // selection or writing direction.  Only the script subtag is added, so a
-    // generic "zh" catalogue still matches every Chinese variant:
-    // zh-TW -> zh-Hant-TW, zh-CN -> zh-Hans-CN, mn-CN -> mn-Mong-CN.
-    void applyLikelyScript()
-    {
-        if (!script_.empty())
-        {
-            return;
-        }
-        if (language_ == "zh")
-        {
-            if (region_ == "TW" || region_ == "HK" || region_ == "MO")
-            {
-                script_ = "Hant";
-            }
-            else if (region_ == "CN" || region_ == "SG" || region_ == "MY")
-            {
-                script_ = "Hans";
-            }
-        }
-        else if (language_ == "yue")
-        {
-            script_ = "Hant";
-        }
-        else if (language_ == "mn")
-        {
-            if (region_ == "CN")
-            {
-                script_ = "Mong";
-            }
-            else if (region_ == "MN")
-            {
-                script_ = "Cyrl";
-            }
-        }
-    }
-
-    static bool isLanguageSubtag(const std::string &subtag)
-    {
-        if (subtag.empty() || subtag.size() > 8)
-        {
-            return false;
-        }
-        for (char character : subtag)
-        {
-            if (!detail::isAlpha(character))
-            {
-                return false;
-            }
-        }
-        return true;
-    }
-
-    static bool isScriptSubtag(const std::string &subtag)
-    {
-        if (subtag.size() != 4)
-        {
-            return false;
-        }
-        for (char character : subtag)
-        {
-            if (!detail::isAlpha(character))
-            {
-                return false;
-            }
-        }
-        return true;
-    }
-
-    static bool isRegionSubtag(const std::string &subtag)
-    {
-        if (subtag.size() == 2)
-        {
-            return detail::isAlpha(subtag[0]) && detail::isAlpha(subtag[1]);
-        }
-        if (subtag.size() == 3)
-        {
-            return detail::isDigit(subtag[0]) && detail::isDigit(subtag[1]) && detail::isDigit(subtag[2]);
-        }
-        return false;
-    }
-
-    void recompose()
-    {
-        tag_ = language_;
-        if (!script_.empty())
-        {
-            tag_ += '-';
-            tag_ += script_;
-        }
-        if (!region_.empty())
-        {
-            tag_ += '-';
-            tag_ += region_;
-        }
-    }
-
-    std::string tag_;
-    std::string language_;
-    std::string script_;
-    std::string region_;
-};
-
-inline std::ostream &operator<<(std::ostream &stream, const Locale &locale) { return stream << locale.tag(); }
-
+// The Locale type itself, its fallback chain and the ASCII string helpers it is
+// built from live in locale.h: the date/time layer needs the locale type, and
+// keeping Locale here would force datetime.h to include this whole header.
+// Including localisation.h still provides everything locale.h defines.
+//
 // RFC 4647 lookup.  Requested locales are tried in order, each through its
 // fallback chain, against the list of available tags.
+// ---------------------------------------------------------------------------
 inline Locale negotiate(const std::vector<Locale> &requested, const std::vector<Locale> &available,
                         const Locale &fallback = Locale("en"))
 {
@@ -1615,6 +1330,43 @@ class TextFormat
 
 // ---------------------------------------------------------------------------
 // Message arguments
+//
+// A date or time argument carries its fields instead of a pre-formatted string,
+// so that the message - and therefore the translator - decides the style, while
+// the locale stays the caller's choice at format time:
+//
+//   const Arguments arguments = Arguments().setDate("d", 2026, 11, 9).setTime("t", 14, 5, 9);
+//   Message("Shipped on {d, date, full} at {t, time, short}").format(Locale("de"), arguments);
+//   // Versandt am Montag, 9. November 2026 um 14:05 (with a translated pattern)
+//
+// The fields are proleptic Gregorian and are validated when they are set: an
+// impossible date (month 13, 30 February) or clock field throws
+// std::invalid_argument from setDate / setTime / setDateTime, through the same
+// calendar checks the CLDR formatter applies, so a stored date or time argument
+// is always formattable.
+//
+// Plain placeholders: "{d}" on a date or time argument renders ISO 8601 text
+// ("2026-11-09", "14:05:09", "2026-11-09T14:05:09", with fractional seconds
+// when the nanosecond field is not zero). That text is locale-independent by
+// design - a plain placeholder has no style to apply - and it is also what a
+// plural or select argument sees as its "#" value or selector. Use
+// "{d, date[, style]}" / "{t, time[, style]}" for locale-aware output.
+//
+// Type mismatches throw std::invalid_argument at format time, because silently
+// printing an argument the pattern did not ask for hides a broken translation:
+//
+//   * "{d, date}" needs a date or dateTime argument; a text, number, boolean or
+//     time argument throws;
+//   * "{t, time}" needs a time or dateTime argument; a date argument has no
+//     clock fields and throws;
+//   * "{n, number}" throws for a date/time argument (the number formatting of a
+//     text argument is unchanged: it still renders the text verbatim);
+//   * "{c, plural}" / "{c, selectordinal}" keep their existing behaviour: a
+//     non-numeric value, including a date, selects the "other" branch and "#"
+//     is its ISO text.
+//
+// A missing argument is not a mismatch: "{d, date}" without a "d" argument
+// renders the literal placeholder "{d}", as every other argument type does.
 // ---------------------------------------------------------------------------
 
 struct Argument
@@ -1624,7 +1376,10 @@ struct Argument
         text,
         integer,
         real,
-        boolean
+        boolean,
+        date,
+        time,
+        dateTime
     };
 
     std::string name;
@@ -1633,6 +1388,18 @@ struct Argument
     long long integer = 0;
     double real = 0.0;
     bool boolean = false;
+    // Date and time fields, proleptic Gregorian and already validated by the
+    // setter, plus the nanosecond as in LocalGregoryTime (0..999999999).
+    int year = 1970;
+    int month = 1;
+    int day = 1;
+    int hour = 0;
+    int minute = 0;
+    int second = 0;
+    int nanosecond = 0;
+
+    auto hasDate() const noexcept -> bool { return type == kind::date || type == kind::dateTime; }
+    auto hasTime() const noexcept -> bool { return type == kind::time || type == kind::dateTime; }
 };
 
 class Arguments
@@ -1683,6 +1450,57 @@ class Arguments
         argument.name = std::string(name);
         argument.type = Argument::kind::real;
         argument.real = static_cast<double>(value);
+        store(std::move(argument));
+        return *this;
+    }
+
+    // A date, a time or both, rendered with the CLDR pattern of the requested
+    // style. The fields are validated here: an impossible date or clock field
+    // throws std::invalid_argument rather than at format time.
+    auto setDate(std::string_view name, int year, int month, int day) -> Arguments &
+    {
+        Argument argument;
+        argument.name = std::string(name);
+        argument.type = Argument::kind::date;
+        argument.year = year;
+        argument.month = month;
+        argument.day = day;
+        (void)detail::dateFromFields(year, month, day);
+        store(std::move(argument));
+        return *this;
+    }
+
+    auto setTime(std::string_view name, int hour, int minute, int second, int nanosecond = 0) -> Arguments &
+    {
+        Argument argument;
+        argument.name = std::string(name);
+        argument.type = Argument::kind::time;
+        argument.hour = hour;
+        argument.minute = minute;
+        argument.second = second;
+        argument.nanosecond = nanosecond;
+        (void)detail::timeFromFields(hour, minute, second, nanosecond);
+        store(std::move(argument));
+        return *this;
+    }
+
+    // Stores both halves. A dateTime argument can be rendered by "{x, date}",
+    // by "{x, time}" or, as a plain "{x}", as ISO text.
+    auto setDateTime(std::string_view name, int year, int month, int day, int hour, int minute, int second,
+                     int nanosecond = 0) -> Arguments &
+    {
+        Argument argument;
+        argument.name = std::string(name);
+        argument.type = Argument::kind::dateTime;
+        argument.year = year;
+        argument.month = month;
+        argument.day = day;
+        argument.hour = hour;
+        argument.minute = minute;
+        argument.second = second;
+        argument.nanosecond = nanosecond;
+        (void)detail::dateFromFields(year, month, day);
+        (void)detail::timeFromFields(hour, minute, second, nanosecond);
         store(std::move(argument));
         return *this;
     }
@@ -1740,8 +1558,33 @@ enum class ArgumentKind
     number,
     plural,
     selectordinal,
-    select
+    select,
+    date,
+    time
 };
+
+// The keyword of an ArgumentKind as it appears in a message, for error text.
+inline auto argumentKindName(ArgumentKind kind) -> const char *
+{
+    switch (kind)
+    {
+    case ArgumentKind::plain:
+        return "";
+    case ArgumentKind::number:
+        return "number";
+    case ArgumentKind::plural:
+        return "plural";
+    case ArgumentKind::selectordinal:
+        return "selectordinal";
+    case ArgumentKind::select:
+        return "select";
+    case ArgumentKind::date:
+        return "date";
+    case ArgumentKind::time:
+        return "time";
+    }
+    return "";
+}
 
 struct part;
 using parts = std::vector<part>;
@@ -1762,9 +1605,91 @@ struct part
     ArgumentKind argument = ArgumentKind::plain;
     std::string text; // literal text, or the argument name
     NumberFormat format;
+    // CLDR style of a date or time argument; medium unless the pattern names
+    // short, long or full.
+    FormatStyle style = FormatStyle::medium;
     int offset = 0;
     std::vector<branch> branches;
 };
+
+// ISO 8601 text of a date, a time or a date-time argument. Locale-independent
+// by design: a plain placeholder carries no style, and the value is also what a
+// plural or select argument compares against.
+inline auto isoDateText(const Argument &argument) -> std::string
+{
+    std::ostringstream stream;
+    stream.imbue(std::locale::classic());
+    // ISO 8601: four digits for 0000..9999, an explicit sign outside that range
+    // (the expanded representation) instead of an ambiguous five-digit year.
+    if (argument.year < 0)
+    {
+        stream << '-' << std::setfill('0') << std::setw(4) << -static_cast<long long>(argument.year);
+    }
+    else if (argument.year <= 9999)
+    {
+        stream << std::setfill('0') << std::setw(4) << argument.year;
+    }
+    else
+    {
+        stream << '+' << argument.year;
+    }
+    stream << '-' << std::setfill('0') << std::setw(2) << argument.month << '-' << std::setw(2) << argument.day;
+    return stream.str();
+}
+
+inline auto isoTimeText(const Argument &argument) -> std::string
+{
+    std::ostringstream stream;
+    stream.imbue(std::locale::classic());
+    stream << std::setfill('0') << std::setw(2) << argument.hour << ':' << std::setw(2) << argument.minute << ':'
+           << std::setw(2) << argument.second;
+    if (argument.nanosecond != 0)
+    {
+        // Nine digits, then trailing zeros dropped, as java.time prints them.
+        std::string fraction = std::to_string(static_cast<unsigned long long>(argument.nanosecond) + 1000000000ULL);
+        fraction.erase(0, 1);
+        while (!fraction.empty() && fraction.back() == '0')
+        {
+            fraction.pop_back();
+        }
+        stream << '.' << fraction;
+    }
+    return stream.str();
+}
+
+inline auto isoText(const Argument &argument) -> std::string
+{
+    switch (argument.type)
+    {
+    case Argument::kind::date:
+        return isoDateText(argument);
+    case Argument::kind::time:
+        return isoTimeText(argument);
+    case Argument::kind::dateTime:
+        return isoDateText(argument) + "T" + isoTimeText(argument);
+    case Argument::kind::text:
+    case Argument::kind::integer:
+    case Argument::kind::real:
+    case Argument::kind::boolean:
+        return std::string();
+    }
+    return std::string();
+}
+
+// A typed placeholder that received the wrong kind of argument reports the
+// placeholder and what it needed, in the style of the parse errors above.
+[[noreturn]] inline void failArgumentType(const part &current, const char *expected)
+{
+    std::string message = "localisation: argument '" + current.text + "' of {" + current.text;
+    if (current.argument != ArgumentKind::plain)
+    {
+        message += ", ";
+        message += argumentKindName(current.argument);
+    }
+    message += "} must be ";
+    message += expected;
+    throw std::invalid_argument(message);
+}
 
 class MessageParser
 {
@@ -1964,6 +1889,35 @@ class MessageParser
         fail("unsupported number style '" + std::string(trimmed) + "'");
     }
 
+    // Maps a date/time style keyword onto FormatStyle. ICU spells them short,
+    // medium, long and full; anything else is rejected here, with the pattern
+    // offset, so a bad translation fails when the catalogue is loaded.
+    FormatStyle parseDateFormatStyle(std::string_view style, const std::string &type)
+    {
+        const std::string_view trimmed = trimView(style);
+        if (trimmed.empty())
+        {
+            fail("expected a " + type + " style after ','");
+        }
+        if (trimmed == "short")
+        {
+            return FormatStyle::short_;
+        }
+        if (trimmed == "medium")
+        {
+            return FormatStyle::medium;
+        }
+        if (trimmed == "long")
+        {
+            return FormatStyle::long_;
+        }
+        if (trimmed == "full")
+        {
+            return FormatStyle::full;
+        }
+        fail("unsupported " + type + " style '" + std::string(trimmed) + "'");
+    }
+
     void tryParseOffset(int &offset)
     {
         const std::size_t saved = position_;
@@ -2052,6 +2006,27 @@ class MessageParser
                     ++position_;
                 }
                 result.format = parseNumberStyle(pattern_.substr(begin, position_ - begin));
+            }
+            skipSpaces();
+            expect('}');
+            return result;
+        }
+
+        if (type == "date" || type == "time")
+        {
+            result.kind = PartKind::argument;
+            result.argument = type == "date" ? ArgumentKind::date : ArgumentKind::time;
+            result.text = name;
+            skipSpaces();
+            if (!atEnd() && pattern_[position_] == ',')
+            {
+                ++position_;
+                const std::size_t begin = position_;
+                while (!atEnd() && pattern_[position_] != '}')
+                {
+                    ++position_;
+                }
+                result.style = parseDateFormatStyle(pattern_.substr(begin, position_ - begin), type);
             }
             skipSpaces();
             expect('}');
@@ -2234,6 +2209,12 @@ inline bool numericValue(const Argument &argument, double &value)
         value = parsed;
         return true;
     }
+    case Argument::kind::date:
+    case Argument::kind::time:
+    case Argument::kind::dateTime:
+        // A date is not a count: a plural on a date uses the "other" branch,
+        // the same as any other non-numeric value.
+        return false;
     }
     return false;
 }
@@ -2250,6 +2231,10 @@ inline std::string textualValue(const Argument &argument, const Locale &locale)
         return formatNumber(argument.real, locale, plainNumberFormat());
     case Argument::kind::boolean:
         return argument.boolean ? "true" : "false";
+    case Argument::kind::date:
+    case Argument::kind::time:
+    case Argument::kind::dateTime:
+        return isoText(argument);
     }
     return std::string();
 }
@@ -2270,6 +2255,12 @@ inline void appendValue(const Argument &argument, const Locale &locale, const Nu
         break;
     case Argument::kind::boolean:
         output += argument.boolean ? "true" : "false";
+        break;
+    case Argument::kind::date:
+    case Argument::kind::time:
+    case Argument::kind::dateTime:
+        // A plain placeholder has no style to apply, so it prints ISO 8601.
+        output += isoText(argument);
         break;
     }
 }
@@ -2306,7 +2297,47 @@ inline void formatArgument(const part &current, const Locale &locale, const Argu
             output += '}';
             return;
         }
+        if (argument->hasDate() || argument->hasTime())
+        {
+            failArgumentType(current, "a number argument");
+        }
         appendValue(*argument, locale, current.format, output);
+        return;
+    }
+
+    case ArgumentKind::date:
+    {
+        if (argument == nullptr)
+        {
+            output += '{';
+            output += current.text;
+            output += '}';
+            return;
+        }
+        if (!argument->hasDate())
+        {
+            failArgumentType(current, "a date argument");
+        }
+        output += DateTimeFormatter::ofLocalizedDate(current.style).withLocale(locale).formatDate(
+            argument->year, argument->month, argument->day);
+        return;
+    }
+
+    case ArgumentKind::time:
+    {
+        if (argument == nullptr)
+        {
+            output += '{';
+            output += current.text;
+            output += '}';
+            return;
+        }
+        if (!argument->hasTime())
+        {
+            failArgumentType(current, "a time argument");
+        }
+        output += DateTimeFormatter::ofLocalizedTime(current.style).withLocale(locale).formatTime(
+            argument->hour, argument->minute, argument->second, argument->nanosecond);
         return;
     }
 

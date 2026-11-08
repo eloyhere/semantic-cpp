@@ -37,10 +37,10 @@ Unicode 抽象字符（abstract character）
 | 代理项 | surrogate | UTF-16 中 D800..DFFF 的码点/码元，用于组成代理对表示增补码点；本身不是抽象字符 | `Point::isSurrogate()`；`decode` 将未配对代理替换为 U+FFFD |
 | 代理对 | surrogate pair | UTF-16 中一个高代理码元加一个低代理码元，共同表示一个增补码点 | `encode`/`decode` 的 UTF-16 分支 |
 | 非字符 | noncharacter | U+FDD0..U+FDEF 以及各平面末位 U+nFFFE/U+nFFFF；是合法码点，但不用于交换 | `Point::isNoncharacter()`；解码时不应当作错误替换 |
-| 字素簇 | grapheme cluster | UAX #29 定义的、用户感知为“一个字符”的文本片段；可能由多个码点组成 | 本项目尚未实现 UAX #29 分段；`Bunch::size()` 是码点数 |
+| 字素簇 | grapheme cluster | UAX #29 定义的、用户感知为“一个字符”的文本片段；可能由多个码点组成 | `bunch/segment.h` 已实现 UAX #29；`Bunch::size()` 仍是码点数，不是字素簇数 |
 | 字形 | glyph | 字体中用于显示字符的具体图形；一个字符可有多个字形 | 不属于编码层；本项目不处理字体/排版 |
-| 规范化 | normalization | 把等价序列转换为统一形式（NFC/NFD/NFKC/NFKD） | 本项目尚未实现 UAX #15；因此 `Bunch` 的相等比较不是规范等价比较 |
-| 大小写映射 | case mapping | Unicode 默认大小写算法；可能有上下文依赖，且可能改变长度 | `Bunch::toUpperCase()`/`toLowerCase()` 目前只做 ASCII 简单映射 |
+| 规范化 | normalization | 把等价序列转换为统一形式（NFC/NFD/NFKC/NFKD） | `bunch/unicode.h` 已实现 UAX #15；但 `Bunch` 的相等比较仍按码点序列，不自动做规范等价比较 |
+| 大小写映射 | case mapping | Unicode 默认大小写算法；可能有上下文依赖，且可能改变长度 | `bunch::toUpperCase()`/`toLowerCase()` 提供完整映射（含多字符与土耳其语/希腊语上下文）；`Bunch` 的同名方法仍只做 ASCII 简单映射 |
 
 ## 3. 编码形式与编码方案
 
@@ -85,7 +85,7 @@ UAX #29 定义了扩展字素簇边界。与“字符数”相关的 API 应基�
 
 - `Bunch` 内部存储**码点序列**；`size()` 返回码点数，不是字素簇数。
 - `reverse()`、`sub()`、`at()` 都按码点工作，可能拆开字素簇。
-- 尚未实现 UAX #29 分段；如需用户感知字符计数、光标移动、删除等，应基于字素簇算法另行实现。
+- `bunch/segment.h` 实现了 UAX #29 的扩展字素簇、单词、句子边界（`graphemeBoundaries` / `graphemeCount` / `wordBoundaries` / `sentenceBoundaries`），覆盖 Unicode 15.0.0 官方测试文件的全部用例；需要用户感知字符计数、光标移动、删除时应使用这些 API，而不是 `Bunch::size()`。
 
 ## 6. 规范化与等价
 
@@ -109,7 +109,7 @@ Unicode 有两种重要等价：
 - 码点序列相等不等价于 Unicode 规范等价；比较前通常应先规范化，或明确只做二进制比较。
 - NFKC/NFKD 会抹去格式区别，不能盲目用于任意文本。
 
-本项目尚未实现 UAX #15；`Bunch::compare()`、`operator==` 进行的是码点序列比较，不是规范等价比较。
+`bunch/unicode.h` 已实现 UAX #15 的四种形式（Unicode 15.0.0 表，含 Hangul 算法分解/组合、组合类排序与组合排除）；但 `Bunch::compare()`、`operator==` 仍进行码点序列比较，不自动做规范等价比较。
 
 ## 7. 大小写映射
 
@@ -120,7 +120,7 @@ Unicode 的大小写转换不是简单的 1:1 码点映射：
 - 希腊语、标题大小写、词首/词中规则都需要上下文。
 - `toUpperCase()`/`toLowerCase()` 若只按单个码点处理，无法表达这些情况。
 
-本项目当前的 `Bunch::toUpperCase()`/`toLowerCase()` 只对 ASCII `a-z`/`A-Z` 做简单映射，其他码点保持不变；这是明确的限制，不应被理解为完整 Unicode 大小写转换。
+`bunch/unicode.h` 的 `bunch::toUpperCase()`/`toLowerCase()`/`toTitleCase()` 实现了 Unicode 完整大小写映射（含 `ß` → `SS` 这类多字符映射、土耳其语 `i`/`İ` 与希腊语词尾 `ς` 规则）；`Bunch` 的同名方法仍只对 ASCII `a-z`/`A-Z` 做简单映射，需要完整映射时应使用 `bunch` 命名空间的自由函数。
 
 ## 8. 常见错误与纠正
 
@@ -150,12 +150,25 @@ Unicode 的大小写转换不是简单的 1:1 码点映射：
 | `bunch/charset.h` | `bunch::charset` 枚举与流输入输出；它是编码/编码方案选择器 | 不是严格的“字符集”，不表示字符 repertoire |
 | `bunch/encode.h` | `sequenceLength`、`encode`、`decode`、`convert`、`appendUtf8`：码点 ↔ 码元/字节 | 不做规范化、字素分段、大小写 |
 | `bunch/unicode.h` | NFC/NFD/NFKC/NFKD 规范化、大小写映射与 `TextStyle` | 不负责 locale 消息目录与复数选择 |
+| `bunch/segment.h` | UAX #29 扩展字素簇、单词、句子边界 | 不做 UAX #14 换行与词典分词 |
+| `bunch/segment_dictionary.h` | 泰/老/高棉/缅词典分词（内置精简词典，可加载完整词典） | 不做其它 SA 脚本与词性/歧义消解 |
+| `bunch/linebreak.h` | UAX #14 换行机会与强制换行 | 不做断字、紧急换行与语言 tailoring |
+| `bunch/properties.h` | Unicode 属性查询（General_Category、Script、East_Asian_Width 等） | 不含 emoji、Age、Script_Extensions |
+| `bunch/caseless.h` | NFKC_CaseFold 与无大小写比较 | 不做 UTS #46/IDNA |
+| `bunch/encoding_detect.h` | BOM 识别/剥离与启发式编码探测 | 无 BOM 的 UTF-32 不猜测 |
+| `bunch/bidi.h` | UAX #9 双向算法、视觉重排、L4 镜像 | L3（字形/组合符显示顺序）不在码点层实现 |
+| `bunch/casefold.h` | 完整大小写折叠（C+F，含土耳其语 T 规则） | 不做非 Turkic tailoring |
 | `bunch/unicode_data.h` | 由 `tools/gen_unicode.py` 生成的 Unicode 15 分解/组合/大小写表 | 不是手写代码 |
-| `localisation/localisation.h` | 消息本地化（Locale、Catalog、复数规则、数字格式、`TextFormat`） | 不是 Unicode 编码层 |
+| `localisation/locale.h` | BCP 47 Locale 解析、回退与协商 | 不负责消息渲染与格式 |
+| `localisation/localisation.h` | 消息本地化（Locale、Catalog、复数规则、数字格式、`TextFormat`、`date`/`time` 参数） | 不是 Unicode 编码层 |
+| `localisation/collation.h` | UCA 15.0.0 三级排序、`sortKey`、CLDR standard tailorings（13 locale）、discontiguous contraction | 不做 quaternary/shifted、reorder、case-first；ja/zh/ko 回退 root |
+| `localisation/datetime.h` | Java 风格 `DateTimeFormatter` + CLDR 日期/时间格式化 | 不做 CLDR 时区显示名（z/v）、非公历、相对时间与解析 |
+| `localisation/currency.h`、`localisation/number_format.h` | 货币、紧凑/科学计数/有效数字 | 不做汇率与现金取整 |
+| `localisation/po.h` | GNU gettext `.po` 解析与 `Catalog` 加载 | 不做编码转换与 fuzzy 运行时语义 |
 | `bunch/meta.h` | `Meta`：应用元数据包装器 | 不是 Unicode 属性/字符 |
 | `bunch/point.h` | `Point`/`CodePoint`：码点值；`PointIterator`：码点双向迭代器 | 不是抽象字符/字素簇；不做分段 |
 | `bunch/character.h` | `Character`：码点 + `Meta` 的应用值，带码点谓词 | 不是抽象字符；不等于用户感知字符 |
-| `bunch/sequence.h` | `Bunch`：码点序列；字符串查找、替换、切分等 | 不自动规范化；不按字素簇索引 |
+| `bunch/sequence.h` | `Bunch`：码点序列；字符串查找、替换、切分、显式规范化比较等 | 不自动规范化；不按字素簇索引 |
 | `bunch/builder.h` | `Builder`：按目标编码构建**字节** | 位置/长度是字节，不是码点/字素 |
 | `bunch/buffer.h` | `Buffer`：线程安全字节环形缓冲区 | 不做字符编码解释 |
 | `bunch/bunch.h` | 聚合头：包含上述 bunch 头与编码头 | 不是独立的编码实现 |
@@ -168,15 +181,19 @@ Unicode 的大小写转换不是简单的 1:1 码点映射：
 - **`trim()`**：使用 Unicode `White_Space` 属性（U+0009..U+000D、U+0020、U+0085、U+00A0、U+1680、U+2000..U+200A、U+2028、U+2029、U+202F、U+205F、U+3000），不再只识别 ASCII 空白。
 - **空分隔符 `split()`**：抛出 `std::invalid_argument`，避免旧实现中的无限循环。
 - **`Point::isScalarValue()` / `isUnicodeCodePoint()` / `isNoncharacter()`**：区分码点、标量值和非字符；`isValidCodePoint()` 保留为历史别名。
+- **`Bunch::toUpperCase()` / `toLowerCase()`**：由 ASCII-only 改为完整 Unicode 映射（`ß` → `SS`、希腊语词尾 `ς`、土耳其语 `i`/`İ` 等），与 `bunch::toUpperCase()` 一致。
+- **新增 i18n 模块**：`bunch/segment.h`（UAX #29）、`bunch/segment_dictionary.h`（泰/老/高棉/缅词典分词）、`bunch/linebreak.h`（UAX #14）、`bunch/bidi.h`（UAX #9）、`bunch/casefold.h`（大小写折叠）、`bunch/caseless.h`（NFKC_CaseFold）、`bunch/properties.h`（属性查询）、`bunch/encoding_detect.h`（BOM/编码探测）、`localisation/collation.h`（UCA）、`localisation/datetime.h`（CLDR 日期时间）、`localisation/currency.h` + `number_format.h`（货币/数字扩展）、`localisation/po.h`（gettext）。
 
 ### 9.2 明确未实现
 
-- UAX #15 规范化（NFC/NFD/NFKC/NFKD）及规范等价比较。
-- UAX #29 字素簇/单词/句子分段。
-- 完整 Unicode 大小写映射、大小写折叠、语言相关 tailoring。
-- 字符属性数据库（General_Category、Script、Bidi_Class 等）的完整查询。
-- BOM 自动识别/剥离、编码自动探测。
-- 排序（UCA）、双向算法（UBA）、字体/字形处理。
+- UAX #9 的 L3/L4（镜像与字形重排）。
+- 大小写折叠/映射在土耳其语之外的 tailoring（如立陶宛语）。
+- 属性 API 的扩展属性（emoji、Age、Script_Extensions、Bidi_Class 等）。
+- 无 BOM 的 UTF-32 探测；短文本与二进制的编码误判。
+- collation 的 ja/zh/ko tailored 规则、quaternary/shifted 权重、reorder 与 case-first。
+- 泰/老/高棉/缅之外的 SA 脚本词典分词；断字、紧急换行与 UAX #14 语言 tailoring。
+- 非公历日历、CLDR 时区显示名（z/v）、相对时间与区间格式化。
+- 自动规范等价比较：`Bunch::compare()`/`operator==` 仍按码点比较；规范化比较需显式调用 `compareNormalized()`/`equalsNormalized()`。
 
 这些限制应在使用 `Bunch`、`Builder`、`Buffer` 的 API 时明确考虑；不要把码点层面的操作当作完整的文本处理。
 

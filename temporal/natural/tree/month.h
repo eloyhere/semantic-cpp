@@ -1,6 +1,6 @@
 #pragma once
 
-#include "temporal/types.h"
+#include "../../types.h"
 #include "tree.h"
 
 namespace temporal::natural::tree

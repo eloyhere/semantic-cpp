@@ -1,6 +1,6 @@
-﻿#pragma once
+#pragma once
 
-#include "temporal/types.h"
+#include "../types.h"
 
 namespace temporal::gregory
 {
